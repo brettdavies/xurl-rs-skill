@@ -15,7 +15,7 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 | `getting-started.md` | Human-oriented quickstart that complements `SKILL.md`.                            |
 | `scripts/`           | Producer-side tooling (lint, sync, release helpers). ShellCheck-clean.            |
 | `docs/`              | Planning artifacts (brainstorms, plans, solutions, reviews). Blocked from `main`. |
-| `.github/`           | Workflows, rulesets, CODEOWNERS, PR/issue templates.                              |
+| `.github/`           | Workflows, rulesets, CODEOWNERS, PR template. (Issues disabled — see below.)      |
 
 ## Branch model
 
@@ -33,6 +33,19 @@ See [`RELEASES.md`](RELEASES.md) for the full release workflow.
 | --------------------- | --------------------------- | -------------------------------------------- |
 | `ci.yml`              | push + PR to `main` / `dev` | `markdownlint`, `shellcheck` on `./scripts/` |
 | `guard-main-docs.yml` | PR to `main`                | Blocks engineering docs from reaching `main` |
+
+## Issues
+
+This repo has its issue tracker **disabled** (`has_issues: false`). Do not attempt to file issues here — the API will
+reject them and the UI hides the tab.
+
+All issues — `xurl-rs` CLI bugs, skill-bundle bugs (stale references, broken links, wrong invocations), and proposals
+for new templates / references / `getting-started` flows — route to the upstream CLI repo:
+
+➡️ **<https://github.com/brettdavies/xurl-rs/issues/new/choose>**
+
+When an agent files an issue about this skill bundle specifically, **prefix the title with `[skill]`** so the upstream
+maintainer can triage it.
 
 ## House rules
 

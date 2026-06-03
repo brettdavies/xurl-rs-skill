@@ -30,6 +30,13 @@ mkdir -p ~/.claude/skills && \
 | `getting-started.md` | Human-oriented quickstart.                                                  |
 | `scripts/`           | Producer-side tooling (sync, lint, release helpers).                        |
 
+## Issues
+
+This repo has its issue tracker disabled. File all issues — bugs in `xurl-rs` itself, bugs in this skill bundle, or
+proposals — against the upstream CLI:
+**[`brettdavies/xurl-rs` › New issue](https://github.com/brettdavies/xurl-rs/issues/new/choose)**. Prefix the title with
+`[skill]` if the issue is specifically about this bundle.
+
 ## License
 
 Dual-licensed under [MIT](LICENSE-MIT) and [Apache 2.0](LICENSE-APACHE) at your option.
