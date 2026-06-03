@@ -2,23 +2,32 @@
 
 Claude Code skill bundle for [`xurl-rs`](https://github.com/brettdavies/xurl-rs) — the X (Twitter) CLI for agents.
 
-> **Status:** bootstrap. Skill content (`SKILL.md`, `references/`, `templates/`, `getting-started.md`) is authored after
-> this initial scaffold lands.
-
 ## What this is
 
-A Claude Code (and Codex / Cursor / OpenCode) skill bundle that teaches an agent how to use `xurl-rs` against the X
-(Twitter) API — authentication, requests, pagination, rate-limit handling, and common task templates.
+A Claude Code (and Codex / Cursor / Factory / Kiro / OpenCode) skill bundle that teaches an agent how to use `xurl-rs`
+against the X (Twitter) API — authentication, requests, pagination, dry-run discipline against production credentials,
+the `ok` / `dry_run` / `error` envelope, and common task templates (OAuth2 setup, post / reply / thread, search and
+process, media upload).
 
 ## Install
 
-Once published:
+Preferred — let `xr` install the bundle into the right path for your host:
 
 ```bash
-# Claude Code
+xr skill install claude_code      # ~/.claude/skills/xurl-rs
+xr skill install codex            # ~/.codex/skills/xurl-rs
+xr skill install --all            # all known hosts at once
+xr skill install claude_code --dry-run  # preview without cloning
+```
+
+Manual fallback:
+
+```bash
 mkdir -p ~/.claude/skills && \
   git clone https://github.com/brettdavies/xurl-rs-skill ~/.claude/skills/xurl-rs
 ```
+
+Full install matrix and first-session walkthrough: [`getting-started.md`](getting-started.md).
 
 ## Layout
 
