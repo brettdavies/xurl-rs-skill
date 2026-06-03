@@ -38,9 +38,28 @@ xr search "<QUERY>" -n 50 --output jsonl \
   | jaq -c '{id, text}'
 ```
 
-## Cursor pagination
+## Cursor pagination — preferred path
 
-X uses cursor pagination. Every list response carries `meta.next_token`. Page by re-running with `--cursor`:
+The bundle ships a deterministic paginator that streams `.data[]?` records as compact JSONL on stdout, follows
+`meta.next_token`, bails on error envelopes, and caps with `--max-pages`:
+
+```bash
+~/.claude/skills/xurl-rs/scripts/paginate.sh --max-pages 10 \
+  -- xr search "<QUERY>" -n 100 \
+  | jaq -c '{id, text, author_id}'
+```
+
+Options: `--max-pages N` (default 20), `--cursor TOKEN` (resume), `--sleep SECS` (pace against rate limits). Do NOT pass
+`--cursor` / `--after` / `--page` / `--output` / `--json` / `--jsonl` / `--dry-run` to the verb — the script controls
+them. Full contract: [scripts/README.md](../scripts/README.md).
+
+The script lives at `~/.claude/skills/xurl-rs/scripts/paginate.sh` after `xr skill install claude_code` (or the
+equivalent path on Codex / Cursor / Factory / Kiro / OpenCode). From the bundle directory, use `./scripts/paginate.sh`.
+
+## Cursor pagination — manual path
+
+When you need finer control (custom record filtering before stream, per-page hooks, different bail conditions), the
+inline shape is:
 
 ```bash
 #!/usr/bin/env bash

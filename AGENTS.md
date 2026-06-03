@@ -13,7 +13,7 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 | `references/`        | Reference material an agent reads on demand. One topic per file; deterministic.   |
 | `templates/`         | Starter prompts and task recipes that the agent copies into a target project.     |
 | `getting-started.md` | Human-oriented quickstart that complements `SKILL.md`.                            |
-| `scripts/`           | Producer-side tooling (lint, sync, release helpers). ShellCheck-clean.            |
+| `scripts/`           | Consumer-side helpers shipped to install dirs (`dry-run-gate.sh`, `paginate.sh`). |
 | `docs/`              | Planning artifacts (brainstorms, plans, solutions, reviews). Blocked from `main`. |
 | `.github/`           | Workflows, rulesets, CODEOWNERS, PR template. (Issues disabled — see below.)      |
 

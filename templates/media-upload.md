@@ -95,7 +95,15 @@ The X API tells you how long to wait via `processing_info.check_after_secs`. Hon
 
 ## Attaching to a post
 
-`--media-id` on `xr post` (or `xr reply` / `xr quote`) is repeatable. Use the captured ID(s):
+`--media-id` on `xr post` (or `xr reply` / `xr quote`) is repeatable. Gate the attach through `scripts/dry-run-gate.sh`
+so the post itself goes through the standard preflight:
+
+```bash
+~/.claude/skills/xurl-rs/scripts/dry-run-gate.sh -- \
+  xr post "<TEXT>" --media-id "$MEDIA_ID"
+```
+
+Manual path:
 
 ```bash
 xr post "<TEXT>" --media-id "$MEDIA_ID" --dry-run --output json

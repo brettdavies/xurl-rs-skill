@@ -47,20 +47,34 @@ xr auth status --output json         # current auth state across registered apps
 For full read-only-probes-are-always-safe rules, see
 [references/self-introspection.md](references/self-introspection.md).
 
+## Deterministic helpers (`scripts/`)
+
+The bundle ships two shellcheck-clean scripts that encode the rules the references describe. Prefer them when you can:
+they enforce mechanically what the prose only requests.
+
+| Script                                                      | Use for                                                                                                                                      |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/dry-run-gate.sh [--yes] -- xr <write-verb> [args]` | Every write op. Runs `--dry-run` preflight, refuses on `would_succeed: false`, prompts on TTY or honors `--yes`, then `exec`s the live call. |
+| `scripts/paginate.sh [--max-pages N] -- xr <list-verb>`     | Every cursor-paginated read. Streams `.data[]?` as compact JSONL, follows `meta.next_token`, caps at `--max-pages`.                          |
+
+Both auto-detect `jaq` (preferred) or `jq`. When neither is installed, they emit a PM-aware install advice ranked by
+what's already on the system. Install path after `xr skill install claude_code` (or the host equivalent) is
+`~/.claude/skills/xurl-rs/scripts/`. Full contract: [scripts/README.md](scripts/README.md).
+
 ## Routing table
 
-| Task                                       | First action                                                         |
-| ------------------------------------------ | -------------------------------------------------------------------- |
-| User wants to authenticate                 | [templates/oauth2-setup.md](templates/oauth2-setup.md)               |
-| User wants to post / reply / thread        | [templates/post-reply-thread.md](templates/post-reply-thread.md)     |
-| User wants to search and pipe to a tool    | [templates/search-and-process.md](templates/search-and-process.md)   |
-| User wants to attach media                 | [templates/media-upload.md](templates/media-upload.md)               |
-| Pick an auth mode for a one-off            | [references/auth-modes.md](references/auth-modes.md)                 |
-| Pick output format / pagination / dry-run  | [references/agent-flags.md](references/agent-flags.md)               |
-| Parse a response or an error               | [references/output-envelope.md](references/output-envelope.md)       |
-| Look up X API endpoints / scopes / billing | [references/x-api-essentials.md](references/x-api-essentials.md)     |
-| Don't know what `xr` can do                | [references/self-introspection.md](references/self-introspection.md) |
-| Stuck — what next?                         | [references/escalation.md](references/escalation.md)                 |
+| Task                                       | First action                                                                                 |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| User wants to authenticate                 | [templates/oauth2-setup.md](templates/oauth2-setup.md)                                       |
+| User wants to post / reply / thread        | `scripts/dry-run-gate.sh` + [templates/post-reply-thread.md](templates/post-reply-thread.md) |
+| User wants to search and pipe to a tool    | `scripts/paginate.sh` + [templates/search-and-process.md](templates/search-and-process.md)   |
+| User wants to attach media                 | [templates/media-upload.md](templates/media-upload.md)                                       |
+| Pick an auth mode for a one-off            | [references/auth-modes.md](references/auth-modes.md)                                         |
+| Pick output format / pagination / dry-run  | [references/agent-flags.md](references/agent-flags.md)                                       |
+| Parse a response or an error               | [references/output-envelope.md](references/output-envelope.md)                               |
+| Look up X API endpoints / scopes / billing | [references/x-api-essentials.md](references/x-api-essentials.md)                             |
+| Don't know what `xr` can do                | [references/self-introspection.md](references/self-introspection.md)                         |
+| Stuck — what next?                         | [references/escalation.md](references/escalation.md)                                         |
 
 ## Iron rules
 
@@ -113,11 +127,17 @@ with `xr skill update claude_code` (or whichever host).
 
 - [templates/oauth2-setup.md](templates/oauth2-setup.md) — first-time OAuth2 (browser or headless), verify with `xr auth
   status`.
-- [templates/post-reply-thread.md](templates/post-reply-thread.md) — compose, capture id, thread; with the `--dry-run`
-  gate.
-- [templates/search-and-process.md](templates/search-and-process.md) — `xr search --output jsonl | jaq`; cursor
-  pagination loop.
-- [templates/media-upload.md](templates/media-upload.md) — chunked upload, attach `--media-id` to `xr post`.
+- [templates/post-reply-thread.md](templates/post-reply-thread.md) — compose, capture id, thread; leads with
+  `scripts/dry-run-gate.sh`.
+- [templates/search-and-process.md](templates/search-and-process.md) — `xr search --output jsonl | jaq`; leads with
+  `scripts/paginate.sh`.
+- [templates/media-upload.md](templates/media-upload.md) — chunked upload, attach `--media-id` via the gate.
+
+## Scripts
+
+- [scripts/dry-run-gate.sh](scripts/dry-run-gate.sh) — preflight → confirm → live wrapper for every `xr` write op.
+- [scripts/paginate.sh](scripts/paginate.sh) — cursor-pagination loop for any `xr` list-style verb.
+- [scripts/README.md](scripts/README.md) — full contract, exit codes, invocation patterns, jaq/jq fallback notes.
 
 ## Producer-side notes
 

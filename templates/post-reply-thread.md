@@ -12,7 +12,29 @@ xr whoami --output json                      # confirm the active user is who yo
 
 If `whoami` fails with `reason: "auth-required"`, run [templates/oauth2-setup.md](oauth2-setup.md) first.
 
-## Single post
+## Preferred path — `scripts/dry-run-gate.sh`
+
+The bundle ships a deterministic gate that runs the dry-run preflight, asserts `would_succeed=true && exit_code=0`,
+prompts for confirmation (or honors `--yes` for headless callers), then `exec`s the live call. Use it for every write op
+below:
+
+```bash
+# Interactive (TTY) — gate prompts before going live.
+~/.claude/skills/xurl-rs/scripts/dry-run-gate.sh -- xr post "<TEXT>"
+
+# Headless — caller has already obtained user confirmation.
+RESP=$(~/.claude/skills/xurl-rs/scripts/dry-run-gate.sh --yes -- xr post "<TEXT>")
+ID=$(printf '%s' "$RESP" | jaq -r '.data.id')   # or jq
+```
+
+The script lives at `~/.claude/skills/xurl-rs/scripts/dry-run-gate.sh` after `xr skill install claude_code` (or the
+equivalent path on Codex / Cursor / Factory / Kiro / OpenCode). From the bundle directory, invoke
+`./scripts/dry-run-gate.sh`. See [scripts/README.md](../scripts/README.md) for the full contract.
+
+The rest of this template documents the manual path — useful when you need to inspect the dry-run envelope before
+deciding, or when you want a different output format on the live call.
+
+## Single post (manual path)
 
 ### 1. Dry-run
 
@@ -62,11 +84,15 @@ xr quote <SOURCE_ID> "<TEXT>" --output json
 
 ## Threading loop
 
-A thread is a chain: each reply targets the previous post's ID.
+A thread is a chain: each reply targets the previous post's ID. Use `scripts/dry-run-gate.sh --yes` per post so each
+link is gated.
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
+
+GATE=~/.claude/skills/xurl-rs/scripts/dry-run-gate.sh
+JQ=${JQ:-jaq}   # or jq
 
 THREAD=(
   "<POST 1 TEXT>"
@@ -74,27 +100,16 @@ THREAD=(
   "<POST 3 TEXT>"
 )
 
-# Confirm the entire thread with --dry-run first.
+# After user-side confirmation in chat, go live one post at a time.
 PARENT=""
 for TEXT in "${THREAD[@]}"; do
   if [ -z "$PARENT" ]; then
-    xr post "$TEXT" --dry-run --output json --quiet
+    RESP=$("$GATE" --yes -- xr post "$TEXT")
   else
-    xr reply "$PARENT" "$TEXT" --dry-run --output json --quiet
+    RESP=$("$GATE" --yes -- xr reply "$PARENT" "$TEXT")
   fi
-  PARENT="<placeholder-for-dry-run-target>"   # dry-run doesn't return a real id
-done
-
-# After human confirms, go live.
-PARENT=""
-for TEXT in "${THREAD[@]}"; do
-  if [ -z "$PARENT" ]; then
-    RESP=$(xr post "$TEXT" --output json --quiet)
-  else
-    RESP=$(xr reply "$PARENT" "$TEXT" --output json --quiet)
-  fi
-  PARENT=$(printf '%s' "$RESP" | jaq -r '.data.id')
-  echo "Posted $PARENT"
+  PARENT=$(printf '%s' "$RESP" | "$JQ" -r '.data.id')
+  printf 'Posted %s\n' "$PARENT"
 done
 ```
 
@@ -123,7 +138,14 @@ See [media-upload.md](media-upload.md) for the full upload state machine.
 
 ## Delete (when you must)
 
-Destructive. Always confirm scope with the user before running, even on a dry-run.
+Destructive. Always confirm scope with the user before running, even on a dry-run. Run the live call through the gate
+(it prompts on TTY, refuses without `--yes` off TTY):
+
+```bash
+~/.claude/skills/xurl-rs/scripts/dry-run-gate.sh -- xr delete <POST_ID>
+```
+
+Manual path:
 
 ```bash
 xr delete <POST_ID> --dry-run --output json
