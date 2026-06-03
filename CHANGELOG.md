@@ -43,6 +43,20 @@ All notable changes to this project will be documented in this file.
   other options when neither `jaq` nor `jq` is on `PATH`.
 - `scripts/README.md` — contract for both scripts, exit codes, invocation patterns (install-path-relative and
   bundle-relative), and requirements.
+- `fixtures/bin/xr` — bash stub that emits envelope JSON from `XR_STUB_DRYRUN_BODY` / `XR_STUB_LIVE_BODY` env vars or
+  cycles newline-separated envelopes from `XR_STUB_PAGES_BODIES` for multi-page paginate tests.
+- `tests/run.sh` — fixture-driven test runner. 16 test cases covering: `dry-run-gate.sh` (accept-clean,
+  reject-would-not-succeed, reject-read-op, reject-error, reject-forbidden-dry-run/output/json flags,
+  refuse-non-TTY-without-yes, missing-args) and `paginate.sh` (single-page, multi-page-follows-cursor, bail-on-error,
+  stop-at-max-pages, reject-forbidden-cursor/output flags, reject-bad-max-pages).
+- `evals/eval-01-discover-and-auth.md` — discovery + auth-mode selection eval. Self-contained prompt.
+- `evals/eval-02-search-and-process.md` — discovery + paginator-helper selection eval. Self-contained prompt.
+- `evals/eval-03-compose-dry-run.md` — mutating-intent eval with mandatory dry-run execution gate, marker tripwire,
+  automatic 0 on live-mutation evidence in `FINAL-REPORT.md`.
+- `evals/eval-04-rate-limited-recovery.md` — envelope `reason` interpretation + recovery decision-tree eval.
+- `evals/eval-05-tier-numbers-forced-escalation.md` — forced-escalation eval scoring the PROCESS (refuse to quote tier
+  numbers from memory; name the canonical external source) over the answer.
+- `evals/README.md` — eval catalog, workdir convention, grading method, iteration-loop rules.
 
 ### Changed
 
@@ -51,4 +65,8 @@ All notable changes to this project will be documented in this file.
 - `templates/post-reply-thread.md`, `templates/search-and-process.md`, and `templates/media-upload.md` now lead with the
   relevant script and document the manual path as a fallback.
 - `README.md` drops the bootstrap notice and points at `xr skill install <host>` as the preferred install path.
-- `AGENTS.md` scripts/ row reframed as consumer-side helpers (was "producer-side tooling").
+- `AGENTS.md` scripts/ row reframed as consumer-side helpers (was "producer-side tooling"); added rows for the new
+  `tests/`, `fixtures/`, and `evals/` directories.
+- `.github/workflows/ci.yml` shellcheck job now lints `scripts/` + `tests/` + `fixtures/bin/` together; new
+  `scripts-tests` job runs `bash tests/run.sh` end-to-end (no live API; ubuntu-latest's pre-installed `jq` is
+  auto-detected by `_common.sh`).

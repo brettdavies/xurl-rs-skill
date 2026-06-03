@@ -41,12 +41,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Run ShellCheck (producer scripts)
-        # The bundle is markdown-only (spec, references, templates, getting-started).
-        # Only producer-ops scripts under ./scripts/ are subject to shellcheck.
-        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # 2.0.0
-        env:
-          # style severity surfaces all suggestions; CI fails on error+warning by default
-          SHELLCHECK_OPTS: "--severity=style"
-        with:
-          scandir: ./scripts
+      - name: Run ShellCheck (all shell artifacts)
+        # Consumer-side scripts ride along on every `xr skill install <host>`.
+        # tests/ and fixtures/bin/ are not shipped to consumers but must lint
+        # clean so the producer test loop stays trustworthy.
+        # style severity surfaces all suggestions; ShellCheck exits non-zero
+        # on error+warning by default (style stays informational).
+        run: |
+          shellcheck --severity=style \
+            scripts/*.sh \
+            tests/*.sh \
+            fixtures/bin/xr
+
+  scripts-tests:
+    name: scripts-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run fixture-driven tests
+        # The runner exports JSON envelopes via XR_STUB_* env vars so a bash
+        # stub xr at fixtures/bin/xr can replay them. Hits no live API and
+        # has no network egress; ubuntu-latest ships jq pre-installed which
+        # _common.sh detects automatically.
+        run: bash tests/run.sh

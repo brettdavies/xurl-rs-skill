@@ -14,6 +14,9 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 | `templates/`         | Starter prompts and task recipes that the agent copies into a target project.     |
 | `getting-started.md` | Human-oriented quickstart that complements `SKILL.md`.                            |
 | `scripts/`           | Consumer-side helpers shipped to install dirs (`dry-run-gate.sh`, `paginate.sh`). |
+| `tests/`             | Producer-side test runner (`run.sh`) for the scripts. Run by CI.                  |
+| `fixtures/`          | Producer-side stub `xr` binary + fixture envelopes used by the test runner.       |
+| `evals/`             | Self-contained eval prompts dispatched against a fresh agent session. Producer.   |
 | `docs/`              | Planning artifacts (brainstorms, plans, solutions, reviews). Blocked from `main`. |
 | `.github/`           | Workflows, rulesets, CODEOWNERS, PR template. (Issues disabled — see below.)      |
 
@@ -29,10 +32,10 @@ See [`RELEASES.md`](RELEASES.md) for the full release workflow.
 
 ## CI
 
-| Workflow              | Triggers                    | What it checks                               |
-| --------------------- | --------------------------- | -------------------------------------------- |
-| `ci.yml`              | push + PR to `main` / `dev` | `markdownlint`, `shellcheck` on `./scripts/` |
-| `guard-main-docs.yml` | PR to `main`                | Blocks engineering docs from reaching `main` |
+| Workflow              | Triggers                    | What it checks                                                                                |
+| --------------------- | --------------------------- | --------------------------------------------------------------------------------------------- |
+| `ci.yml`              | push + PR to `main` / `dev` | `markdownlint`, `shellcheck` on `scripts/` + `tests/` + `fixtures/bin/`, fixture-driven tests |
+| `guard-main-docs.yml` | PR to `main`                | Blocks engineering docs from reaching `main`                                                  |
 
 ## Issues
 
