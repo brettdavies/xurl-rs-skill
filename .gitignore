@@ -1,0 +1,24 @@
+# OS / editor scratch
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Local-only work-in-progress (per global CLAUDE.md)
+TODO.md
+TODO
+*todo*.md
+.context/
+
+# Build artifacts (defensive — this repo currently has none)
+target/
+node_modules/
+dist/
+build/
+
+# Override global ignore for AGENTS.md.
+# Global ~/.config/git/ignore excludes **/AGENTS.md (local agent setup is private
+# by default). This producer repo IS the canonical home for how agents should
+# operate against the bundle, so AGENTS.md ships here intentionally.
+!AGENTS.md

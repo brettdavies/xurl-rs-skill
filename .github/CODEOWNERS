@@ -1,0 +1,8 @@
+# Mandatory review on producer-ops paths that determine what ships and how.
+# The skill content (SKILL.md, references/, templates/, getting-started.md)
+# is reviewed via normal PR rules; CODEOWNERS gates only governance paths.
+
+scripts/**              @brettdavies
+.github/workflows/**    @brettdavies
+.github/rulesets/**     @brettdavies
+.github/CODEOWNERS      @brettdavies
