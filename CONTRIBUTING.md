@@ -6,13 +6,21 @@ OpenCode how to drive [`xurl-rs`](https://github.com/brettdavies/xurl-rs) — th
 > **Status:** stub. This document will expand as skill content lands. For now, the core rules are below; the rest lives
 > in [`AGENTS.md`](AGENTS.md) (producer-side workflow) and [`RELEASES.md`](RELEASES.md) (branch/release model).
 
-## Where to file what
+## Issues
 
-| You want to…                                                                 | File on…                                                                          |
-| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Report a bug in `xurl-rs` itself (the CLI)                                   | [`brettdavies/xurl-rs`](https://github.com/brettdavies/xurl-rs/issues/new/choose) |
-| Report a bug in this skill bundle (stale ref, broken link, wrong invocation) | [this repo](https://github.com/brettdavies/xurl-rs-skill/issues/new/choose)       |
-| Propose a new template, reference, or `getting-started` flow                 | [this repo](https://github.com/brettdavies/xurl-rs-skill/issues/new/choose)       |
+This repo has its issue tracker **disabled**. File **all** issues — bugs in `xurl-rs` itself, bugs in this skill bundle
+(stale references, broken links, wrong invocations), and proposals for new templates / references / `getting-started`
+flows — against the upstream CLI:
+
+➡️ **[`brettdavies/xurl-rs` › New issue](https://github.com/brettdavies/xurl-rs/issues/new/choose)**
+
+If the issue is specifically about the skill bundle, please prefix the title with `[skill]` so it routes to the right
+maintainer.
+
+## Pull requests
+
+PRs against this repo are welcome — branch from `dev`, follow the workflow below. The closed issue tracker doesn't
+affect PRs.
 
 ## Workflow
 
