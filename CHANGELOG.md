@@ -61,6 +61,12 @@ All notable changes to this project will be documented in this file.
 
 - `README.md` swaps the bootstrap notice for the `xr skill install <host>` install matrix. by @brettdavies in
   [#2](https://github.com/brettdavies/xurl-rs-skill/pull/2)
+- `protect-main.json` bumps `required_approving_review_count` from `0` to `1` so PR authors cannot self-merge. Admin
+  bypass preserved for break-glass; outside contributors are forced through review by construction. by @brettdavies in
+  [#4](https://github.com/brettdavies/xurl-rs-skill/pull/4)
+- `.github/CODEOWNERS` gains release-integrity, legal-hygiene, and workflow-doc paths (`cliff.toml`, `LICENSE-*`,
+  `RELEASES.md`, `AGENTS.md`) on top of the existing governance paths (`scripts/**`, `.github/workflows/**`,
+  `.github/rulesets/**`, `.github/CODEOWNERS`).
 
 ### Documentation
 
