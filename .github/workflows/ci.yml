@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
+      - "release/**"
+  pull_request:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+
+env:
+  # Force JavaScript actions to run on Node 24 (per brettdavies repo policy)
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  markdownlint:
+    name: markdownlint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run markdownlint-cli2
+        uses: DavidAnson/markdownlint-cli2-action@ce4853d43830c74c1753b39f3cf40f71c2031eb9 # v23.0.0
+        with:
+          globs: |
+            **/*.md
+            #node_modules
+
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run ShellCheck (all shell artifacts)
+        # Consumer-side scripts ride along on every `xr skill install <host>`.
+        # tests/ and fixtures/bin/ are not shipped to consumers but must lint
+        # clean so the producer test loop stays trustworthy.
+        # style severity surfaces all suggestions; ShellCheck exits non-zero
+        # on error+warning by default (style stays informational).
+        run: |
+          shellcheck --severity=style \
+            scripts/*.sh \
+            tests/*.sh \
+            fixtures/bin/xr
+
+  scripts-tests:
+    name: scripts-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run fixture-driven tests
+        # The runner exports JSON envelopes via XR_STUB_* env vars so a bash
+        # stub xr at fixtures/bin/xr can replay them. Hits no live API and
+        # has no network egress; ubuntu-latest ships jq pre-installed which
+        # _common.sh detects automatically.
+        run: bash tests/run.sh

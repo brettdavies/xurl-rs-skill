@@ -1,0 +1,5 @@
+# Default to LF in the repo, with CRLF translated on checkout per platform default.
+* text=auto eol=lf
+
+# Shell scripts MUST be LF on every platform — Windows checkout otherwise breaks bash.
+*.sh text eol=lf
