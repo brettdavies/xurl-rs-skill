@@ -1,8 +1,23 @@
-# Mandatory review on producer-ops paths that determine what ships and how.
-# The skill content (SKILL.md, references/, templates/, getting-started.md)
-# is reviewed via normal PR rules; CODEOWNERS gates only governance paths.
+# Mandatory review on paths that determine what ships, how, and on what
+# terms. The skill content (SKILL.md, references/, templates/, getting-started.md)
+# is reviewed via normal PR rules; CODEOWNERS gates governance + release-integrity
+# + legal-hygiene + workflow-doc paths.
+#
+# Canonical policy: see ~/.claude/skills/github-repo-setup/SKILL.md § CODEOWNERS
+# and references/CODEOWNERS.
 
+# --- Governance: what ships and how ---
 scripts/**              @brettdavies
 .github/workflows/**    @brettdavies
 .github/rulesets/**     @brettdavies
 .github/CODEOWNERS      @brettdavies
+
+# --- Release integrity: drives every future cut ---
+cliff.toml              @brettdavies
+
+# --- Legal hygiene: never edit without deliberate review ---
+LICENSE-*               @brettdavies
+
+# --- Workflow docs: drift between docs and rulesets is a failure mode ---
+RELEASES.md             @brettdavies
+AGENTS.md               @brettdavies
