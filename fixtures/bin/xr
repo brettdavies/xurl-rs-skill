@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# fixtures/bin/xr — `xr` stub used by tests/run.sh.
+#
+# Two modes, picked by which env var is set:
+#
+#     Multi-page (paginate tests):
+#         XR_STUB_PAGES_BODIES   Newline-separated envelopes; one per page.
+#         XR_STUB_PAGE_COUNTER   Path to a counter file (mktemp).
+#
+#     Single-call (dry-run-gate tests):
+#         XR_STUB_DRYRUN_BODY    Envelope JSON when called with `--dry-run`.
+#         XR_STUB_DRYRUN_EXIT    Exit code for the dry-run call (default 0).
+#         XR_STUB_LIVE_BODY      Envelope JSON when called without `--dry-run`.
+#         XR_STUB_LIVE_EXIT      Exit code for the live call (default 0).
+
+set -u
+
+if [ -n "${XR_STUB_PAGES_BODIES:-}" ]; then
+    counter=${XR_STUB_PAGE_COUNTER:?counter required for multi-page mode}
+    page=$(cat "$counter" 2>/dev/null || printf '0')
+    page=$((page + 1))
+    printf '%d\n' "$page" > "$counter"
+    # Emit the Nth newline-delimited body.
+    printf '%s\n' "$XR_STUB_PAGES_BODIES" | sed -n "${page}p"
+    exit 0
+fi
+
+for arg in "$@"; do
+    if [ "$arg" = "--dry-run" ] || [ "$arg" = "--dry-run=true" ]; then
+        printf '%s' "${XR_STUB_DRYRUN_BODY:-}"
+        exit "${XR_STUB_DRYRUN_EXIT:-0}"
+    fi
+done
+
+printf '%s' "${XR_STUB_LIVE_BODY:-}"
+exit "${XR_STUB_LIVE_EXIT:-0}"
