@@ -135,6 +135,22 @@ Branching from `dev` and then `gio trash`-ing the guarded paths seems simpler bu
 whenever `dev` and `main` have diverged (which they always do after the first squash merge). The file appears as "added"
 on both sides with different content. Always branch from `origin/main` and cherry-pick onto it.
 
+### After publish: sync dev with the release
+
+Once the release tag is published and the GitHub Release is live, backport the release-bookkeeping files from `main` to
+`dev`:
+
+```bash
+./scripts/sync-dev-after-release.sh v<X.Y.Z>
+```
+
+The script overwrites `VERSION` with the released number, copies `CHANGELOG.md` verbatim from `origin/main`, cuts a
+`chore/sync-dev-after-vX.Y.Z` branch off `dev`, and opens a PR against `dev` (the PR-only convention on `dev` applies
+here too — the script never commits directly to `dev`). Without this step `dev`'s `VERSION` and `CHANGELOG.md` stay
+frozen at the pre-release state, and future feature branches inherit a stale baseline.
+
+The backport is idempotent: re-running on a `dev` already in sync with `main` exits 0 without creating a branch or PR.
+
 ## PRs and changelog generation
 
 Every PR **must** follow `.github/pull_request_template.md`. The template has a `## Changelog` section with these
