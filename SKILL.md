@@ -73,6 +73,7 @@ what's already on the system. Install path after `xr skill install claude_code` 
 | Pick output format / pagination / dry-run  | [references/agent-flags.md](references/agent-flags.md)                                       |
 | Parse a response or an error               | [references/output-envelope.md](references/output-envelope.md)                               |
 | Look up X API endpoints / scopes / billing | [references/x-api-essentials.md](references/x-api-essentials.md)                             |
+| User asks about OpenClaw / TweetClaw       | [references/openclaw-companion.md](references/openclaw-companion.md)                         |
 | Don't know what `xr` can do                | [references/self-introspection.md](references/self-introspection.md)                         |
 | Stuck — what next?                         | [references/escalation.md](references/escalation.md)                                         |
 
@@ -122,6 +123,8 @@ with `xr skill update claude_code` (or whichever host).
   reasons, exit-code matrix.
 - [references/x-api-essentials.md](references/x-api-essentials.md) — drift-resistant pointers into the X API (auth
   scopes, tiers, rate limits).
+- [references/openclaw-companion.md](references/openclaw-companion.md) - when OpenClaw / TweetClaw is a companion
+  workflow, not a replacement for `xr`.
 
 ## Templates
 
