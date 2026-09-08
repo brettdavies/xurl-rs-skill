@@ -13,7 +13,8 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 | `references/`        | Reference material an agent reads on demand. One topic per file; deterministic.                                                                                               |
 | `templates/`         | Starter prompts and task recipes that the agent copies into a target project.                                                                                                 |
 | `getting-started.md` | Human-oriented quickstart that complements `SKILL.md`.                                                                                                                        |
-| `scripts/`           | Consumer-side helpers shipped to install dirs (`dry-run-gate.sh`, `paginate.sh`).                                                                                             |
+| `scripts/`           | Consumer-side helpers shipped to install dirs (`dry-run-gate.sh`, `paginate.sh`) plus producer-side release tooling (`generate-changelog.py`, `sync-dev-after-release.sh`).   |
+| `scripts/release/`   | Vendored release gates (`drift.sh`, `guarded-paths.sh`, `_lib.sh`). Refreshed as verbatim copies from the `github-repo-setup` skill; never edited in place.                   |
 | `tests/`             | Producer-side test runner (`run.sh`) for the scripts. Run by CI.                                                                                                              |
 | `fixtures/`          | Producer-side stub `xr` binary + fixture envelopes used by the test runner.                                                                                                   |
 | `evals/`             | Self-contained eval prompts dispatched against a fresh agent session. Producer.                                                                                               |
@@ -23,20 +24,22 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 
 ## Branch model
 
-- `dev` — forever branch. Daily work lands here via `feat/*` / `fix/*` / `chore/*` PRs.
-- `main` — forever branch. Receives only `release/*` PRs cut from `origin/main` with non-docs commits cherry-picked from
-  `dev`. Engineering docs under `docs/plans/`, `docs/solutions/`, `docs/brainstorms/`, `docs/reviews/` are blocked on
-  `main` by `guard-main-docs`.
-- `release/*` — ephemeral. Auto-deleted on merge.
+- `dev`: forever branch. Daily work lands here via `feat/*` / `fix/*` / `chore/*` PRs.
+- `main`: forever branch. Receives only `release/*` PRs cut from `origin/main` with `dev`'s tree overlaid on top and
+  the guarded set stripped (`scripts/release/guarded-paths.sh`). Engineering docs under `docs/plans/`,
+  `docs/solutions/`, `docs/brainstorms/`, `docs/reviews/` are blocked on `main` by `guard-main-docs`.
+- `release/*`: ephemeral. Auto-deleted on merge.
 
 See [`RELEASES.md`](RELEASES.md) for the full release workflow.
 
 ## CI
 
-| Workflow              | Triggers                    | What it checks                                                                                |
-| --------------------- | --------------------------- | --------------------------------------------------------------------------------------------- |
-| `ci.yml`              | push + PR to `main` / `dev` | `markdownlint`, `shellcheck` on `scripts/` + `tests/` + `fixtures/bin/`, fixture-driven tests |
-| `guard-main-docs.yml` | PR to `main`                | Blocks engineering docs from reaching `main`                                                  |
+| Workflow                    | Triggers                    | What it checks                                                                                |
+| --------------------------- | --------------------------- | --------------------------------------------------------------------------------------------- |
+| `ci.yml`                    | push + PR to `main` / `dev` | `markdownlint`, `shellcheck` on `scripts/` + `tests/` + `fixtures/bin/`, fixture-driven tests |
+| `guard-main-docs.yml`       | PR to `main`                | Blocks engineering docs from reaching `main`                                                  |
+| `guard-release-branch.yml`  | PR to `main`                | Rejects any head branch not under `release/`                                                  |
+| `guard-main-provenance.yml` | PR to `main`                | Requires every commit to carry a `(#N)` squash-merge reference                                |
 
 ## Issues
 
