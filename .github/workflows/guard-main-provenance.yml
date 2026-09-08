@@ -1,0 +1,17 @@
+# Verifies commits in PRs to main came from squash-merged PRs to dev
+# (carry a `(#N)` reference). Calls the centralized reusable workflow.
+#
+# The job key must be `guard-provenance` so the required status check
+# context is `guard-provenance / check-provenance`.
+name: Guard main commit provenance
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  guard-provenance:
+    uses: brettdavies/.github/.github/workflows/guard-main-provenance.yml@main
