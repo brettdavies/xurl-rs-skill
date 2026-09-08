@@ -140,6 +140,8 @@ cannot overlay; this repo has none.
 Either way, the release must start from a `main` that `dev` fully contains. Security PRs, hotfixes, and config edits
 land on `main` first, and the overlay takes `dev`'s content for every file, so anything `main` holds that `dev` never
 received is reverted by the release. `scripts/release/drift.sh` lists that set and the cut waits until it is empty.
+Its gate 0 fails when the previous release's bookkeeping (`VERSION`, `CHANGELOG.md`) never reached `dev`; run
+`scripts/sync-dev-after-release.sh` before cutting.
 
 ### Why the guarded set resolves from the workflow
 
