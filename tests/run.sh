@@ -121,7 +121,7 @@ test_gate__reject_read_op() {
 }
 
 test_gate__reject_error_envelope() {
-    XR_STUB_DRYRUN_BODY='{"status":"error","reason":"auth-required","exit_code":2}'
+    XR_STUB_DRYRUN_BODY='{"status":"error","reason":"auth-required","exit_code":77,"next_step":{"action":"sign-in","command":"xr auth oauth2 --no-browser --step 1"}}'
     export XR_STUB_DRYRUN_BODY
 
     run_script "$ROOT/scripts/dry-run-gate.sh" --yes -- xr post "x"
