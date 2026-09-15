@@ -7,20 +7,21 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 
 ## Repository shape
 
-| Path                 | Role                                                                                                                                                                          |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SKILL.md`           | Consumer-facing entry point. Loaded by the agent when the skill activates.                                                                                                    |
-| `references/`        | Reference material an agent reads on demand. One topic per file; deterministic.                                                                                               |
-| `templates/`         | Starter prompts and task recipes that the agent copies into a target project.                                                                                                 |
-| `getting-started.md` | Human-oriented quickstart that complements `SKILL.md`.                                                                                                                        |
-| `scripts/`           | Consumer-side helpers shipped to install dirs (`dry-run-gate.sh`, `paginate.sh`) plus producer-side release tooling (`generate-changelog.py`, `sync-dev-after-release.sh`).   |
-| `scripts/release/`   | Vendored release gates (`drift.sh`, `guarded-paths.sh`, `_lib.sh`). Refreshed as verbatim copies from the `github-repo-setup` skill; never edited in place.                   |
-| `tests/`             | Producer-side test runner (`run.sh`) for the scripts. Run by CI.                                                                                                              |
-| `fixtures/`          | Producer-side stub `xr` binary + fixture envelopes used by the test runner.                                                                                                   |
-| `evals/`             | Self-contained eval prompts dispatched against a fresh agent session. Producer.                                                                                               |
-| `docs/`              | Planning artifacts (brainstorms, plans, solutions, reviews). Blocked from `main`.                                                                                             |
-| `docs/solutions/`    | Symlink to `~/dev/solutions-docs` (shared knowledge store; categorized by `problem_type` with YAML frontmatter). Relevant when implementing or debugging in documented areas. |
-| `.github/`           | Workflows, rulesets, CODEOWNERS, PR template. (Issues disabled; see below.)                                                                                                   |
+| Path                 | Role                                                                                                                                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SKILL.md`           | Consumer-facing entry point. Loaded by the agent when the skill activates.                                                                                                                          |
+| `references/`        | Reference material an agent reads on demand. One topic per file; deterministic.                                                                                                                     |
+| `templates/`         | Starter prompts and task recipes that the agent copies into a target project.                                                                                                                       |
+| `getting-started.md` | Human-oriented quickstart that complements `SKILL.md`.                                                                                                                                              |
+| `scripts/`           | Consumer-side helpers shipped to install dirs (`dry-run-gate.sh`, `paginate.sh`) plus producer-side release tooling (`generate-changelog.py`, `sync-dev-after-release.sh`).                         |
+| `scripts/release/`   | Vendored release gates (`drift.sh`, `guarded-paths.sh`, `_lib.sh`). Refreshed as verbatim copies from the `github-repo-setup` skill; never edited in place.                                         |
+| `CODEOWNERS`         | Required reviewers for governance, release-integrity, legal-hygiene, and workflow-doc paths; pairs with the rulesets' code-owner-review rule. Lives at the repo root so a local-tree audit sees it. |
+| `tests/`             | Producer-side test runner (`run.sh`) for the scripts. Run by CI.                                                                                                                                    |
+| `fixtures/`          | Producer-side stub `xr` binary + fixture envelopes used by the test runner.                                                                                                                         |
+| `evals/`             | Self-contained eval prompts dispatched against a fresh agent session. Producer.                                                                                                                     |
+| `docs/`              | Planning artifacts (brainstorms, plans, solutions, reviews). Blocked from `main`.                                                                                                                   |
+| `docs/solutions/`    | Symlink to `~/dev/solutions-docs` (shared knowledge store; categorized by `problem_type` with YAML frontmatter). Relevant when implementing or debugging in documented areas.                       |
+| `.github/`           | Workflows, rulesets, PR template, Dependabot. (Issues disabled; see below.)                                                                                                                         |
 
 ## Branch model
 
