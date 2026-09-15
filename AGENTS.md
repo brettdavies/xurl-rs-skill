@@ -1,4 +1,4 @@
-# AGENTS.md — xurl-rs-skill
+# AGENTS.md for xurl-rs-skill
 
 Producer-side instructions for agents (Claude Code, Codex, Cursor, OpenCode) working **on** this skill bundle.
 Consumer-side instructions (how an agent should *use* the bundle once installed) live in `SKILL.md`.
@@ -20,7 +20,7 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 | `evals/`             | Self-contained eval prompts dispatched against a fresh agent session. Producer.                                                                                               |
 | `docs/`              | Planning artifacts (brainstorms, plans, solutions, reviews). Blocked from `main`.                                                                                             |
 | `docs/solutions/`    | Symlink to `~/dev/solutions-docs` (shared knowledge store; categorized by `problem_type` with YAML frontmatter). Relevant when implementing or debugging in documented areas. |
-| `.github/`           | Workflows, rulesets, CODEOWNERS, PR template. (Issues disabled — see below.)                                                                                                  |
+| `.github/`           | Workflows, rulesets, CODEOWNERS, PR template. (Issues disabled; see below.)                                                                                                   |
 
 ## Branch model
 
@@ -43,11 +43,11 @@ See [`RELEASES.md`](RELEASES.md) for the full release workflow.
 
 ## Issues
 
-This repo has its issue tracker **disabled** (`has_issues: false`). Do not attempt to file issues here — the API will
+This repo has its issue tracker **disabled** (`has_issues: false`). Do not attempt to file issues here; the API will
 reject them and the UI hides the tab.
 
-All issues — `xurl-rs` CLI bugs, skill-bundle bugs (stale references, broken links, wrong invocations), and proposals
-for new templates / references / `getting-started` flows — route to the upstream CLI repo:
+All issues, whether `xurl-rs` CLI bugs, skill-bundle bugs (stale references, broken links, wrong invocations), or
+proposals for new templates / references / `getting-started` flows, route to the upstream CLI repo:
 
 ➡️ **<https://github.com/brettdavies/xurl-rs/issues/new/choose>**
 

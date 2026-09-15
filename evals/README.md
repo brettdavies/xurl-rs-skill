@@ -6,7 +6,7 @@ criteria.
 
 **Discovery is part of every eval.** No prompt body names the binary, the skill, or the GitHub project. The description
 in `SKILL.md`'s frontmatter is the only signal the agent has that this skill applies. If a fresh agent can't find this
-skill from the prompt, that's a finding — re-tune the description's trigger keywords.
+skill from the prompt, that's a finding; re-tune the description's trigger keywords.
 
 ## Catalog
 
@@ -21,7 +21,7 @@ skill from the prompt, that's a finding — re-tune the description's trigger ke
 ## Workdir convention
 
 Each eval creates a fresh workdir at `/tmp/xurl-rs-eval-<N>-$(date +%s)/` and treats it as CWD. Artifacts land there.
-Workdir contents are never committed — reproducibility comes from re-running the prompt against a fresh agent.
+Workdir contents are never committed; reproducibility comes from re-running the prompt against a fresh agent.
 
 ## Grading
 
@@ -30,8 +30,8 @@ decimal. Three categories of artifacts are inspected:
 
 1. **Required files in workdir** (named in the eval's `## Required artifacts` section). Missing one is an automatic 0 on
    that criterion.
-2. **`FINAL-REPORT.md` content** — the agent's reflective summary. Required sections vary per eval.
-3. **Side effects** — for mutating evals (eval-03), evidence that no live mutation was attempted. See that eval's `##
+2. **`FINAL-REPORT.md` content**: the agent's reflective summary. Required sections vary per eval.
+3. **Side effects**: for mutating evals (eval-03), evidence that no live mutation was attempted. See that eval's `##
    Dry-run execution gate` section.
 
 ## Running an eval

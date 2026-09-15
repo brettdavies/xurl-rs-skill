@@ -26,16 +26,16 @@ What it does:
 3. On a TTY, prompts `[y/N]`. Off a TTY, requires `--yes` or refuses.
 4. `exec`s the verb again with `--output json` (no `--dry-run`) so the response envelope lands on stdout.
 
-Do NOT pass `--dry-run`, `--output`, `--json`, or `--jsonl` to the gated verb — the script controls them. The gate
+Do NOT pass `--dry-run`, `--output`, `--json`, or `--jsonl` to the gated verb; the script controls them. The gate
 refuses if they appear in args.
 
 Examples:
 
 ```bash
-# Interactive (TTY) — gate prompts before going live.
+# Interactive (TTY): gate prompts before going live.
 ~/.claude/skills/xurl-rs/scripts/dry-run-gate.sh -- xr post "Shipping today."
 
-# Headless — caller has already obtained user confirmation.
+# Headless: caller has already obtained user confirmation.
 RESP=$(~/.claude/skills/xurl-rs/scripts/dry-run-gate.sh --yes -- xr reply 1234567890 "Congrats!")
 ID=$(printf '%s' "$RESP" | "${JQ_BIN:-jaq}" -r '.data.id')   # jaq or jq
 ```
@@ -49,17 +49,17 @@ ID=$(printf '%s' "$RESP" | "${JQ_BIN:-jaq}" -r '.data.id')   # jaq or jq
 What it does:
 
 1. Calls the verb with `--output json --quiet`. Bails on error envelopes.
-2. Streams `.data[]?` to stdout as compact JSONL — one record per line.
+2. Streams `.data[]?` to stdout as compact JSONL, one record per line.
 3. Reads `meta.next_token`. If empty, exits 0. Otherwise re-runs with `--cursor <token>` until `--max-pages`.
 4. On `--max-pages` cap, exits 0 and prints the next cursor on stderr so you can resume.
 
-Do NOT pass `--cursor`, `--after`, `--page`, `--output`, `--json`, `--jsonl`, or `--dry-run` to the verb — the script
+Do NOT pass `--cursor`, `--after`, `--page`, `--output`, `--json`, `--jsonl`, or `--dry-run` to the verb; the script
 controls them. The script refuses if they appear in args.
 
 Defaults:
 
-- `--max-pages 20` — safety cap to keep runaway queries from burning tweet caps.
-- `--sleep 0` — no delay between pages. Bump on rate-limit risk.
+- `--max-pages 20`: safety cap to keep runaway queries from burning tweet caps.
+- `--sleep 0`: no delay between pages. Bump on rate-limit risk.
 
 Examples:
 
@@ -85,9 +85,9 @@ When the bundle is checked out for development (not installed via `xr skill inst
 
 ## Requirements
 
-- `bash` — `#!/usr/bin/env bash`, uses `[[ ]]` regex matching.
+- `bash`: `#!/usr/bin/env bash`, uses `[[ ]]` regex matching.
 - [`jaq`](https://github.com/01mf02/jaq) (preferred) OR `jq`. Each script picks `jaq` when both are installed, falls
   back to `jq` when only `jq` is present, and refuses to run when neither is on `PATH`. The jq expressions used
   (`.status // ""`, `.would_succeed`, `.exit_code`, `.data[]?`, `.meta.next_token // ""`) are standard syntax that both
   binaries parse identically.
-- `xr` — the [xurl-rs](https://github.com/brettdavies/xurl-rs) binary.
+- `xr`: the [xurl-rs](https://github.com/brettdavies/xurl-rs) binary.

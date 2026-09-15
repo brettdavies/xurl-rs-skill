@@ -1,4 +1,4 @@
-# Agent flags — output, pagination, dry-run, env-var precedence
+# Agent flags: output, pagination, dry-run, env-var precedence
 
 This file enumerates the global flags every `xr` command honors. The per-command flags are documented by `xr <cmd>
 --help`.
@@ -23,7 +23,8 @@ XURL_JSON=1 xr <cmd>                    # env var equivalent to --json
 | `csv`    | Comma-separated, best-effort flattening of the top-level |
 | `tsv`    | Tab-separated, same flattening                           |
 
-Formats outside this enum (e.g. `toml`, `xml`) produce a typed `invalid-args` envelope on stderr.
+Formats outside this enum (e.g. `toml`, `xml`) are rejected at flag parsing: a clap usage error on stderr listing the
+possible values, exit `2`, no envelope.
 
 ### `--raw`
 
@@ -46,14 +47,14 @@ When stdout is not a TTY, color auto-strips even with `--color auto` (the defaul
 
 ### TTY behavior
 
-When stdout is not a TTY: color stripped, human-only banners suppressed, no prompts. Pipe-safe by construction — agents
-do not need any extra flag.
+When stdout is not a TTY: color stripped, human-only banners suppressed, no prompts. Pipe-safe by construction, so
+agents do not need any extra flag.
 
 ## Quiet, verbose, and tracing
 
 ```bash
-xr <cmd> --quiet                        # XURL_QUIET=1  — suppress non-essential output; errors still hit stderr
-xr <cmd> --verbose                      # XURL_VERBOSE=1 — log request and response details
+xr <cmd> --quiet                        # XURL_QUIET=1; suppress non-essential output; errors still hit stderr
+xr <cmd> --verbose                      # XURL_VERBOSE=1; log request and response details
 xr <cmd> --trace                        # add X-B3-Flags trace header (per-request only, no env var)
 ```
 
@@ -62,17 +63,19 @@ xr <cmd> --trace                        # add X-B3-Flags trace header (per-reque
 ## Interactivity
 
 ```bash
-xr <cmd> --no-interactive               # XURL_NO_INTERACTIVE=1 — fail instead of prompt
+xr <cmd> --no-interactive               # XURL_NO_INTERACTIVE=1; fail instead of prompt
 xr <cmd> --no-pager                     # documented no-op; safe to pass unconditionally
 ```
 
-`xr` never invokes `$PAGER` — `--no-pager` is advertised so agents can always pass it without the binary rejecting it.
+`xr` never invokes `$PAGER`; `--no-pager` is advertised so agents can always pass it without the binary rejecting it.
 The `--no-interactive` flag matters when running unattended; without it, `xr` may prompt for missing input on a TTY.
+Destructive verbs (`delete`, `auth clear`, `auth apps remove`) answer `reason: "confirmation-required"`, exit `1`, when
+they cannot prompt; pass `--force` after the user has confirmed.
 
 ## Timeouts
 
 ```bash
-xr <cmd> --timeout 60                   # XURL_TIMEOUT=60 — seconds; default 30
+xr <cmd> --timeout 60                   # XURL_TIMEOUT=60; seconds, default 30
 ```
 
 Bump for streaming endpoints or slow networks. Streaming verbs respect the timeout per chunk, not per stream.
@@ -113,7 +116,7 @@ Commands that thread `--cursor` through: `search`, `timeline`, `mentions`, `book
 ### `--limit` and `-n/--max-results`
 
 ```bash
-xr <list-cmd> --limit 50                # XURL_LIMIT=50 — global; clamped to 1..=100
+xr <list-cmd> --limit 50                # XURL_LIMIT=50; global, clamped to 1..=100
 xr <list-cmd> -n 50                     # per-command, takes precedence when both set
 ```
 
@@ -133,9 +136,9 @@ Commands that accept JSON input (currently `xr validate`) read from stdin when n
 passed:
 
 ```bash
-cat tweet.json | xr validate --schema tweet --output json
-cat tweet.json | xr validate - --schema tweet --output json
-xr validate ./tweet.json --schema tweet --output json
+cat post.json | xr validate --schema post --output json
+cat post.json | xr validate - --schema post --output json
+xr validate ./post.json --schema post --output json
 ```
 
 ## Env-var precedence
@@ -148,41 +151,46 @@ Flags override env vars when both are set. The precedence rules `xr` documents e
 
 The full env-var index is at the bottom of `xr --help`:
 
-| Env var               | Equivalent flag              |
-| --------------------- | ---------------------------- |
-| `XURL_OUTPUT`         | `--output`                   |
-| `XURL_JSON`           | `--json`                     |
-| `XURL_JSONL`          | `--jsonl`                    |
-| `XURL_RAW`            | `--raw`                      |
-| `XURL_CURSOR`         | `--cursor`                   |
-| `XURL_AFTER`          | `--after`                    |
-| `XURL_PAGE`           | `--page`                     |
-| `XURL_LIMIT`          | `--limit`                    |
-| `XURL_DRY_RUN`        | `--dry-run`                  |
-| `XURL_NO_INTERACTIVE` | `--no-interactive`           |
-| `XURL_NO_PAGER`       | `--no-pager`                 |
-| `XURL_QUIET`          | `--quiet`                    |
-| `XURL_VERBOSE`        | `--verbose`                  |
-| `XURL_TIMEOUT`        | `--timeout`                  |
-| `XURL_COLOR`          | `--color`                    |
-| `XURL_APP`            | `--app`                      |
-| `XURL_NO_BROWSER`     | `--no-browser` (auth only)   |
-| `XURL_BEARER_TOKEN`   | stage Bearer for `auth app`  |
-| `REDIRECT_URI`        | OAuth2 redirect URI override |
+| Env var                                             | Equivalent flag                                                    |
+| --------------------------------------------------- | ------------------------------------------------------------------ |
+| `XURL_OUTPUT`                                       | `--output`                                                         |
+| `XURL_JSON`                                         | `--json`                                                           |
+| `XURL_JSONL`                                        | `--jsonl`                                                          |
+| `XURL_RAW`                                          | `--raw`                                                            |
+| `XURL_CURSOR`                                       | `--cursor`                                                         |
+| `XURL_AFTER`                                        | `--after`                                                          |
+| `XURL_PAGE`                                         | `--page`                                                           |
+| `XURL_LIMIT`                                        | `--limit`                                                          |
+| `XURL_DRY_RUN`                                      | `--dry-run`                                                        |
+| `XURL_NO_INTERACTIVE`                               | `--no-interactive`                                                 |
+| `XURL_NO_PAGER`                                     | `--no-pager`                                                       |
+| `XURL_QUIET`                                        | `--quiet`                                                          |
+| `XURL_VERBOSE`                                      | `--verbose`                                                        |
+| `XURL_TIMEOUT`                                      | `--timeout`                                                        |
+| `XURL_COLOR`                                        | `--color`                                                          |
+| `XURL_APP`                                          | `--app`                                                            |
+| `XURL_NO_BROWSER`                                   | `--no-browser` (auth only)                                         |
+| `XURL_TOKEN_STORE`                                  | token-store file instead of `~/.xurl`                              |
+| `XURL_BEARER_TOKEN`                                 | app-only bearer; wins over the stored bearer for the active app    |
+| `CLIENT_ID`, `CLIENT_SECRET`                        | OAuth2 client credentials; win over the active app's stored values |
+| `REDIRECT_URI`                                      | OAuth2 redirect URI override                                       |
+| `AUTH_URL`, `TOKEN_URL`, `API_BASE_URL`, `INFO_URL` | endpoint overrides (test doubles, proxies)                         |
 
 ## Exit codes
 
-| Code | Meaning                            |
-| ---- | ---------------------------------- |
-| 0    | success                            |
-| 1    | general error                      |
-| 2    | invalid arguments OR auth required |
-| 3    | rate-limited (HTTP 429)            |
-| 4    | not found (HTTP 404)               |
-| 5    | network error                      |
+| Code | Meaning                                                                                    |
+| ---- | ------------------------------------------------------------------------------------------ |
+| 0    | success                                                                                    |
+| 1    | general error (also where `network-error` lands today)                                     |
+| 2    | invalid arguments, unknown command, or auth-method mismatch (`--auth X` rejected)          |
+| 3    | rate-limited (HTTP 429)                                                                    |
+| 4    | not found (HTTP 404)                                                                       |
+| 5    | `io` on file-access failures (a missing `media upload` path); `network-error` lands on 1   |
+| 77   | authentication required (`auth-required`, `token-store`); the envelope carries `next_step` |
 
 When `--output json` is set, the same information is carried in the error envelope's `reason` field. Prefer the
-envelope's `reason` over the exit code for branching in scripts — it's a closed set and easier to pattern-match.
+envelope's `reason` over the exit code for branching in scripts, since it's a closed set and easier to pattern-match.
+The reason → exit-code matrix and the exit-77 recipe are in [output-envelope.md](output-envelope.md).
 
 ## Canonical agent invocation
 

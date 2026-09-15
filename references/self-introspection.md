@@ -1,12 +1,12 @@
-# Self-introspection — let the binary teach you
+# Self-introspection: let the binary teach you
 
-`xr 1.3.0` is designed for agents. It ships five read-only commands that describe its own surface, schemas, and runtime
-state. Reach for them before reading anything else. They are always safe to run — no credentials needed for most, no API
-calls for any except `auth status` (which only inspects the local token store).
+`xr` is designed for agents. It ships five read-only commands that describe its own surface, schemas, and runtime state.
+Reach for them before reading anything else. They are always safe to run: no credentials needed for most, no API calls
+for any except `auth status` (which only inspects the local token store).
 
 ## The five helpers
 
-### 1. `xr examples` — curated invocation gallery
+### 1. `xr examples`: curated invocation gallery
 
 ```bash
 xr examples
@@ -17,7 +17,7 @@ MESSAGES, MEDIA UPLOAD, RAW MODE, INSPECT SCHEMAS, MULTI-APP, ENVIRONMENT VARIAB
 command appears with two or three canonical invocations (text mode, then `--output json`, sometimes piped to `jaq`).
 This is the fastest way to learn the shape of any workflow.
 
-### 2. `xr <command> --help` — per-command flag matrix and examples
+### 2. `xr <command> --help`: per-command flag matrix and examples
 
 ```bash
 xr post --help
@@ -34,45 +34,55 @@ Every command's `--help` includes:
 
 When in doubt about whether a flag exists, run `--help` rather than guessing.
 
-### 3. `xr schema` — typed response shapes
+### 3. `xr schema`: typed response shapes
 
 ```bash
 xr schema --list --output json              # list all 35 schemas + their Rust types
-xr schema --command post --output json      # JSON Schema for the `post` response
-xr schema --command tweet --output json     # JSON Schema for the Tweet type itself
+xr schema post --output json                # JSON Schema for the `post` response
+xr schema whoami --output json              # JSON Schema for the `whoami` response
 xr schema --envelope --output json          # the agent-native envelope (oneOf ok/dry_run/error)
 xr schema --all --output json               # every schema in one document
 ```
 
-Output is a JSON Schema 2020-12 document. Feed it into a typed-codegen tool, drop it into a planning artifact, or diff
-it against an expected shape.
+The command name is a positional (`xr schema <name>`), matching the names `--list` prints. Output is a JSON Schema
+2020-12 document. Feed it into a typed-codegen tool, drop it into a planning artifact, or diff it against an expected
+shape.
 
-Without `--output json`, the schema commands emit a human-readable table — fine for scanning, not for parsing.
+The `--envelope` document is the one to read for the error contract: its `error` variant declares every key the runtime
+can emit, including `next_step`, and its `reason` description is the closed set. See
+[output-envelope.md](output-envelope.md).
 
-### 4. `xr validate` — schema check arbitrary JSON
+Without `--output json`, the schema commands emit a human-readable table, fine for scanning, not for parsing.
+
+### 4. `xr validate`: schema check arbitrary JSON
 
 ```bash
-xr read 1234567890 --output json | xr validate --schema tweet --output json
-cat captured.json | xr validate --schema envelope --output json
+xr read 1234567890 --output json | xr validate --schema post --output json
+xr whoami --output json 2>&1 | xr validate --schema envelope --output json
 xr validate ./captured.json --schema envelope --output json
 ```
 
-Reads JSON from a file argument or stdin (`-` or omitted argument both mean stdin). Emits an `ok` envelope when the
-input deserializes into the requested typed response, or a `validation-failed` envelope with the field-level error. Use
-this to confirm a response shape after parsing it through a pipeline, or to gate a script that expects a specific
-schema.
+Reads JSON from a file argument or stdin (`-` or omitted argument both mean stdin). Emits `{"status":"ok","schema":
+"<name>","valid":true}` when the input deserializes into the requested typed response, or a `validation-failed` envelope
+with the field-level error. Use this to confirm a response shape after parsing it through a pipeline, or to gate a
+script that expects a specific schema.
 
-Without `--schema`, it auto-detects from the top-level shape.
+`--schema` accepts `post`, `posts`, `user`, `users`, `dm`, `dms`, `usage`, `credits`, `envelope`, `like`, `follow`,
+`delete`, `repost`, `bookmark`, `mute`; anything else answers `reason: "unknown-schema"` with the list in
+`known_schemas`. Without `--schema`, it auto-detects from the top-level shape.
 
-### 5. `xr auth status` — current token-store state
+### 5. `xr auth status`: current token-store state
 
 ```bash
 xr auth status --output json
+xr auth status --output json | jaq -r '.apps[] | select(.default) | .name'
 ```
 
-No API calls. Reads `~/.xurl` and reports: registered apps, active default app, registered users per app, token type
-(OAuth1 / OAuth2-PKCE / Bearer), `expires_at` timestamps, refresh-token presence. Use it before any verb that needs a
-specific auth mode to confirm the right credential is staged.
+No API calls. Reads `~/.xurl` and answers `{"status":"ok","apps":[...]}`: one entry per registered app with `name`,
+`client_id_hint`, `default`, `oauth2_users` (names only), `oauth1` / `bearer` presence booleans, `bearer_source`, and
+the effective `redirect_uri` with its source. Read it through `.apps[]`; an empty store answers `"apps": []`. Use it
+before any verb that needs a specific auth mode to confirm the right credential is staged. Full field list and the
+exit-77 recovery recipe: [auth-modes.md](auth-modes.md).
 
 ## Adjacent helpers worth knowing
 
@@ -83,7 +93,8 @@ Calls the X API. Returns the project's API usage (tweet caps, daily breakdown). 
 
 ### `xr version`
 
-Prints `xr 1.3.0`. No flags, no API calls. Use it to confirm the bundle matches the binary.
+Prints `xr <semver>` (for example `xr 3.3.0`). No flags, no API calls. Use it to confirm the bundle matches the binary;
+this bundle describes the 3.3.0 contract.
 
 ### `xr completions <shell>`
 
@@ -92,31 +103,58 @@ agent work.
 
 ### `xr skill install <host>` and `xr skill update <host>`
 
-Bundle management: shallow-clones <https://github.com/brettdavies/xurl-rs-skill> into the host's canonical skills
-directory. Honor `--dry-run` to preview the resolved `git clone` / `git pull --ff-only` command without spawning a
-process. Use `--all` to install across every known host (claude_code, codex, cursor, factory, kiro, opencode).
+Bundle management. `install` shallow-clones <https://github.com/brettdavies/xurl-rs-skill> into the host's canonical
+skills directory; `update` removes that directory and clones again. Both honor `--dry-run` to preview the resolved `git
+clone` command (`command_preview`) without spawning a process. Hosts: `claude_code`, `codex`, `cursor`, `factory`,
+`kiro`, `opencode`.
 
-## Workflow — verify before parsing
+`--all` answers one aggregated envelope for either verb:
+
+```json
+{
+  "action": "skill-update",
+  "status": "ok",
+  "installations": [
+    { "host": "claude_code", "status": "ok",      "exit_code": 0, "install_dir": "…", "command_preview": "git clone --depth 1 …", "destination_status": "non-empty-dir", "action": "skill-update" },
+    { "host": "codex",       "status": "skipped", "exit_code": 0, "reason": "not-installed", "install_dir": "…", "command_preview": "…", "destination_status": "absent", "action": "skill-update" }
+  ],
+  "exit_code": 0
+}
+```
+
+- `install --all` installs to every known host; `update --all` refreshes only hosts that already have an installation
+  and reports the rest as `status: "skipped"`, `reason: "not-installed"`, exit code `0`.
+- Scripts read the per-host records from `.installations[]`; the top-level `exit_code` is the worst one observed.
+- A single-host call answers the per-host record alone, with the same fields.
+- A failed removal during `update` answers `reason: "remove-failed"`, exit `1`, with no operating-system error text
+  appended; `install` into an occupied path answers `destination-not-empty` or `destination-is-file`.
+
+```bash
+xr skill update --all --output json | jaq -r '.installations[] | "\(.host): \(.status) \(.reason // "")"'
+```
+
+## Workflow: verify before parsing
 
 When you receive an `xr` response and intend to parse it, the safe pattern is:
 
 ```bash
-RESPONSE=$(xr whoami --output json)
-echo "$RESPONSE" | xr validate --schema envelope --output json --quiet || {
+RESPONSE=$(xr whoami --output json 2>&1)
+printf '%s' "$RESPONSE" | xr validate --schema envelope --output json --quiet >/dev/null || {
   echo "Unexpected response shape" >&2
-  echo "$RESPONSE" >&2
+  printf '%s\n' "$RESPONSE" >&2
   exit 1
 }
 ```
 
-Two reads, one validate, one parse — at the cost of one extra round trip through the binary. Worth it for any automation
-that branches on the response.
+The `2>&1` matters: error envelopes go to stderr, so capturing stdout alone leaves `RESPONSE` empty on the exact path
+you want to branch on. Two reads, one validate, one parse, at the cost of one extra round trip through the binary.
+Worth it for any automation that branches on the response.
 
 ## What NOT to do
 
 - **Don't reach for hand-written knowledge of `xr`'s flags** when `xr <cmd> --help` is one shell call away. The binary
   is the source of truth; this skill is the routing layer.
-- **Don't memoize schema output**. Re-run `xr schema --command X` when you need the shape — the bundled schemas travel
-  with the binary version, so the answer is always synchronized with what's actually installed.
+- **Don't memoize schema output**. Re-run `xr schema <name>` when you need the shape; the bundled schemas travel with
+  the binary version, so the answer is always synchronized with what's actually installed.
 - **Don't parse the text output of `xr` for automation**. Always pass `--output json` (or `XURL_OUTPUT=json`) and
   consume the structured envelope. Text mode is for humans; it can change without breaking a contract.

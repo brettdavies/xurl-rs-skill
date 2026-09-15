@@ -11,8 +11,9 @@ feature branch → PR to dev (squash merge)
               → annotated tag + GitHub Release
 ```
 
-Consumers install the bundle with `git clone --depth 1` of this repo and update with `git pull --ff-only`, so the
-head of `main` is the shipped artifact. There is no build, registry, or deploy step.
+Consumers install the bundle with `git clone --depth 1` of this repo and update by removing the install directory and
+cloning again (`xr skill update`), so the head of `main` is the shipped artifact. There is no build, registry, or deploy
+step.
 
 ## Branches
 
@@ -51,25 +52,25 @@ gh pr create --base dev --title "feat(scope): what changed"
 
 Paths that live only on `dev` and never ship to `main` can be committed directly to `dev` without a feature branch or
 PR. The `guard-main-docs` workflow blocks them from `main` PRs regardless. The exception applies to engineering docs:
-`docs/brainstorms/`, `docs/ideation/`, `docs/plans/`, `docs/research/`, `docs/reviews/`, `docs/solutions/`, and
-anything under `.context/`.
+`docs/brainstorms/`, `docs/ideation/`, `docs/plans/`, `docs/research/`, `docs/reviews/`, `docs/solutions/`, and anything
+under `.context/`.
 
 The standard feature → PR → squash-merge flow remains required for everything else, including consumer-facing markdown
 (`SKILL.md`, `references/`, `templates/`, `README.md`, `AGENTS.md`, `CONTRIBUTING.md`, this runbook).
 
 ## Releasing dev to main
 
-Engineering docs live on `dev` only. `guard-main-docs.yml` blocks them from reaching `main`,
-`guard-release-branch.yml` rejects any PR to main whose head isn't `release/*`, and `guard-main-provenance.yml`
-requires every commit on the PR to carry a `(#N)` squash-merge reference.
+Engineering docs live on `dev` only. `guard-main-docs.yml` blocks them from reaching `main`, `guard-release-branch.yml`
+rejects any PR to main whose head isn't `release/*`, and `guard-main-provenance.yml` requires every commit on the PR to
+carry a `(#N)` squash-merge reference.
 
 **Branch naming**: `release/v<version>` or `release/v<version>-<slug>`. `generate-changelog.py` extracts the version
 from the branch name, so the `v<version>` prefix is required.
 
 `main` and `dev` share only an ancient merge-base: every release squash-merges into `main`, so the two branches diverge
 in history even as their content converges. Reconciling that with a merge, or a branch cut from `dev`, produces
-`add/add` and rename/delete conflicts that are artifacts of the lineage, not of the content shipping. The release
-branch is therefore built as a **clean descendant of `main`** with `dev`'s tree overlaid on top, asserting the desired
+`add/add` and rename/delete conflicts that are artifacts of the lineage, not of the content shipping. The release branch
+is therefore built as a **clean descendant of `main`** with `dev`'s tree overlaid on top, asserting the desired
 end-state directly:
 
 ```bash
@@ -132,15 +133,15 @@ with zero conflicts. Auto-delete removes `release/v<version>` from the remote on
 
 Cutting the release branch from `dev` (or merging `dev` into `main`) forces a three-way merge across the squash-merge
 divergence: `add/add` collisions on files both sides changed, plus rename/delete pairs git cannot auto-resolve. The
-conflict pile is an artifact of the lineage, not of the content shipping. `main` ships `dev`'s tree minus a small,
-known exclusion set, so asserting that end-state directly with the overlay is simpler and safer than hand-resolving a
-merge. Cherry-picking the dev squash-commits onto `origin/main` is an exception kept for a repo with a stated reason it
-cannot overlay; this repo has none.
+conflict pile is an artifact of the lineage, not of the content shipping. `main` ships `dev`'s tree minus a small, known
+exclusion set, so asserting that end-state directly with the overlay is simpler and safer than hand-resolving a merge.
+Cherry-picking the dev squash-commits onto `origin/main` is an exception kept for a repo with a stated reason it cannot
+overlay; this repo has none.
 
 Either way, the release must start from a `main` that `dev` fully contains. Security PRs, hotfixes, and config edits
 land on `main` first, and the overlay takes `dev`'s content for every file, so anything `main` holds that `dev` never
-received is reverted by the release. `scripts/release/drift.sh` lists that set and the cut waits until it is empty.
-Its gate 0 fails when the previous release's bookkeeping (`VERSION`, `CHANGELOG.md`) never reached `dev`; run
+received is reverted by the release. `scripts/release/drift.sh` lists that set and the cut waits until it is empty. Its
+gate 0 fails when the previous release's bookkeeping (`VERSION`, `CHANGELOG.md`) never reached `dev`; run
 `scripts/sync-dev-after-release.sh` before cutting.
 
 ### Why the guarded set resolves from the workflow
@@ -154,16 +155,16 @@ depth, `*` and `?` within a segment, trailing slash guards the subtree).
 
 ### Why the release enumerates what it adds
 
-The leak check screens the diff against the registered set, so it says nothing about a category nobody registered.
-Step D lists every `docs/` file and every markdown file the release adds to `main` outside the guarded set and puts
-them in front of a human; each one needs a reason to ship, or it gets registered in `extra_paths` and dropped from the
-branch. Root-level markdown is in scope because an agent-facing note at the repo root is exactly the kind of addition a
+The leak check screens the diff against the registered set, so it says nothing about a category nobody registered. Step
+D lists every `docs/` file and every markdown file the release adds to `main` outside the guarded set and puts them in
+front of a human; each one needs a reason to ship, or it gets registered in `extra_paths` and dropped from the branch.
+Root-level markdown is in scope because an agent-facing note at the repo root is exactly the kind of addition a
 `docs/`-only listing misses.
 
 ## Tagging and publishing
 
-After the `release/v<version> → main` PR merges, tag, push, and create the GitHub Release from the CHANGELOG section
-for that version. Always use annotated tags (`-a -m`): a bare `git tag <name>` fails with `fatal: no tag message?` on
+After the `release/v<version> → main` PR merges, tag, push, and create the GitHub Release from the CHANGELOG section for
+that version. Always use annotated tags (`-a -m`): a bare `git tag <name>` fails with `fatal: no tag message?` on
 machines where `tag.gpgsign=true` is set globally.
 
 ```bash
@@ -211,7 +212,7 @@ head of `main`:
 #    stop advertising the bad one. Know the last-good tag before the release goes out.
 gh release edit v<last-good> --latest
 
-# 2. Land the revert through the normal flow so consumers' next `git pull --ff-only`
+# 2. Land the revert through the normal flow so consumers' next `xr skill update`
 #    picks it up: a fix/* or revert PR into dev, then a release/* branch into main.
 git checkout dev && git pull
 git checkout -b fix/revert-v<version>
@@ -233,11 +234,11 @@ subsections:
 
 `scripts/generate-changelog.py` (vendored from the `github-repo-setup` skill, with the repo-local `cliff.toml`) is the
 only sanctioned way to update `CHANGELOG.md`. On the overlay-built release branch it runs as `--from-dev-prs`: the PRs
-merged into `dev` since the previous release are the entries, and each PR's body supplies its `## Changelog`
-subsections with author and PR-link attribution. If a PR's body carries no changelog content, its title becomes a
-`Changed` bullet, except for `chore`, `ci`, `build`, `style`, and `test` PRs, which stay out unless they carry a
-`## Changelog` of their own. To fix a wrong entry, fix the input: edit the squash-merged PR body on GitHub, then re-run
-the script. Do **not** edit `CHANGELOG.md` directly.
+merged into `dev` since the previous release are the entries, and each PR's body supplies its `## Changelog` subsections
+with author and PR-link attribution. If a PR's body carries no changelog content, its title becomes a `Changed` bullet,
+except for `chore`, `ci`, `build`, `style`, and `test` PRs, which stay out unless they carry a `## Changelog` of their
+own. To fix a wrong entry, fix the input: edit the squash-merged PR body on GitHub, then re-run the script. Do **not**
+edit `CHANGELOG.md` directly.
 
 `cliff.toml` skips `chore`, `style`, `test`, `ci`, and `build` commits regardless of body content, so prefer `feat` /
 `fix` for anything user-observable.
@@ -247,9 +248,9 @@ the script. Do **not** edit `CHANGELOG.md` directly.
 Two rulesets are committed under `.github/rulesets/` and applied to the repo via the GitHub API:
 
 - `protect-main.json`: required signatures, linear history, squash-only merges via PR with one approving review,
-  required status checks (`markdownlint`, `shellcheck`, `guard-docs / check-forbidden-docs`,
-  `guard-release / check-release-branch-name`, `guard-provenance / check-provenance`), creation/deletion blocked,
-  non-fast-forward blocked.
+  required status checks (`markdownlint`, `shellcheck`, `guard-docs / check-forbidden-docs`, `guard-release /
+  check-release-branch-name`, `guard-provenance / check-provenance`), creation/deletion blocked, non-fast-forward
+  blocked.
 - `protect-dev.json`: required signatures, deletion blocked, non-fast-forward blocked. No PR-requirement at the ruleset
   level; the PR-only norm is enforced by convention + `guard-release-branch` on the main side.
 
@@ -286,8 +287,8 @@ gh api repos/<owner>/<repo>/commits/<sha>/check-runs --jq '.check_runs[].name'
 ## Project specifics
 
 - **Version carrier**: `VERSION` (plain text, no leading `v`). `scripts/sync-dev-after-release.sh` writes it.
-- **Distribution**: `git clone --depth 1` of this repo by `xr skill install <host>`; updates are `git pull --ff-only`
-  in the install directory. No registry, no Homebrew, no binaries.
+- **Distribution**: `git clone --depth 1` of this repo by `xr skill install <host>`; `xr skill update <host>` removes
+  the install directory and clones again. No registry, no Homebrew, no binaries.
 - **Release scripts**: `scripts/release/_lib.sh`, `drift.sh`, and `guarded-paths.sh`, plus
   `scripts/generate-changelog.py` and `scripts/sync-dev-after-release.sh`, are verbatim copies from the
   `github-repo-setup` skill. Edits land upstream and propagate by re-copy. The repo does not vendor a preflight or

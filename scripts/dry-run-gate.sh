@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dry-run-gate.sh — enforce the dry-run-then-live discipline for `xr` write ops.
+# dry-run-gate.sh: enforce the dry-run-then-live discipline for `xr` write ops.
 #
 # Runs the verb with `--dry-run --output json --quiet` first. Refuses to
 # proceed unless the envelope reports `status=dry_run`, `would_succeed=true`,
@@ -31,7 +31,7 @@ JQ_BIN=""
 
 usage() {
     cat >&2 <<EOF
-$PROG — gate an xr write op behind a mandatory --dry-run preflight.
+$PROG: gate an xr write op behind a mandatory --dry-run preflight.
 
 Usage:
     $PROG [--yes] -- xr <write-verb> [args...]
