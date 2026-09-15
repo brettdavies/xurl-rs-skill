@@ -53,6 +53,10 @@
             "integration_id": 15368
           },
           {
+            "context": "scripts-tests",
+            "integration_id": 15368
+          },
+          {
             "context": "guard-docs / check-forbidden-docs",
             "integration_id": 15368
           },
