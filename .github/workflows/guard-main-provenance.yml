@@ -1,8 +1,9 @@
-# Verifies commits in PRs to main came from squash-merged PRs to dev
-# (carry a `(#N)` reference). Calls the centralized reusable workflow.
+# Source repo guard-main-provenance wrapper that calls the fleet's reusable workflow.
+# Copy to .github/workflows/guard-main-provenance.yml in repos with the dev→main pattern.
 #
-# The job key must be `guard-provenance` so the required status check
-# context is `guard-provenance / check-provenance`.
+# Verifies commits in PRs to main came from squash-merged PRs to dev
+# (have (#N) references). Only needs pull-requests: read.
+#
 name: Guard main commit provenance
 
 on:
