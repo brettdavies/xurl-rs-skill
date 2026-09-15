@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# _common.sh — shared helpers for xurl-rs skill scripts.
+# _common.sh: shared helpers for xurl-rs skill scripts.
 #
 # Not directly executable. Sourced by dry-run-gate.sh and paginate.sh.
 #

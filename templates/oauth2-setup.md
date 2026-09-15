@@ -1,13 +1,13 @@
-# Template — OAuth2 first-time setup
+# Template: OAuth2 first-time setup
 
 Copy this template into your working scratchpad, fill the placeholders, and execute the steps in order. Pick branch A
-(browser, desktop) OR branch B (headless, SSH / container / CI) — they're mutually exclusive.
+(browser, desktop) OR branch B (headless, SSH / container / CI); they're mutually exclusive.
 
 ## Pre-flight
 
 ```bash
 xr version                                  # confirm xr is installed
-xr auth status --output json                # {"status":"ok","apps":[...]} — what's already staged
+xr auth status --output json                # {"status":"ok","apps":[...]}: what's already staged
 xr auth apps list --output json | jaq -r '.apps[].name'     # which apps are registered
 ```
 
@@ -47,7 +47,7 @@ Set this app as default (so subsequent commands use it without `--app`):
 xr auth default <APP_NAME>
 ```
 
-## Branch A — browser flow (desktop with a GUI)
+## Branch A: browser flow (desktop with a GUI)
 
 ```bash
 xr auth oauth2
@@ -62,7 +62,7 @@ Optional shortcut: append the X username to skip the `/2/users/me` lookup at the
 xr auth oauth2 <X_USERNAME>
 ```
 
-## Branch B — headless flow (SSH, container, CI)
+## Branch B: headless flow (SSH, container, CI)
 
 Two steps. Step 1 emits the auth URL. The user opens it in any browser, completes the grant, and pastes the redirect URL
 back. Step 2 exchanges the code.
@@ -73,7 +73,7 @@ xr auth oauth2 --no-browser --step 1 --output json
 ```
 
 Under `--output text` this prints the URL to open. Under `--output json` it answers `{"status":"ok","auth_url":"…",
-"instructions":"…"}` — read `.auth_url`. Against an app with no client id it answers `reason:
+"instructions":"…"}`; read `.auth_url`. Against an app with no client id it answers `reason:
 "client-credentials-missing"`, exit `2`, with a `select-app` `next_step` when another registered app does have one.
 
 User opens the URL in any browser, completes the grant, and captures the redirect URL from the address bar.

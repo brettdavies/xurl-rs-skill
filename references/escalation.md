@@ -1,4 +1,4 @@
-# Escalation — when you're stuck
+# Escalation: when you're stuck
 
 `xr` and this skill cover the common cases. Edge cases happen. This file names the lookup order so you don't guess.
 
@@ -6,33 +6,33 @@
 
 Walk these in order. Stop at the first one that answers the question.
 
-1. **`xr <command> --help`** — the binary's own docs, always current with the installed version. The root `xr --help`
+1. **`xr <command> --help`**: the binary's own docs, always current with the installed version. The root `xr --help`
    ends with `ENVIRONMENT VARIABLES`, `INPUT FROM STDIN`, `EXIT CODES`, and `TTY behavior` sections. Most "how do I pass
    X?" questions resolve here.
-2. **`xr examples`** — curated invocation gallery, ~120 lines, every major workflow with two-or-three lines per case.
+2. **`xr examples`**: curated invocation gallery, ~120 lines, every major workflow with two-or-three lines per case.
    When the question is "what does the canonical pattern look like?", this is the answer.
-3. **`xr schema --list --output json`** — 35 typed response shapes. When the question is "what does this response look
+3. **`xr schema --list --output json`**: 35 typed response shapes. When the question is "what does this response look
    like?" or "which fields can I rely on?", this is the answer.
 4. **`xr schema <name> --output json`**: JSON Schema for one response type. Drop it into a generator or feed it back
    through `xr validate`.
-5. **`xr schema --envelope --output json`** — the canonical agent-native envelope (`ok` / `dry_run` / `error`). When
+5. **`xr schema --envelope --output json`**: the canonical agent-native envelope (`ok` / `dry_run` / `error`). When
    parsing automation output, match on `status` first; on an error, read `reason`, then `next_step`.
 6. **`xr auth status --output json`**: `{"status":"ok","apps":[...]}` with the registered apps, which is default, which
    OAuth2 users and which credential kinds each holds. When OAuth feels broken, look here before re-running the flow.
    When a verb exits `77`, its own envelope's `next_step` already names the fix.
-7. **`xr usage --output json`** — current API caps and daily breakdown. When you hit `rate-limited`, this tells you
+7. **`xr usage --output json`**: current API caps and daily breakdown. When you hit `rate-limited`, this tells you
    whether you're at the daily wall or the per-window one.
-8. **Companion skill `x-api`** (if installed) — endpoint reference for X API v2, scopes, billing tiers, rate-limit
+8. **Companion skill `x-api`** (if installed): endpoint reference for X API v2, scopes, billing tiers, rate-limit
    tables. Activates automatically when `xr` is in context.
-9. **Official X docs** — every page supports markdown by appending `.md` to the URL. The index is
+9. **Official X docs**: every page supports markdown by appending `.md` to the URL. The index is
    <https://docs.x.com/llms.txt>. Use `defuddle` (or the agent's `fetch-web` skill) to clean MDX.
-10. **Upstream issues** — <https://github.com/brettdavies/xurl-rs/issues>. Skill-bundle issues (stale references, wrong
+10. **Upstream issues**: <https://github.com/brettdavies/xurl-rs/issues>. Skill-bundle issues (stale references, wrong
     invocations, missing templates) **also** file here with a `[skill]` title prefix; this bundle's own issue tracker is
     disabled by design.
-11. **Ask the user** — last resort, only when the answer requires user-side context (which thread to post in, which app
+11. **Ask the user**: last resort, only when the answer requires user-side context (which thread to post in, which app
     to act as, whether to proceed with a destructive op).
 
-## Iron rule — what to never invent
+## Iron rule: what to never invent
 
 **Never invent X API endpoint paths, OAuth scopes, billing tiers, or rate-limit numbers.** They change. They are not in
 `xr`'s scope to describe authoritatively. Always resolve via the lookup order above.
@@ -53,7 +53,7 @@ This rule has two carve-outs so it doesn't over-constrain:
   thread the user named).
 - Authentication is missing for a verb that requires a user-scoped scope (Bearer can't post; OAuth2 PKCE needs the
   appropriate scope grants).
-- The user's intent ambiguously maps to multiple X API endpoints (e.g., "show me my recent activity" — timeline,
+- The user's intent ambiguously maps to multiple X API endpoints (e.g., "show me my recent activity": timeline,
   mentions, both?).
 - Rate-limited (`reason: "rate-limited"`) and the agent does not know whether to wait or to pivot.
 
@@ -78,11 +78,11 @@ Done at step 1; the lookup short-circuits.
 ### "Why does my search return only 10 results when I asked for 50?"
 
 1. `xr search --help` → `-n/--max-results` accepts 1-100.
-2. Check whether the user passed `--limit` globally — the per-command `-n` wins when both are set, per `xr --help`'s
+2. Check whether the user passed `--limit` globally; the per-command `-n` wins when both are set, per `xr --help`'s
    `--limit` description.
 3. If both are unset and the result count is still capped, the API itself may have been the cap. Check `xr usage
    --output json` to confirm we aren't tier-limited.
-4. If still puzzled, the answer is at <https://docs.x.com/x-api/posts/search/introduction.md> — fetch it.
+4. If still puzzled, the answer is at <https://docs.x.com/x-api/posts/search/introduction.md>; fetch it.
 
 ### "A read verb exited 77."
 

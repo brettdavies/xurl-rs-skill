@@ -1,4 +1,4 @@
-# Template — post, reply, thread
+# Template: post, reply, thread
 
 Copy this template, fill the placeholders, and execute in order. Every step is gated by `--dry-run` first because `xr`
 is configured against production X credentials and every write op hits real state.
@@ -6,24 +6,24 @@ is configured against production X credentials and every write op hits real stat
 ## Pre-flight
 
 ```bash
-xr auth status --output json                 # .apps[] — confirm the default app lists an oauth2_users entry
+xr auth status --output json                 # .apps[]: confirm the default app lists an oauth2_users entry
 xr whoami --output json                      # confirm the active user is who you think
 ```
 
 If `whoami` exits `77` (`reason: "auth-required"`), its envelope carries a `next_step` naming the fix; follow it via
 [templates/oauth2-setup.md](oauth2-setup.md) first.
 
-## Preferred path — `scripts/dry-run-gate.sh`
+## Preferred path: `scripts/dry-run-gate.sh`
 
 The bundle ships a deterministic gate that runs the dry-run preflight, asserts `would_succeed=true && exit_code=0`,
 prompts for confirmation (or honors `--yes` for headless callers), then `exec`s the live call. Use it for every write op
 below:
 
 ```bash
-# Interactive (TTY) — gate prompts before going live.
+# Interactive (TTY): gate prompts before going live.
 ~/.claude/skills/xurl-rs/scripts/dry-run-gate.sh -- xr post "<TEXT>"
 
-# Headless — caller has already obtained user confirmation.
+# Headless: caller has already obtained user confirmation.
 RESP=$(~/.claude/skills/xurl-rs/scripts/dry-run-gate.sh --yes -- xr post "<TEXT>")
 ID=$(printf '%s' "$RESP" | jaq -r '.data.id')   # or jq
 ```
@@ -32,7 +32,7 @@ The script lives at `~/.claude/skills/xurl-rs/scripts/dry-run-gate.sh` after `xr
 equivalent path on Codex / Cursor / Factory / Kiro / OpenCode). From the bundle directory, invoke
 `./scripts/dry-run-gate.sh`. See [scripts/README.md](../scripts/README.md) for the full contract.
 
-The rest of this template documents the manual path — useful when you need to inspect the dry-run envelope before
+The rest of this template documents the manual path, useful when you need to inspect the dry-run envelope before
 deciding, or when you want a different output format on the live call.
 
 ## Single post (manual path)
@@ -73,7 +73,7 @@ xr reply <PARENT_ID> "<TEXT>" --dry-run --output json
 xr reply <PARENT_ID> "<TEXT>" --output json
 ```
 
-`<PARENT_ID>` accepts a bare integer OR a full post URL (`https://x.com/<user>/status/<id>`) — `xr` parses the URL and
+`<PARENT_ID>` accepts a bare integer OR a full post URL (`https://x.com/<user>/status/<id>`); `xr` parses the URL and
 extracts the ID.
 
 ## Quote post

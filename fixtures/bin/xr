@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fixtures/bin/xr — `xr` stub used by tests/run.sh.
+# fixtures/bin/xr: `xr` stub used by tests/run.sh.
 #
 # Two modes, picked by which env var is set:
 #

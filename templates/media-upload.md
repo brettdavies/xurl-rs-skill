@@ -1,13 +1,13 @@
-# Template — media upload
+# Template: media upload
 
 Copy this template, fill the placeholders, and execute. `xr media upload` drives X's chunked `INIT → APPEND → FINALIZE →
-STATUS` state machine end-to-end; you don't call the four substeps directly. The verb is a write op — it hits production
+STATUS` state machine end-to-end; you don't call the four substeps directly. The verb is a write op: it hits production
 and counts against your media-upload caps.
 
 ## Pre-flight
 
 ```bash
-xr auth status --output json                 # .apps[] — confirm oauth1: true OR an oauth2_users entry
+xr auth status --output json                 # .apps[]: confirm oauth1: true OR an oauth2_users entry
 xr media upload --help                       # confirm flags for your installed version
 ```
 
@@ -26,12 +26,12 @@ Media uploads require OAuth1 OR OAuth2 (user-scoped). Bearer (app-only) cannot u
 | DM video              | `video/mp4`    | `dm_video`      | Attach to a DM                   |
 
 `--media-type` defaults to `video/mp4` and `--category` defaults to `amplify_video` when omitted. For images, ALWAYS
-override both — the defaults will reject your upload.
+override both, because the defaults will reject your upload.
 
 The authoritative catalog of categories changes occasionally; verify at
 <https://docs.x.com/x-api/media/quickstart/media-upload-chunked.md> when in doubt.
 
-## Upload — synchronous (image, short video)
+## Upload, synchronous (image, short video)
 
 For files small enough that processing completes in seconds, no polling needed:
 
@@ -45,7 +45,7 @@ MEDIA_ID=$(printf '%s' "$RESP" | jaq -r '.data.media_id')
 echo "Uploaded: $MEDIA_ID"
 ```
 
-## Upload — `--wait` for processing (long video, GIF)
+## Upload with `--wait` for processing (long video, GIF)
 
 Videos and animated GIFs need server-side processing after upload. Pass `--wait` to block until processing finishes (or
 fails) before returning:
@@ -91,7 +91,7 @@ done
 echo "Processing complete: $MEDIA_ID"
 ```
 
-The X API tells you how long to wait via `processing_info.check_after_secs`. Honor it — tight-polling burns rate.
+The X API tells you how long to wait via `processing_info.check_after_secs`. Honor it, since tight-polling burns rate.
 
 ## Attaching to a post
 
@@ -148,5 +148,5 @@ xr media upload <FILE> --media-type <MIME> --category <CATEGORY> --output json \
   | xr validate --schema envelope --output json --quiet
 ```
 
-If validation fails, the bundled schema may be drifting from the live API — file `[skill]`-prefixed at
+If validation fails, the bundled schema may be drifting from the live API; file `[skill]`-prefixed at
 <https://github.com/brettdavies/xurl-rs/issues>.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/run.sh — fixture-driven tests for scripts/dry-run-gate.sh and
+# tests/run.sh: fixture-driven tests for scripts/dry-run-gate.sh and
 # scripts/paginate.sh. Each test sets up a stub `xr` on PATH (fixtures/bin/xr),
 # invokes the script, and asserts on exit code + stdout/stderr substrings.
 #
@@ -7,7 +7,7 @@
 #     bash tests/run.sh
 
 # Fixtures store JSON envelopes verbatim in shell variables. The quotes and
-# braces are part of the literal content, not shell syntax — shellcheck's
+# braces are part of the literal content, not shell syntax, so shellcheck's
 # default "use an array" suggestion doesn't apply here.
 # shellcheck disable=SC2089,SC2090
 

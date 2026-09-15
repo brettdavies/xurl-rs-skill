@@ -54,7 +54,7 @@ Once installed, the skill auto-activates the next time you ask Claude Code to do
 > Post a draft tweet about my morning run.
 
 Claude will route through `SKILL.md`, open [`templates/post-reply-thread.md`](templates/post-reply-thread.md), require a
-`--dry-run` pass first, and ask for your confirmation before going live — because `xr` is configured against production
+`--dry-run` pass first, and ask for your confirmation before going live, because `xr` is configured against production
 credentials by design.
 
 To explore manually:
@@ -75,7 +75,7 @@ xurl-rs-skill/
 ├── getting-started.md                    # this file
 ├── AGENTS.md                             # producer-side notes (for editors of this bundle)
 ├── references/
-│   ├── escalation.md                     # when stuck — lookup order + iron rules
+│   ├── escalation.md                     # when stuck: lookup order + iron rules
 │   ├── self-introspection.md             # `xr examples`/`schema`/`validate`/`auth status`
 │   ├── auth-modes.md                     # OAuth2 PKCE, OAuth1, Bearer, multi-app
 │   ├── agent-flags.md                    # output, pagination, dry-run, env-var precedence
@@ -91,17 +91,17 @@ xurl-rs-skill/
 ## Companion: the `x-api` skill
 
 This bundle is about **using** `xr`. For X API endpoint shapes, scope catalogs, and rate-limit tables, install the
-separate `x-api` skill — it auto-loads alongside `xurl-rs`. The two are complementary:
+separate `x-api` skill; it auto-loads alongside `xurl-rs`. The two are complementary:
 
-- `xurl-rs` (this bundle) — how to drive `xr`.
-- `x-api` — what the X API itself offers.
+- `xurl-rs` (this bundle): how to drive `xr`.
+- `x-api`: what the X API itself offers.
 
 If you don't have the `x-api` skill, fall through to <https://docs.x.com/> (append `.md` to any docs URL for
-agent-friendly markdown — see [`references/x-api-essentials.md`](references/x-api-essentials.md)).
+agent-friendly markdown; see [`references/x-api-essentials.md`](references/x-api-essentials.md)).
 
 ## Reporting issues
 
-This repository's GitHub issue tracker is disabled. File everything — CLI bugs, skill-bundle bugs, template requests —
+This repository's GitHub issue tracker is disabled. File everything (CLI bugs, skill-bundle bugs, template requests)
 at the upstream `xurl-rs` repo:
 
 ➡️ **<https://github.com/brettdavies/xurl-rs/issues/new/choose>**

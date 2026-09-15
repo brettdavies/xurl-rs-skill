@@ -11,7 +11,7 @@ TODO
 *todo*.md
 .context/
 
-# Build artifacts (defensive — this repo currently has none)
+# Build artifacts (defensive; this repo currently has none)
 target/
 node_modules/
 dist/

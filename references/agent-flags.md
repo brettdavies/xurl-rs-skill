@@ -1,4 +1,4 @@
-# Agent flags — output, pagination, dry-run, env-var precedence
+# Agent flags: output, pagination, dry-run, env-var precedence
 
 This file enumerates the global flags every `xr` command honors. The per-command flags are documented by `xr <cmd>
 --help`.
@@ -47,14 +47,14 @@ When stdout is not a TTY, color auto-strips even with `--color auto` (the defaul
 
 ### TTY behavior
 
-When stdout is not a TTY: color stripped, human-only banners suppressed, no prompts. Pipe-safe by construction — agents
-do not need any extra flag.
+When stdout is not a TTY: color stripped, human-only banners suppressed, no prompts. Pipe-safe by construction, so
+agents do not need any extra flag.
 
 ## Quiet, verbose, and tracing
 
 ```bash
-xr <cmd> --quiet                        # XURL_QUIET=1  — suppress non-essential output; errors still hit stderr
-xr <cmd> --verbose                      # XURL_VERBOSE=1 — log request and response details
+xr <cmd> --quiet                        # XURL_QUIET=1; suppress non-essential output; errors still hit stderr
+xr <cmd> --verbose                      # XURL_VERBOSE=1; log request and response details
 xr <cmd> --trace                        # add X-B3-Flags trace header (per-request only, no env var)
 ```
 
@@ -63,11 +63,11 @@ xr <cmd> --trace                        # add X-B3-Flags trace header (per-reque
 ## Interactivity
 
 ```bash
-xr <cmd> --no-interactive               # XURL_NO_INTERACTIVE=1 — fail instead of prompt
+xr <cmd> --no-interactive               # XURL_NO_INTERACTIVE=1; fail instead of prompt
 xr <cmd> --no-pager                     # documented no-op; safe to pass unconditionally
 ```
 
-`xr` never invokes `$PAGER` — `--no-pager` is advertised so agents can always pass it without the binary rejecting it.
+`xr` never invokes `$PAGER`; `--no-pager` is advertised so agents can always pass it without the binary rejecting it.
 The `--no-interactive` flag matters when running unattended; without it, `xr` may prompt for missing input on a TTY.
 Destructive verbs (`delete`, `auth clear`, `auth apps remove`) answer `reason: "confirmation-required"`, exit `1`, when
 they cannot prompt; pass `--force` after the user has confirmed.
@@ -75,7 +75,7 @@ they cannot prompt; pass `--force` after the user has confirmed.
 ## Timeouts
 
 ```bash
-xr <cmd> --timeout 60                   # XURL_TIMEOUT=60 — seconds; default 30
+xr <cmd> --timeout 60                   # XURL_TIMEOUT=60; seconds, default 30
 ```
 
 Bump for streaming endpoints or slow networks. Streaming verbs respect the timeout per chunk, not per stream.
@@ -116,7 +116,7 @@ Commands that thread `--cursor` through: `search`, `timeline`, `mentions`, `book
 ### `--limit` and `-n/--max-results`
 
 ```bash
-xr <list-cmd> --limit 50                # XURL_LIMIT=50 — global; clamped to 1..=100
+xr <list-cmd> --limit 50                # XURL_LIMIT=50; global, clamped to 1..=100
 xr <list-cmd> -n 50                     # per-command, takes precedence when both set
 ```
 

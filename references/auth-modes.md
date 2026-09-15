@@ -93,7 +93,7 @@ answers `{"status":"ok","message":"…"}` under `--output json`; `apps add` also
 became the default) and a `sign-in` `next_step` so the following command is already spelled out. The full recipe with a
 script skeleton is in [output-envelope.md § Exit 77 recipe](output-envelope.md#exit-77-recipe).
 
-## OAuth2 PKCE — browser flow (the default for humans)
+## OAuth2 PKCE browser flow (the default for humans)
 
 ```bash
 xr auth oauth2
@@ -108,22 +108,22 @@ auth default <name>` (or run `xr auth default` for an interactive picker).
 Optional positional `<USERNAME>`: skips the `/2/users/me` lookup at the end (saves one API call when the user already
 knows which account they're authenticating).
 
-## OAuth2 PKCE — headless flow (the default for agents)
+## OAuth2 PKCE headless flow (the default for agents)
 
 When stdout is not a TTY (piped runs, CI), `--no-browser` auto-engages. To use it explicitly:
 
 ```bash
-# Step 1 — emit the auth URL. Under --output json the URL is the `auth_url` field.
+# Step 1: emit the auth URL. Under --output json the URL is the `auth_url` field.
 xr auth oauth2 --no-browser --step 1 --output json
 
 # User opens that URL in any browser, completes the grant, copy-pastes the redirect URL back.
 
-# Step 2 — exchange. Use `-` to read the redirect URL from stdin (recommended on shared machines).
+# Step 2: exchange. Use `-` to read the redirect URL from stdin (recommended on shared machines).
 echo "<paste redirect URL>" | xr auth oauth2 --no-browser --step 2 --auth-url - --output json
 ```
 
 The two-step shape is the only safe path for agents driving a remote machine. Never `--auth-url` on the command line on
-a multi-user host — the URL contains the authorization code, which shell history will store.
+a multi-user host, because the URL contains the authorization code, which shell history will store.
 
 Override the default with `XURL_NO_BROWSER=1` on hosts that should never attempt to open a browser.
 
@@ -212,6 +212,6 @@ portal, and the authoritative list lives at
 markdown).
 
 When a verb returns `reason: "auth-required"` after a successful auth flow, the most likely cause is a missing scope in
-the OAuth2 app configuration — not a `xr` bug. Have the user grant the additional scope in the developer portal, re-run
+the OAuth2 app configuration, not a `xr` bug. Have the user grant the additional scope in the developer portal, re-run
 the OAuth2 flow, and re-try. When X refuses the app itself (HTTP 403), the envelope carries an `enroll-app` `next_step`
 whose `docs` URL is the enrollment recipe.

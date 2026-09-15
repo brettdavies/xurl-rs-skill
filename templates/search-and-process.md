@@ -1,12 +1,12 @@
-# Template — search and process
+# Template: search and process
 
 Copy this template, fill the placeholders, and execute. Pipelines through `xr search` (or any other list-style verb)
-into a typed processor like `jaq`. Read-only — no `--dry-run` needed.
+into a typed processor like `jaq`. Read-only, so no `--dry-run` needed.
 
 ## Pre-flight
 
 ```bash
-xr auth status --output json                 # .apps[] — search works on bearer: true OR an oauth2_users entry
+xr auth status --output json                 # .apps[]: search works on bearer: true OR an oauth2_users entry
 xr usage --output json                       # check remaining caps; search counts against tweet caps
 ```
 
@@ -38,7 +38,7 @@ xr search "<QUERY>" -n 50 --output jsonl \
   | jaq -c '{id, text}'
 ```
 
-## Cursor pagination — preferred path
+## Cursor pagination, preferred path
 
 The bundle ships a deterministic paginator that streams `.data[]?` records as compact JSONL on stdout, follows
 `meta.next_token`, bails on error envelopes, and caps with `--max-pages`:
@@ -50,13 +50,13 @@ The bundle ships a deterministic paginator that streams `.data[]?` records as co
 ```
 
 Options: `--max-pages N` (default 20), `--cursor TOKEN` (resume), `--sleep SECS` (pace against rate limits). Do NOT pass
-`--cursor` / `--after` / `--page` / `--output` / `--json` / `--jsonl` / `--dry-run` to the verb — the script controls
+`--cursor` / `--after` / `--page` / `--output` / `--json` / `--jsonl` / `--dry-run` to the verb; the script controls
 them. Full contract: [scripts/README.md](../scripts/README.md).
 
 The script lives at `~/.claude/skills/xurl-rs/scripts/paginate.sh` after `xr skill install claude_code` (or the
 equivalent path on Codex / Cursor / Factory / Kiro / OpenCode). From the bundle directory, use `./scripts/paginate.sh`.
 
-## Cursor pagination — manual path
+## Cursor pagination, manual path
 
 When you need finer control (custom record filtering before stream, per-page hooks, different bail conditions), the
 inline shape is:
@@ -97,7 +97,7 @@ done
 Notes:
 
 - `--cursor` and `--after` are the same flag (alias); `--page` is intentionally rejected because X does not support
-  offset pagination — it returns `reason: "unsupported-pagination"`.
+  offset pagination; it returns `reason: "unsupported-pagination"`.
 - Cap your loop with `MAX_PAGES` to avoid burning tweet caps on a runaway query.
 - Sleep between pages if you start hitting `reason: "rate-limited"`.
 

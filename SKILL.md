@@ -12,7 +12,7 @@ streaming, typed JSON-schema responses, and an agent-native output envelope.
 The binary self-introspects. Treat it as the source of truth: this skill routes you to the binary's helpers and provides
 the workflow patterns that the binary can't describe on its own.
 
-## Hard guardrail — production credentials
+## Hard guardrail: production credentials
 
 The `xr` binary on the user's machine is configured against **real X API credentials**, not a sandbox. Every write
 operation (post / reply / quote / delete / like / unlike / repost / unrepost / bookmark / unbookmark / follow / unfollow
@@ -31,7 +31,7 @@ Read ops (`read`, `search`, `whoami`, `user`, `timeline`, `mentions`, `bookmarks
 `dms`, `usage`, `auth status`, `schema`, `validate`, `examples`, `version`) ignore `--dry-run` and are safe to run
 without confirmation.
 
-## Quick start — let the binary teach you
+## Quick start: let the binary teach you
 
 The binary ships three self-introspection commands. Reach for them before reading anything in `references/`:
 
@@ -41,7 +41,7 @@ xr <command> --help                  # 3-5 examples per command + full flag matr
 xr schema --list --output json       # 35 typed response shapes, one per command
 xr schema post --output json         # JSON Schema for a single response type
 xr schema --envelope --output json   # the canonical agent-native output envelope (ok / dry_run / error)
-xr auth status --output json         # {"status":"ok","apps":[...]} — read it through .apps[]
+xr auth status --output json         # {"status":"ok","apps":[...]}; read it through .apps[]
 ```
 
 For full read-only-probes-are-always-safe rules, see
@@ -89,7 +89,7 @@ what's already on the system. Install path after `xr skill install claude_code` 
 | Parse a response or an error               | [references/output-envelope.md](references/output-envelope.md)                               |
 | Look up X API endpoints / scopes / billing | [references/x-api-essentials.md](references/x-api-essentials.md)                             |
 | Don't know what `xr` can do                | [references/self-introspection.md](references/self-introspection.md)                         |
-| Stuck — what next?                         | [references/escalation.md](references/escalation.md)                                         |
+| Stuck, what next?                          | [references/escalation.md](references/escalation.md)                                         |
 
 ## Iron rules
 
@@ -98,17 +98,17 @@ what's already on the system. Install path after `xr skill install claude_code` 
 2. **Never run a live write op without confirming scope with the user first**, OR without a successful `--dry-run` pass
    against the exact same flags first.
 3. **Never paste credentials into chat, commits, PR bodies, or shell history.** Pass secrets through env vars
-   (`XURL_BEARER_TOKEN`, `--client-secret "$(op read op://...)"`) — never inline them.
+   (`XURL_BEARER_TOKEN`, `--client-secret "$(op read op://...)"`); never inline them.
 4. **Read-only probes are always fine**: `xr --help`, `xr <cmd> --help`, `xr examples`, `xr schema ...`, `xr validate <
    file.json`, `xr auth status`, `xr version`, `xr usage`. No confirmation needed.
 
 ## Common flag patterns to apply across calls
 
-- `--output json` (or `XURL_OUTPUT=json`) — machine-readable on every command.
-- `--no-interactive` — fail with a structured envelope instead of prompting.
-- `--no-pager` — documented no-op, safe to always pass.
-- `--quiet` — suppress human-only banners (errors still go to stderr).
-- `--timeout 30` (the default) — bump for streaming / slow networks.
+- `--output json` (or `XURL_OUTPUT=json`): machine-readable on every command.
+- `--no-interactive`: fail with a structured envelope instead of prompting.
+- `--no-pager`: documented no-op, safe to always pass.
+- `--quiet`: suppress human-only banners (errors still go to stderr).
+- `--timeout 30` (the default): bump for streaming / slow networks.
 
 Full agent-flag matrix and env-var precedence: [references/agent-flags.md](references/agent-flags.md).
 
@@ -126,34 +126,34 @@ installation and skips the rest).
 
 ## Reference index
 
-- [references/escalation.md](references/escalation.md) — when stuck: lookup order, iron rules, halt-vs-continue, worked
+- [references/escalation.md](references/escalation.md): when stuck, lookup order, iron rules, halt-vs-continue, worked
   examples.
-- [references/self-introspection.md](references/self-introspection.md) — let the binary teach you (`examples`, `schema`,
+- [references/self-introspection.md](references/self-introspection.md): let the binary teach you (`examples`, `schema`,
   `validate`, `usage`).
-- [references/auth-modes.md](references/auth-modes.md) — OAuth2 PKCE (browser + headless), OAuth1, Bearer, multi-app
+- [references/auth-modes.md](references/auth-modes.md): OAuth2 PKCE (browser + headless), OAuth1, Bearer, multi-app
   token store, the `auth status` `apps` shape, what to do on exit 77.
-- [references/agent-flags.md](references/agent-flags.md) — output formats, pagination, dry-run, env-var precedence, exit
+- [references/agent-flags.md](references/agent-flags.md): output formats, pagination, dry-run, env-var precedence, exit
   codes.
 - [references/output-envelope.md](references/output-envelope.md): the `ok` / `dry_run` / `error` envelope, the
   closed-set reason catalog, `next_step`, the exit-77 recipe, exit-code matrix.
-- [references/x-api-essentials.md](references/x-api-essentials.md) — drift-resistant pointers into the X API (auth
+- [references/x-api-essentials.md](references/x-api-essentials.md): drift-resistant pointers into the X API (auth
   scopes, tiers, rate limits).
 
 ## Templates
 
-- [templates/oauth2-setup.md](templates/oauth2-setup.md) — first-time OAuth2 (browser or headless), verify with `xr auth
+- [templates/oauth2-setup.md](templates/oauth2-setup.md): first-time OAuth2 (browser or headless), verify with `xr auth
   status`.
-- [templates/post-reply-thread.md](templates/post-reply-thread.md) — compose, capture id, thread; leads with
+- [templates/post-reply-thread.md](templates/post-reply-thread.md): compose, capture id, thread; leads with
   `scripts/dry-run-gate.sh`.
-- [templates/search-and-process.md](templates/search-and-process.md) — `xr search --output jsonl | jaq`; leads with
+- [templates/search-and-process.md](templates/search-and-process.md): `xr search --output jsonl | jaq`; leads with
   `scripts/paginate.sh`.
-- [templates/media-upload.md](templates/media-upload.md) — chunked upload, attach `--media-id` via the gate.
+- [templates/media-upload.md](templates/media-upload.md): chunked upload, attach `--media-id` via the gate.
 
 ## Scripts
 
-- [scripts/dry-run-gate.sh](scripts/dry-run-gate.sh) — preflight → confirm → live wrapper for every `xr` write op.
-- [scripts/paginate.sh](scripts/paginate.sh) — cursor-pagination loop for any `xr` list-style verb.
-- [scripts/README.md](scripts/README.md) — full contract, exit codes, invocation patterns, jaq/jq fallback notes.
+- [scripts/dry-run-gate.sh](scripts/dry-run-gate.sh): preflight → confirm → live wrapper for every `xr` write op.
+- [scripts/paginate.sh](scripts/paginate.sh): cursor-pagination loop for any `xr` list-style verb.
+- [scripts/README.md](scripts/README.md): full contract, exit codes, invocation patterns, jaq/jq fallback notes.
 
 ## Producer-side notes
 

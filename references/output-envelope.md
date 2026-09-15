@@ -1,4 +1,4 @@
-# Output envelope — `ok` / `dry_run` / `error`
+# Output envelope: `ok` / `dry_run` / `error`
 
 When `xr` runs under `--output json` (or `XURL_OUTPUT=json` / `XURL_JSON=1`), every response is one of three envelope
 variants. The discriminator is the `status` field. Always match on `status` first.
@@ -14,7 +14,7 @@ xr schema --envelope --output json
 
 ## Variants
 
-### `status: "ok"` — success
+### `status: "ok"`, success
 
 ```json
 {
@@ -50,7 +50,7 @@ xr auth apps list --output json | jaq -c '.apps[] | {name, client_id_hint, oauth
 
 An empty store still answers `{"status":"ok","apps":[]}`, so a loop over `.apps[]` needs no zero-app special case.
 
-### `status: "dry_run"` — write-op preflight
+### `status: "dry_run"`, write-op preflight
 
 ```json
 {
@@ -65,7 +65,7 @@ An empty store still answers `{"status":"ok","apps":[]}`, so a loop over `.apps[
 Mandatory fields:
 
 - `would_succeed` (boolean): true iff the inputs validated.
-- `exit_code` (integer) — the exit code the verb would have returned on actual execution.
+- `exit_code` (integer): the exit code the verb would have returned on actual execution.
 
 Additional context (command name, body preview, target IDs) lives at the top level. Check `would_succeed: true` AND
 `exit_code: 0` before re-running without `--dry-run`.
@@ -75,7 +75,7 @@ Confirm auth separately with `xr auth status --output json` before the live call
 
 Emitted by every write op when `--dry-run` is set. Read ops ignore `--dry-run` and return a normal `ok` envelope.
 
-### `status: "error"` — failure
+### `status: "error"`, failure
 
 ```json
 {
@@ -158,7 +158,7 @@ if [ "$(printf '%s' "$RESPONSE" | jaq -r '.status')" = "error" ] &&
       ;;
     register-app)
       printf 'Register an app: %s\n' "$(printf '%s' "$RESPONSE" | jaq -r '.next_step.template')" >&2
-      ;;                                    # needs values only the user has — ask, do not invent
+      ;;                                    # needs values only the user has; ask, do not invent
     enroll-app)
       printf 'Enroll the app: %s\n' "$(printf '%s' "$RESPONSE" | jaq -r '.next_step.docs')" >&2
       ;;

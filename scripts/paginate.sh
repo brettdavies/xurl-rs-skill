@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# paginate.sh — cursor-paginate any `xr` list-style verb.
+# paginate.sh: cursor-paginate any `xr` list-style verb.
 #
 # Runs the verb with `--output json --quiet`, streams `.data[]?` records as
 # compact JSONL on stdout, follows `meta.next_token` until empty or until
@@ -30,7 +30,7 @@ JQ_BIN=""
 
 usage() {
     cat >&2 <<EOF
-$PROG — cursor-paginate any xr list-style verb.
+$PROG: cursor-paginate any xr list-style verb.
 
 Usage:
     $PROG [options] -- xr <list-verb> [args...]
@@ -41,7 +41,7 @@ Options:
     --sleep SECS     Sleep between pages (default: 0; bump on rate-limit risk).
     -h, --help       This help.
 
-Output: compact JSONL — one record per line — on stdout. Diagnostics on stderr.
+Output: compact JSONL (one record per line) on stdout. Diagnostics on stderr.
 
 The script adds --cursor and --output json itself; do NOT pass --cursor,
 --after, --page, --output, --json, --jsonl, or --dry-run in the verb args.

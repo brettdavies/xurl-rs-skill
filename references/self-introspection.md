@@ -1,4 +1,4 @@
-# Self-introspection — let the binary teach you
+# Self-introspection: let the binary teach you
 
 `xr` is designed for agents. It ships five read-only commands that describe its own surface, schemas, and runtime state.
 Reach for them before reading anything else. They are always safe to run: no credentials needed for most, no API calls
@@ -6,7 +6,7 @@ for any except `auth status` (which only inspects the local token store).
 
 ## The five helpers
 
-### 1. `xr examples` — curated invocation gallery
+### 1. `xr examples`: curated invocation gallery
 
 ```bash
 xr examples
@@ -17,7 +17,7 @@ MESSAGES, MEDIA UPLOAD, RAW MODE, INSPECT SCHEMAS, MULTI-APP, ENVIRONMENT VARIAB
 command appears with two or three canonical invocations (text mode, then `--output json`, sometimes piped to `jaq`).
 This is the fastest way to learn the shape of any workflow.
 
-### 2. `xr <command> --help` — per-command flag matrix and examples
+### 2. `xr <command> --help`: per-command flag matrix and examples
 
 ```bash
 xr post --help
@@ -34,7 +34,7 @@ Every command's `--help` includes:
 
 When in doubt about whether a flag exists, run `--help` rather than guessing.
 
-### 3. `xr schema` — typed response shapes
+### 3. `xr schema`: typed response shapes
 
 ```bash
 xr schema --list --output json              # list all 35 schemas + their Rust types
@@ -52,9 +52,9 @@ The `--envelope` document is the one to read for the error contract: its `error`
 can emit, including `next_step`, and its `reason` description is the closed set. See
 [output-envelope.md](output-envelope.md).
 
-Without `--output json`, the schema commands emit a human-readable table — fine for scanning, not for parsing.
+Without `--output json`, the schema commands emit a human-readable table, fine for scanning, not for parsing.
 
-### 4. `xr validate` — schema check arbitrary JSON
+### 4. `xr validate`: schema check arbitrary JSON
 
 ```bash
 xr read 1234567890 --output json | xr validate --schema post --output json
@@ -71,7 +71,7 @@ script that expects a specific schema.
 `delete`, `repost`, `bookmark`, `mute`; anything else answers `reason: "unknown-schema"` with the list in
 `known_schemas`. Without `--schema`, it auto-detects from the top-level shape.
 
-### 5. `xr auth status` — current token-store state
+### 5. `xr auth status`: current token-store state
 
 ```bash
 xr auth status --output json
@@ -133,7 +133,7 @@ clone` command (`command_preview`) without spawning a process. Hosts: `claude_co
 xr skill update --all --output json | jaq -r '.installations[] | "\(.host): \(.status) \(.reason // "")"'
 ```
 
-## Workflow — verify before parsing
+## Workflow: verify before parsing
 
 When you receive an `xr` response and intend to parse it, the safe pattern is:
 
