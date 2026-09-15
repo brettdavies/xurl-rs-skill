@@ -6,7 +6,7 @@ into a typed processor like `jaq`. Read-only — no `--dry-run` needed.
 ## Pre-flight
 
 ```bash
-xr auth status --output json                 # search works on Bearer OR OAuth2
+xr auth status --output json                 # .apps[] — search works on bearer: true OR an oauth2_users entry
 xr usage --output json                       # check remaining caps; search counts against tweet caps
 ```
 

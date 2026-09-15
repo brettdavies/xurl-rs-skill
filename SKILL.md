@@ -39,13 +39,28 @@ The binary ships three self-introspection commands. Reach for them before readin
 xr examples                          # curated invocation gallery, ~120 lines, every major workflow
 xr <command> --help                  # 3-5 examples per command + full flag matrix
 xr schema --list --output json       # 35 typed response shapes, one per command
-xr schema --command post --output json   # JSON Schema for a single response type
+xr schema post --output json         # JSON Schema for a single response type
 xr schema --envelope --output json   # the canonical agent-native output envelope (ok / dry_run / error)
-xr auth status --output json         # current auth state across registered apps
+xr auth status --output json         # {"status":"ok","apps":[...]} — read it through .apps[]
 ```
 
 For full read-only-probes-are-always-safe rules, see
 [references/self-introspection.md](references/self-introspection.md).
+
+## Errors tell you what to do next
+
+Under `--output json`, every failure is a `status: "error"` envelope on **stderr** with a closed-set kebab-case
+`reason`, an `exit_code`, and, when a recovery exists, a `next_step` object. Exit `77` means no usable credential; its
+`next_step.action` is one of `register-app` / `sign-in` / `select-app` / `inspect-store` / `enroll-app`, and a `command`
+is safe to run verbatim while a `template` needs values only the user has:
+
+```bash
+xr auth status --output json                 # {"status":"ok","apps":[...]}; each entry carries client_id_hint and bearer
+xr whoami --output json 2>&1 >/dev/null      # the failure itself, carrying next_step
+```
+
+Branch on `reason` first and `next_step.action` second; never guess a credential fix. Full catalog and the exit-77
+recipe: [references/output-envelope.md](references/output-envelope.md).
 
 ## Deterministic helpers (`scripts/`)
 
@@ -100,13 +115,14 @@ Full agent-flag matrix and env-var precedence: [references/agent-flags.md](refer
 ## Verifying the install
 
 ```bash
-xr version             # prints "xr 1.3.0"
+xr version             # prints "xr <semver>"; this bundle describes the 3.3.0 contract
 xr --help              # full surface
-xr auth status         # which apps and users are registered
+xr auth status --output json | jaq -r '.apps[].name'   # which apps are registered
 ```
 
 If `xr` is not on `$PATH`, install it from <https://github.com/brettdavies/xurl-rs/releases>, or refresh this bundle
-with `xr skill update claude_code` (or whichever host).
+with `xr skill update claude_code` (or whichever host; `xr skill update --all` refreshes every host that already has an
+installation and skips the rest).
 
 ## Reference index
 
@@ -115,11 +131,11 @@ with `xr skill update claude_code` (or whichever host).
 - [references/self-introspection.md](references/self-introspection.md) — let the binary teach you (`examples`, `schema`,
   `validate`, `usage`).
 - [references/auth-modes.md](references/auth-modes.md) — OAuth2 PKCE (browser + headless), OAuth1, Bearer, multi-app
-  token store.
+  token store, the `auth status` `apps` shape, what to do on exit 77.
 - [references/agent-flags.md](references/agent-flags.md) — output formats, pagination, dry-run, env-var precedence, exit
   codes.
-- [references/output-envelope.md](references/output-envelope.md) — the `ok` / `dry_run` / `error` envelope, typed
-  reasons, exit-code matrix.
+- [references/output-envelope.md](references/output-envelope.md): the `ok` / `dry_run` / `error` envelope, the
+  closed-set reason catalog, `next_step`, the exit-77 recipe, exit-code matrix.
 - [references/x-api-essentials.md](references/x-api-essentials.md) — drift-resistant pointers into the X API (auth
   scopes, tiers, rate limits).
 

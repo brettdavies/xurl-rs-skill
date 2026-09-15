@@ -13,12 +13,13 @@ Walk these in order. Stop at the first one that answers the question.
    When the question is "what does the canonical pattern look like?", this is the answer.
 3. **`xr schema --list --output json`** — 35 typed response shapes. When the question is "what does this response look
    like?" or "which fields can I rely on?", this is the answer.
-4. **`xr schema --command <name> --output json`** — JSON Schema for one response type. Drop it into a generator or feed
-   it back through `xr validate`.
+4. **`xr schema <name> --output json`**: JSON Schema for one response type. Drop it into a generator or feed it back
+   through `xr validate`.
 5. **`xr schema --envelope --output json`** — the canonical agent-native envelope (`ok` / `dry_run` / `error`). When
-   parsing automation output, match on `status` first.
-6. **`xr auth status --output json`** — current registered apps, active user, token freshness. When OAuth feels broken,
-   look here before re-running the flow.
+   parsing automation output, match on `status` first; on an error, read `reason`, then `next_step`.
+6. **`xr auth status --output json`**: `{"status":"ok","apps":[...]}` with the registered apps, which is default, which
+   OAuth2 users and which credential kinds each holds. When OAuth feels broken, look here before re-running the flow.
+   When a verb exits `77`, its own envelope's `next_step` already names the fix.
 7. **`xr usage --output json`** — current API caps and daily breakdown. When you hit `rate-limited`, this tells you
    whether you're at the daily wall or the per-window one.
 8. **Companion skill `x-api`** (if installed) — endpoint reference for X API v2, scopes, billing tiers, rate-limit
@@ -83,12 +84,16 @@ Done at step 1; the lookup short-circuits.
    --output json` to confirm we aren't tier-limited.
 4. If still puzzled, the answer is at <https://docs.x.com/x-api/posts/search/introduction.md> — fetch it.
 
-### "OAuth2 says token expired."
+### "A read verb exited 77."
 
-1. `xr auth status --output json` → look at the active user, `expires_at`, `refresh_token` presence.
-2. If `refresh_token` is present, re-run any read-op once and `xr` will rotate automatically.
-3. If absent, re-run the full flow: `xr auth oauth2` (browser) or `xr auth oauth2 --no-browser --step 1 / 2` (headless).
-4. Re-verify with `xr auth status`.
+1. Capture the failure itself: `xr whoami --output json 2>&1`. It carries `reason: "auth-required"` and a `next_step`.
+2. `xr auth status --output json` → `.apps[]`: is the default app the intended one, and does it list an `oauth2_users`
+   entry? (Expiry is not reported; `xr` refreshes silently when a refresh token exists.)
+3. Branch on `next_step.action`: `sign-in` / `select-app` / `inspect-store` carry a `command` to run verbatim;
+   `register-app` carries a `template` whose placeholders only the user can fill; ask, do not invent.
+4. Re-verify with `xr whoami --output json`; expect `status: "ok"`.
+
+Full recipe: [output-envelope.md § Exit 77 recipe](output-envelope.md#exit-77-recipe).
 
 ### "What scope does `xr dm` need?"
 

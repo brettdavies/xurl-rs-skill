@@ -7,7 +7,7 @@ and counts against your media-upload caps.
 ## Pre-flight
 
 ```bash
-xr auth status --output json                 # confirm OAuth1 OR OAuth2 is staged
+xr auth status --output json                 # .apps[] — confirm oauth1: true OR an oauth2_users entry
 xr media upload --help                       # confirm flags for your installed version
 ```
 

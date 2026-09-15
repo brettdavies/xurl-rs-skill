@@ -6,11 +6,12 @@ is configured against production X credentials and every write op hits real stat
 ## Pre-flight
 
 ```bash
-xr auth status --output json                 # confirm OAuth2 PKCE is staged, not expired
+xr auth status --output json                 # .apps[] — confirm the default app lists an oauth2_users entry
 xr whoami --output json                      # confirm the active user is who you think
 ```
 
-If `whoami` fails with `reason: "auth-required"`, run [templates/oauth2-setup.md](oauth2-setup.md) first.
+If `whoami` exits `77` (`reason: "auth-required"`), its envelope carries a `next_step` naming the fix; follow it via
+[templates/oauth2-setup.md](oauth2-setup.md) first.
 
 ## Preferred path — `scripts/dry-run-gate.sh`
 
@@ -43,8 +44,8 @@ xr post "<TEXT>" --dry-run --output json
 ```
 
 Expect a `status: "dry_run"`, `would_succeed: true`, `exit_code: 0` envelope. If `would_succeed` is `false`, the
-envelope's payload names the failing precondition (text too long, missing scope, app not registered). Fix and re-run the
-dry-run before going live.
+envelope's payload names the failing input check (text too long, malformed ID). Dry-run validates inputs only; it does
+not check credentials, which is why the pre-flight `whoami` above matters. Fix and re-run the dry-run before going live.
 
 ### 2. Live
 
@@ -62,7 +63,7 @@ echo "Posted: $POST_ID"
 Verify the schema is what you expect:
 
 ```bash
-xr schema --command post --output json | jaq '.properties.data'
+xr schema post --output json | jaq '.properties.data'
 ```
 
 ## Reply
@@ -119,8 +120,9 @@ Notes:
   thread is N times harder to clean up than a wrong single post.
 - **Don't try to post a thread in a tight loop without inspecting rate limits.** Check `xr usage --output json` first if
   you're posting more than a couple in quick succession.
-- The dry-run envelope does NOT return a real post ID (none exists yet). The shape of the dry-run preview is in `xr
-  schema --command post --output json` under the `dry_run` variant.
+- The dry-run envelope does NOT return a real post ID (none exists yet). The preview is `{"status":"dry_run",
+  "would_succeed":true,"exit_code":0,"command":"post","body":"…","media_ids":[]}`; the variant is declared in `xr schema
+  --envelope --output json`.
 
 ## Attaching media
 
@@ -142,15 +144,18 @@ Destructive. Always confirm scope with the user before running, even on a dry-ru
 (it prompts on TTY, refuses without `--yes` off TTY):
 
 ```bash
-~/.claude/skills/xurl-rs/scripts/dry-run-gate.sh -- xr delete <POST_ID>
+~/.claude/skills/xurl-rs/scripts/dry-run-gate.sh -- xr delete <POST_ID> --force
 ```
+
+`--force` is the binary's own confirmation flag: `xr delete` prompts on a TTY and answers `reason:
+"confirmation-required"`, exit `1`, when it cannot. The gate is the confirmation step, so pass `--force` through it.
 
 Manual path:
 
 ```bash
 xr delete <POST_ID> --dry-run --output json
 # User confirms.
-xr delete <POST_ID> --output json
+xr delete <POST_ID> --force --output json
 ```
 
 Deleted posts cannot be restored from the X side.
@@ -159,10 +164,16 @@ Deleted posts cannot be restored from the X side.
 
 If a live call returns `status: "error"`:
 
-- `reason: "rate-limited"` → wait until reset, see `xr usage --output json`.
-- `reason: "auth-required"` → re-run [templates/oauth2-setup.md](oauth2-setup.md), confirm scopes.
-- `reason: "invalid-args"` → re-read `xr post --help` (or `xr reply --help`), fix the call.
-- `reason: "validation"` → the server response didn't deserialize. Re-run with `--verbose` to capture the raw body and
-  compare against `xr schema --command post`.
+- `reason: "rate-limited"` (exit `3`) → wait until reset, see `xr usage --output json`.
+- `reason: "auth-required"` (exit `77`) → the envelope carries `next_step`; run its `command` verbatim or fill its
+  `template` with the user's values, per [templates/oauth2-setup.md](oauth2-setup.md). Absent a `next_step`, a scope the
+  verb needs wasn't granted.
+- `reason: "auth-method-mismatch"` (exit `2`) → only a Bearer is staged, or `--auth` names a scheme the endpoint
+  rejects; `supported` lists what it accepts.
+- `reason: "confirmation-required"` (exit `1`) → the verb could not prompt; re-run with `--force` after the user
+  confirms.
+- `reason: "invalid-args"` (exit `2`) → re-read `xr post --help` (or `xr reply --help`), fix the call.
+- `reason: "validation"` (exit `1`) → the server response didn't deserialize. Re-run with `--verbose` to capture the raw
+  body and compare against `xr schema post --output json`.
 
 Full reason → action map: [references/output-envelope.md](../references/output-envelope.md).

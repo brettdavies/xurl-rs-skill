@@ -5,7 +5,7 @@ working on this bundle are in [`AGENTS.md`](AGENTS.md).
 
 ## What this bundle is
 
-A consumer-side skill bundle for `xr` 1.3.0, the Rust port of the Go xurl. The CLI lives at
+A consumer-side skill bundle for `xr` (3.3.0 contract), the Rust port of the Go xurl. The CLI lives at
 <https://github.com/brettdavies/xurl-rs>; this bundle teaches your coding agent how to drive it without inventing
 flags or trampling production state.
 
@@ -37,8 +37,8 @@ Hosts and install paths:
 Update in place:
 
 ```bash
-xr skill update claude_code              # git pull --ff-only in the install dir
-xr skill update --all
+xr skill update claude_code              # remove the install dir and clone fresh
+xr skill update --all                    # refresh only hosts that already have an install; the rest report skipped
 ```
 
 Uninstall:

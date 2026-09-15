@@ -38,13 +38,16 @@ Create a fresh workdir at `/tmp/xurl-rs-eval-04-$(date +%s)/` and treat it as CW
 
 1. **Discovery** — Same shape as eval-01 (0/5/10).
 2. **Envelope decode correctness** — `0` = misnamed a field; `5` = decoded `reason` correctly but didn't tie it to the
-   exit-code mapping; `10` = decoded all four fields against the bundle's documented schema (closed-set reason catalog +
-   exit-code mapping table).
+   exit-code mapping; `10` = decoded all three fields against the bundle's documented schema (closed-set reason catalog +
+   exit-code mapping table) AND noted that no `next_step` is present: the binary attaches one only when a credential
+   or enrollment fix exists, and a rate limit has neither.
 3. **Triage commands correctness** — `0` = no triage; `5` = says "check rate limits" without naming the command; `10` =
    names the binary's `usage` subcommand (or equivalent) with `--output json` for machine reading AND a command that
-   reads the current auth state so the user knows which token bucket is exhausted.
+   reads the current auth state so the user knows which token bucket is exhausted, reading its entries through the
+   `apps` wrapper (`.apps[]`) rather than as a bare top-level array.
 4. **Decision-tree quality** — `0` = "just wait" with no condition; `5` = wait/pivot but vague conditions; `10` =
-   conditional tree keyed on usage output AND auth status, with explicit "if X, then Y" rules.
+   conditional tree keyed on usage output AND the `apps` entries of auth status (`bearer` vs `oauth2_users` decides
+   which bucket the call drew from), with explicit "if X, then Y" rules.
 5. **No rate-limit-number invention** — `0` = quoted a specific number from memory; `5` = hedged with "around X"; `10` =
    explicitly deferred specifics to the platform's docs and the binary's `usage` output. The skill's x-api-essentials
    reference is intentionally drift-resistant on this exact point.
