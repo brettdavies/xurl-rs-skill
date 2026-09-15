@@ -199,6 +199,12 @@ branch off `dev`, and opens a PR against `dev`. Merge it once CI is green. Never
 `dev` directly: the squash-merged histories share no recent ancestry, so the merge conflicts on every file both sides
 touched, and a direct push bypasses `dev`'s required checks.
 
+Beyond the two carriers, the script discovers every other path `main` and `dev` disagree about, bounded by the previous
+release tag (the last point the branches agreed). A path `dev` never touched since that tag is release-prep and is
+adopted from `main` automatically; a path both sides moved is contested and only reported. Pass `--only <path>` to
+adopt named contested paths, `--include-contested` to adopt them all, and `--dry-run` to see the plan without writing.
+Guarded paths (the `scripts/release/guarded-paths.sh` set) are never candidates, since they live on `dev` by design.
+
 The backport is idempotent: re-running on a `dev` already in sync with `main` exits 0 without creating a branch or PR.
 
 ## Rollback

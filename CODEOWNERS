@@ -3,14 +3,14 @@
 # is reviewed via normal PR rules; CODEOWNERS gates governance + release-integrity
 # + legal-hygiene + workflow-doc paths.
 #
-# Canonical policy: see ~/.claude/skills/github-repo-setup/SKILL.md § CODEOWNERS
+# Canonical policy: the github-repo-setup skill, SKILL.md § CODEOWNERS
 # and references/CODEOWNERS.
 
 # --- Governance: what ships and how ---
 scripts/**              @brettdavies
 .github/workflows/**    @brettdavies
 .github/rulesets/**     @brettdavies
-.github/CODEOWNERS      @brettdavies
+CODEOWNERS              @brettdavies
 
 # --- Release integrity: drives every future cut ---
 cliff.toml              @brettdavies
