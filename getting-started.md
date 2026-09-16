@@ -7,7 +7,8 @@ working on this bundle are in [`AGENTS.md`](AGENTS.md).
 
 A consumer-side skill bundle for `xr` (3.3.0 contract), the Rust port of the Go xurl. The CLI lives at
 <https://github.com/brettdavies/xurl-rs>; this bundle teaches your coding agent how to drive it without inventing
-flags or trampling production state.
+flags or trampling production state. Every invocation the bundle documents is checked against a real `xr` build by
+`tests/contract.sh` before a bundle pass ships (see [`AGENTS.md`](AGENTS.md)).
 
 When the bundle is installed at `~/.claude/skills/xurl-rs/` (or the equivalent path on Codex / Cursor / Factory / Kiro /
 OpenCode), Claude Code automatically reads the description in `SKILL.md` and pulls the rest of the files in on demand.
@@ -63,7 +64,7 @@ To explore manually:
 xr --help                    # full surface
 xr examples                  # curated invocation gallery
 xr <cmd> --help              # per-command flags + examples
-xr schema --list             # 35 typed response shapes
+xr schema --list             # 39 typed response shapes
 xr auth status               # who's authenticated
 ```
 
@@ -79,13 +80,17 @@ xurl-rs-skill/
 │   ├── self-introspection.md             # `xr examples`/`schema`/`validate`/`auth status`
 │   ├── auth-modes.md                     # OAuth2 PKCE, OAuth1, Bearer, multi-app
 │   ├── agent-flags.md                    # output, pagination, dry-run, env-var precedence
-│   ├── output-envelope.md                # `ok`/`dry_run`/`error` envelope + reason catalog
+│   ├── output-envelope.md                # API document / `ok` / `dry_run` / `error` + reason catalog
 │   └── x-api-essentials.md               # drift-resistant pointers into the X API docs
-└── templates/
-    ├── oauth2-setup.md                   # first-time auth (browser + headless)
-    ├── post-reply-thread.md              # compose / capture id / thread
-    ├── search-and-process.md             # `xr search --output jsonl | jaq`
-    └── media-upload.md                   # chunked upload + attach to post
+├── templates/
+│   ├── oauth2-setup.md                   # first-time auth (browser + headless)
+│   ├── post-reply-thread.md              # compose / capture id / thread
+│   ├── search-and-process.md             # `xr search --output json | jaq -c '.data[]'`
+│   └── media-upload.md                   # chunked upload + attach to post
+└── scripts/
+    ├── dry-run-gate.sh                   # --dry-run → confirm → live, for every write op
+    ├── paginate.sh                       # cursor loop for every list verb
+    └── README.md                         # the two scripts' contract
 ```
 
 ## Companion: the `x-api` skill

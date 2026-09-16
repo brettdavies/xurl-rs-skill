@@ -6,8 +6,8 @@ Claude Code skill bundle for [`xurl-rs`](https://github.com/brettdavies/xurl-rs)
 
 A Claude Code (and Codex / Cursor / Factory / Kiro / OpenCode) skill bundle that teaches an agent how to use `xurl-rs`
 against the X (Twitter) API: authentication, requests, pagination, dry-run discipline against production credentials,
-the `ok` / `dry_run` / `error` envelope, and common task templates (OAuth2 setup, post / reply / thread, search and
-process, media upload).
+the output contract (the API document on success; `ok` / `dry_run` / `error` envelopes), two deterministic helper
+scripts, and common task templates (OAuth2 setup, post / reply / thread, search and process, media upload).
 
 ## Install
 
@@ -31,13 +31,15 @@ Full install matrix and first-session walkthrough: [`getting-started.md`](gettin
 
 ## Layout
 
-| Path                 | Purpose                                                                     |
-| -------------------- | --------------------------------------------------------------------------- |
-| `SKILL.md`           | Entry point Claude Code / Codex / Cursor load when the skill activates.     |
-| `references/`        | Reference material the agent reads on demand (auth flows, endpoint shapes). |
-| `templates/`         | Starter prompts and task recipes the agent can copy into a project.         |
-| `getting-started.md` | Human-oriented quickstart.                                                  |
-| `scripts/`           | Producer-side tooling (sync, lint, release helpers).                        |
+| Path                  | Purpose                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| `SKILL.md`            | Entry point Claude Code / Codex / Cursor load when the skill activates.                    |
+| `references/`         | Reference material the agent reads on demand (auth flows, output contract, X API).         |
+| `templates/`          | Starter prompts and task recipes the agent can copy into a project.                        |
+| `scripts/`            | `dry-run-gate.sh` and `paginate.sh`, shipped to consumers; release tooling beside them.    |
+| `getting-started.md`  | Human-oriented quickstart.                                                                 |
+| `tests/`, `fixtures/` | Producer-side: stub-driven script tests (CI) and the contract harness against a real `xr`. |
+| `evals/`              | Producer-side: fresh-agent eval prompts for the skill's LLM-step workflows.                |
 
 ## Issues
 

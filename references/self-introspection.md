@@ -13,9 +13,14 @@ xr examples
 ```
 
 Plain-text gallery organized by use case: AUTHENTICATE, POST AND READ, MANAGE SOCIAL GRAPH, INSPECT YOUR ACCOUNT, DIRECT
-MESSAGES, MEDIA UPLOAD, RAW MODE, INSPECT SCHEMAS, MULTI-APP, ENVIRONMENT VARIABLE PRECEDENCE. About 120 lines. Each
+MESSAGES, MEDIA UPLOAD, RAW MODE, INSPECT SCHEMAS, MULTI-APP, ENVIRONMENT VARIABLE PRECEDENCE. About 130 lines. Each
 command appears with two or three canonical invocations (text mode, then `--output json`, sometimes piped to `jaq`).
 This is the fastest way to learn the shape of any workflow.
+
+One caveat: every `--output jsonl` line in the gallery and in the per-command `--help` examples (`bookmarks`, `likes`,
+`muted`, `blocked`, …) prints the whole document rather than one record per line, so the gallery's `| jaq '.id'`
+answers `null`. Filter the document instead: `--output json | jaq -c '.data[]?'`. See
+[agent-flags.md § Output format](agent-flags.md#output-format).
 
 ### 2. `xr <command> --help`: per-command flag matrix and examples
 
@@ -37,9 +42,10 @@ When in doubt about whether a flag exists, run `--help` rather than guessing.
 ### 3. `xr schema`: typed response shapes
 
 ```bash
-xr schema --list --output json              # list all 35 schemas + their Rust types
+xr schema --list                            # 39 rows: <name>  <Rust type>, one per response shape
 xr schema post --output json                # JSON Schema for the `post` response
 xr schema whoami --output json              # JSON Schema for the `whoami` response
+xr schema blocked --output json             # JSON Schema for the `blocked` list
 xr schema --envelope --output json          # the agent-native envelope (oneOf ok/dry_run/error)
 xr schema --all --output json               # every schema in one document
 ```
@@ -48,17 +54,24 @@ The command name is a positional (`xr schema <name>`), matching the names `--lis
 2020-12 document. Feed it into a typed-codegen tool, drop it into a planning artifact, or diff it against an expected
 shape.
 
-The `--envelope` document is the one to read for the error contract: its `error` variant declares every key the runtime
-can emit, including `next_step`, and its `reason` description is the closed set. See
-[output-envelope.md](output-envelope.md).
+`--list` is a two-column text table. Under `--output json` each row becomes a `{"message":"<name>  <type>"}` object
+rather than structured fields, so the reliable way to read the names is the text form:
 
-Without `--output json`, the schema commands emit a human-readable table, fine for scanning, not for parsing.
+```bash
+xr schema --list | awk '{print $1}'         # auth-apps-list auth-status block blocked … whoami envelope
+```
+
+The `--envelope` document is the one to read for the error contract: its `error` variant declares every key the runtime
+can emit, including `next_step`, and its `reason` description is the closed set. Its `ok` variant describes the local
+verbs only; API-backed successes carry no `status` key. See [output-envelope.md](output-envelope.md).
 
 ### 4. `xr validate`: schema check arbitrary JSON
 
 ```bash
 xr read 1234567890 --output json | xr validate --schema post --output json
-xr whoami --output json 2>&1 | xr validate --schema envelope --output json
+xr whoami --output json | xr validate --schema user --output json
+xr search "x" --output json | xr validate --schema posts --output json
+xr whoami --output json 2>&1 >/dev/null | xr validate --schema envelope --output json   # an error envelope
 xr validate ./captured.json --schema envelope --output json
 ```
 
@@ -68,8 +81,12 @@ with the field-level error. Use this to confirm a response shape after parsing i
 script that expects a specific schema.
 
 `--schema` accepts `post`, `posts`, `user`, `users`, `dm`, `dms`, `usage`, `credits`, `envelope`, `like`, `follow`,
-`delete`, `repost`, `bookmark`, `mute`; anything else answers `reason: "unknown-schema"` with the list in
+`delete`, `repost`, `bookmark`, `mute`, `block`; anything else answers `reason: "unknown-schema"` with the list in
 `known_schemas`. Without `--schema`, it auto-detects from the top-level shape.
+
+Pick the schema by what came back: an API-backed success (`whoami`, `search`, `post`, …) validates against the verb's
+schema; `envelope` accepts the `error`, `dry_run`, and local `ok` documents and **rejects** an API success, since that
+document has no `status` key.
 
 ### 5. `xr auth status`: current token-store state
 
@@ -86,15 +103,16 @@ exit-77 recovery recipe: [auth-modes.md](auth-modes.md).
 
 ## Adjacent helpers worth knowing
 
-### `xr usage --output json`
+### `xr usage --output json` and `xr usage credits --output json`
 
-Calls the X API. Returns the project's API usage (tweet caps, daily breakdown). Useful when chasing a `reason:
-"rate-limited"` envelope. Counts against the app-level cap, so don't poll it from a tight loop.
+Both call the X API. `usage` returns the project's post-cap usage with the daily breakdown; `usage credits` returns
+the credits-based usage for pay-per-use projects. Useful when chasing a `reason: "rate-limited"` envelope. Each counts
+against the app-level cap, so don't poll them from a tight loop.
 
 ### `xr version`
 
-Prints `xr <semver>` (for example `xr 3.3.0`). No flags, no API calls. Use it to confirm the bundle matches the binary;
-this bundle describes the 3.3.0 contract.
+Prints `xr <semver>` (for example `xr 3.3.0`) as plain text under every output mode; there is no JSON form. No API
+calls. Use it to confirm the bundle matches the binary; this bundle describes the 3.3.0 contract.
 
 ### `xr completions <shell>`
 
@@ -135,11 +153,18 @@ xr skill update --all --output json | jaq -r '.installations[] | "\(.host): \(.s
 
 ## Workflow: verify before parsing
 
-When you receive an `xr` response and intend to parse it, the safe pattern is:
+When you receive an `xr` response and intend to parse it, the safe pattern is exit code first, then the schema that
+matches what that exit code implies:
 
 ```bash
-RESPONSE=$(xr whoami --output json 2>&1)
-printf '%s' "$RESPONSE" | xr validate --schema envelope --output json --quiet >/dev/null || {
+EC=0
+RESPONSE=$(xr whoami --output json 2>&1) || EC=$?
+if [ "$EC" -ne 0 ]; then
+  SCHEMA=envelope        # failure: the error envelope arrived on stderr
+else
+  SCHEMA=user            # success: the API document; pick the verb's schema
+fi
+printf '%s' "$RESPONSE" | xr validate --schema "$SCHEMA" --output json --quiet >/dev/null || {
   echo "Unexpected response shape" >&2
   printf '%s\n' "$RESPONSE" >&2
   exit 1

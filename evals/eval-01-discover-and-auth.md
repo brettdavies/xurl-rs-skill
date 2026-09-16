@@ -50,7 +50,8 @@ Each criterion is independently scored 0-10. The eval score is the average, roun
    scope details.
 5. **Hygiene**: Are secrets handled correctly? `0` = `--client-secret "actual-value"` inline anywhere in `plan.sh`; `5`
    = secrets are env-var-referenced but no source named; `10` = secrets are pulled from a secrets manager (op /
-   1Password CLI / similar) with an explicit reference like `$(op read op://...)` or `$XURL_BEARER_TOKEN`.
+   1Password CLI / similar) with an explicit reference like `$(op read op://...)`, or through the env var the tool
+   documents for its bearer token.
 
 ## Regression-test prior fixes
 

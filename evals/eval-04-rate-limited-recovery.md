@@ -39,12 +39,12 @@ Create a fresh workdir at `/tmp/xurl-rs-eval-04-$(date +%s)/` and treat it as CW
 1. **Discovery**: Same shape as eval-01 (0/5/10).
 2. **Envelope decode correctness**: `0` = misnamed a field; `5` = decoded `reason` correctly but didn't tie it to the
    exit-code mapping; `10` = decoded all three fields against the bundle's documented schema (closed-set reason catalog
-   + exit-code mapping table) AND noted that no `next_step` is present: the binary attaches one only when a credential
+   - exit-code mapping table) AND noted that no `next_step` is present: the binary attaches one only when a credential
    or enrollment fix exists, and a rate limit has neither.
 3. **Triage commands correctness**: `0` = no triage; `5` = says "check rate limits" without naming the command; `10` =
-   names the binary's `usage` subcommand (or equivalent) with `--output json` for machine reading AND a command that
-   reads the current auth state so the user knows which token bucket is exhausted, reading its entries through the
-   `apps` wrapper (`.apps[]`) rather than as a bare top-level array.
+   names the binary's `usage` subcommand (and its `credits` form for pay-per-use projects) with `--output json` for
+   machine reading AND a command that reads the current auth state so the user knows which token bucket is exhausted,
+   reading its entries through the `apps` wrapper (`.apps[]`) rather than as a bare top-level array.
 4. **Decision-tree quality**: `0` = "just wait" with no condition; `5` = wait/pivot but vague conditions; `10` =
    conditional tree keyed on usage output AND the `apps` entries of auth status (`bearer` vs `oauth2_users` decides
    which bucket the call drew from), with explicit "if X, then Y" rules.
@@ -54,10 +54,15 @@ Create a fresh workdir at `/tmp/xurl-rs-eval-04-$(date +%s)/` and treat it as CW
 
 ## Regression-test prior fixes
 
-Round-1 grades for eval-01, eval-02, eval-03 will list the findings the bundle fixed (or chose not to). In `##
-Regression check`, classify each named finding.
+The bundle landed the fixes below; verify each as you work and classify it in `## Regression check` as `worked` /
+`regressed` / `not-touched`. Any `regressed` is a blocking finding regardless of overall score.
 
-If round-1 grades aren't available (running in the same round), state "round-1 grades pending; cannot regression-test."
+1. **F1**: the skill's output-contract reference decides the document kind by exit code and stream first (`3` on
+   stderr here), and states that a success would have been the platform's document with no `status` key.
+2. **F2**: the auth-state command in your `next-steps.sh` reads `.apps[]` from `{"status":"ok","apps":[...]}` and does
+   not look for an `expires_at` field.
+3. **F3**: the reason catalog says `rate-limited` carries no `next_step`, and your envelope interpretation says so
+   rather than treating its absence as a parse problem.
 
 ## When to escalate
 

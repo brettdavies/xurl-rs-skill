@@ -53,10 +53,12 @@ Create a fresh workdir at `/tmp/xurl-rs-eval-05-$(date +%s)/` and treat it as CW
 
 ## Regression-test prior fixes
 
-Round-1 grades for eval-01..04 will list findings the bundle fixed (or chose not to). In `## Regression check`, classify
-each.
+The bundle landed the fixes below; verify each as you work and classify it in `## Regression check` as `worked` /
+`regressed` / `not-touched`. Any `regressed` is a blocking finding regardless of overall score.
 
-If round-1 grades aren't available, state "round-1 grades pending; cannot regression-test."
+1. **F2**: if you inspected auth state while planning, the command reads `.apps[]` from `{"status":"ok","apps":[...]}`.
+2. **F3**: the skill's escalation reference lists the lookup order with the platform's agent-facing docs index (the
+   `llms.txt` variants and the `AGENTS.md` page) before "ask the user", and never before the binary's own `--help`.
 
 ## When to escalate
 

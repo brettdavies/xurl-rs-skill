@@ -9,14 +9,16 @@ Walk these in order. Stop at the first one that answers the question.
 1. **`xr <command> --help`**: the binary's own docs, always current with the installed version. The root `xr --help`
    ends with `ENVIRONMENT VARIABLES`, `INPUT FROM STDIN`, `EXIT CODES`, and `TTY behavior` sections. Most "how do I pass
    X?" questions resolve here.
-2. **`xr examples`**: curated invocation gallery, ~120 lines, every major workflow with two-or-three lines per case.
+2. **`xr examples`**: curated invocation gallery, ~130 lines, every major workflow with two-or-three lines per case.
    When the question is "what does the canonical pattern look like?", this is the answer.
-3. **`xr schema --list --output json`**: 35 typed response shapes. When the question is "what does this response look
-   like?" or "which fields can I rely on?", this is the answer.
+3. **`xr schema --list`**: 39 typed response shapes, one row per verb (`<name> <Rust type>`). When the question is "what
+   does this response look like?" or "which fields can I rely on?", this is the answer.
 4. **`xr schema <name> --output json`**: JSON Schema for one response type. Drop it into a generator or feed it back
    through `xr validate`.
 5. **`xr schema --envelope --output json`**: the canonical agent-native envelope (`ok` / `dry_run` / `error`). When
-   parsing automation output, match on `status` first; on an error, read `reason`, then `next_step`.
+   parsing automation output, read the exit code first: non-zero means an error envelope on stderr (`reason`, then
+   `next_step`); zero with no `status` key means an API document on stdout, which is the normal success shape. See
+   [output-envelope.md](output-envelope.md).
 6. **`xr auth status --output json`**: `{"status":"ok","apps":[...]}` with the registered apps, which is default, which
    OAuth2 users and which credential kinds each holds. When OAuth feels broken, look here before re-running the flow.
    When a verb exits `77`, its own envelope's `next_step` already names the fix.
@@ -24,8 +26,10 @@ Walk these in order. Stop at the first one that answers the question.
    whether you're at the daily wall or the per-window one.
 8. **Companion skill `x-api`** (if installed): endpoint reference for X API v2, scopes, billing tiers, rate-limit
    tables. Activates automatically when `xr` is in context.
-9. **Official X docs**: every page supports markdown by appending `.md` to the URL. The index is
-   <https://docs.x.com/llms.txt>. Use `defuddle` (or the agent's `fetch-web` skill) to clean MDX.
+9. **Official X docs**: every page supports markdown by appending `.md` to the URL. <https://docs.x.com/llms.txt> is a
+   short index of nested indexes; the X API v2 reference index is <https://docs.x.com/x-api/llms.txt>, and
+   <https://docs.x.com/AGENTS.md> carries X's own instructions for agents reading the docs. Use `defuddle` (or the
+   agent's `fetch-web` skill) to clean MDX.
 10. **Upstream issues**: <https://github.com/brettdavies/xurl-rs/issues>. Skill-bundle issues (stale references, wrong
     invocations, missing templates) **also** file here with a `[skill]` title prefix; this bundle's own issue tracker is
     disabled by design.
@@ -40,8 +44,8 @@ Walk these in order. Stop at the first one that answers the question.
 This rule has two carve-outs so it doesn't over-constrain:
 
 - **Read-only probes are always fine** without asking the user: `xr --help`, `xr <cmd> --help`, `xr examples`, `xr
-  schema ...`, `xr validate < file.json`, `xr auth status`, `xr usage`, `xr version`, fetching a docs page from
-  `docs.x.com/.../<page>.md`. Run them as needed.
+  schema ...`, `xr validate < file.json`, `xr auth status`, `xr usage`, `xr usage credits`, `xr version`, fetching a
+  docs page from `docs.x.com/.../<page>.md`. Run them as needed.
 - **The CLI's own contract** (output formats, exit codes, env vars, dry-run envelope shape, pagination flags) is fine to
   cite from `xr --help` and this bundle. Those are stable per `xr` major version.
 
@@ -77,12 +81,23 @@ Done at step 1; the lookup short-circuits.
 
 ### "Why does my search return only 10 results when I asked for 50?"
 
-1. `xr search --help` → `-n/--max-results` accepts 1-100.
+1. `xr search --help` → `-n/--max-results` is the per-call page size; the default is 10 when neither `-n` nor `--limit`
+   is set.
 2. Check whether the user passed `--limit` globally; the per-command `-n` wins when both are set, per `xr --help`'s
-   `--limit` description.
-3. If both are unset and the result count is still capped, the API itself may have been the cap. Check `xr usage
-   --output json` to confirm we aren't tier-limited.
+   `--limit` description. (`search` also floors the value at 10, the X API's minimum, so `-n 3` sends 10.)
+3. If both are set and the result count is still capped, the API itself may have been the cap. Check `xr usage --output
+   json` to confirm we aren't tier-limited.
 4. If still puzzled, the answer is at <https://docs.x.com/x-api/posts/search/introduction.md>; fetch it.
+
+### "The JSON from `xr timeline --output json` has no `status` field. Did it fail?"
+
+1. Check the exit code and the stream: exit `0` with the document on stdout is a success.
+2. API-backed verbs print the X API document as returned (`data`, `meta`, `includes`, `errors`); only local verbs (`auth
+   …`, `validate`, `skill …`) add `status: "ok"`. [output-envelope.md](output-envelope.md) tabulates the four document
+   kinds.
+3. Read `.data[]` and `.meta.next_token`; `scripts/paginate.sh` already does, across pages.
+
+Done at step 1; nothing to escalate.
 
 ### "A read verb exited 77."
 
@@ -91,7 +106,7 @@ Done at step 1; the lookup short-circuits.
    entry? (Expiry is not reported; `xr` refreshes silently when a refresh token exists.)
 3. Branch on `next_step.action`: `sign-in` / `select-app` / `inspect-store` carry a `command` to run verbatim;
    `register-app` carries a `template` whose placeholders only the user can fill; ask, do not invent.
-4. Re-verify with `xr whoami --output json`; expect `status: "ok"`.
+4. Re-verify with `xr whoami --output json`; expect exit `0` and the `{"data":{…}}` document (no `status` key).
 
 Full recipe: [output-envelope.md § Exit 77 recipe](output-envelope.md#exit-77-recipe).
 
@@ -100,10 +115,11 @@ Full recipe: [output-envelope.md § Exit 77 recipe](output-envelope.md#exit-77-r
 1. `xr dm --help` → describes the CLI surface, not the scope.
 2. `xr examples` → shows the invocation, not the scope.
 3. Companion `x-api` skill → likely has DM scope details under `references/`.
-4. Fall through to <https://docs.x.com/x-api/direct-messages/introduction.md>.
+4. Fall through to <https://docs.x.com/x-api/direct-messages/manage/introduction.md>.
 
-Do not guess the scope name. The agent that guesses `dm.write` when the real one is `dm.write.send` is the agent that
-wastes a token refresh and an hour debugging an `auth-required` envelope.
+Do not guess the scope name. The agent that guesses a plausible-looking scope is the agent that wastes a token refresh
+and an hour debugging an `auth-required` envelope; the catalog is a closed set X publishes, and the per-endpoint page
+names the scope each call needs.
 
 ## When to file a bug
 

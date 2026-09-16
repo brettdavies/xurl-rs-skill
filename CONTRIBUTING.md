@@ -3,8 +3,8 @@
 Thanks for your interest. This repo is the agent-facing skill bundle that teaches Claude Code, Cursor, Codex, and
 OpenCode how to drive [`xurl-rs`](https://github.com/brettdavies/xurl-rs), the X (Twitter) CLI.
 
-> **Status:** stub. This document will expand as skill content lands. For now, the core rules are below; the rest lives
-> in [`AGENTS.md`](AGENTS.md) (producer-side workflow) and [`RELEASES.md`](RELEASES.md) (branch/release model).
+The core rules are below; the producer-side workflow (repository shape, the contract harness, the refresh loop) lives
+in [`AGENTS.md`](AGENTS.md) and the branch/release model in [`RELEASES.md`](RELEASES.md).
 
 ## Issues
 
@@ -38,8 +38,11 @@ See [`AGENTS.md`](AGENTS.md) for the full producer-side guide and [`RELEASES.md`
 ## House rules
 
 - **Pin third-party Actions by SHA**, never by mutable tag. Trailing comment names the version.
-- **ShellCheck-clean** for anything under `scripts/`.
+- **ShellCheck-clean** (`--severity=style`) for `scripts/`, `tests/`, and `fixtures/bin/`.
 - **markdownlint-clean** for all `.md` files. Config lives at `.markdownlint-cli2.yaml`.
+- **Every claim about what `xr` emits is a row in `tests/contract.sh`.** A PR that documents a flag, a field, an exit
+  code, or a stream adds the row and runs the harness against a real build (`XR_BIN=/abs/path/to/xr bash
+  tests/contract.sh`); `bash tests/run.sh` covers the two scripts with the stub and runs in CI.
 
 ## Security
 

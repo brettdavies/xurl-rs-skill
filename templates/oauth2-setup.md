@@ -74,7 +74,8 @@ xr auth oauth2 --no-browser --step 1 --output json
 
 Under `--output text` this prints the URL to open. Under `--output json` it answers `{"status":"ok","auth_url":"…",
 "instructions":"…"}`; read `.auth_url`. Against an app with no client id it answers `reason:
-"client-credentials-missing"`, exit `2`, with a `select-app` `next_step` when another registered app does have one.
+"client-credentials-missing"`, exit `2`, with a `select-app` `next_step` when another registered app does have one and
+a `register-app` `next_step` (a `template` to fill with the user's values) when none does.
 
 User opens the URL in any browser, completes the grant, and captures the redirect URL from the address bar.
 
@@ -110,8 +111,9 @@ Round-trip with a real read call to confirm scopes:
 xr whoami --output json
 ```
 
-If `whoami` returns a `status: "ok"` envelope, you're authenticated and the basic `users.read` scope is granted. If it
-exits `77`, the envelope's `next_step` names the fix; see the troubleshooting table.
+If `whoami` exits `0` and prints the API document (`{"data":{"id":"…","username":"…","name":"…"}}`; API-backed
+successes carry no `status` key), you're authenticated and the basic user-read scope is granted. If it exits `77`, the
+envelope on stderr carries a `next_step` naming the fix; see the troubleshooting table.
 
 ## Troubleshooting
 
