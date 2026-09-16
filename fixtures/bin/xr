@@ -1,36 +1,59 @@
 #!/usr/bin/env bash
-# fixtures/bin/xr — `xr` stub used by tests/run.sh.
+# fixtures/bin/xr: `xr` stub used by tests/run.sh.
+#
+# Models the real binary's streams: a body paired with exit code 0 is
+# written to stdout (a success document or a dry_run envelope); a body
+# paired with a non-zero exit code is written to stderr (an error
+# envelope). Set XR_STUB_ERROR_ON_STDOUT=1 to write a non-zero body to
+# stdout instead, the way the `skill` verbs do.
 #
 # Two modes, picked by which env var is set:
 #
 #     Multi-page (paginate tests):
-#         XR_STUB_PAGES_BODIES   Newline-separated envelopes; one per page.
+#         XR_STUB_PAGES_BODIES   Newline-separated bodies; one per page.
+#         XR_STUB_PAGES_EXITS    Space-separated exit codes, one per page
+#                                (default 0 for every page).
 #         XR_STUB_PAGE_COUNTER   Path to a counter file (mktemp).
 #
 #     Single-call (dry-run-gate tests):
-#         XR_STUB_DRYRUN_BODY    Envelope JSON when called with `--dry-run`.
+#         XR_STUB_DRYRUN_BODY    Body when called with `--dry-run`.
 #         XR_STUB_DRYRUN_EXIT    Exit code for the dry-run call (default 0).
-#         XR_STUB_LIVE_BODY      Envelope JSON when called without `--dry-run`.
+#         XR_STUB_LIVE_BODY      Body when called without `--dry-run`.
 #         XR_STUB_LIVE_EXIT      Exit code for the live call (default 0).
 
 set -u
 
+emit() {
+  local body=$1 code=$2
+  if [ "$code" = "0" ] || [ "${XR_STUB_ERROR_ON_STDOUT:-0}" = "1" ]; then
+    printf '%s' "$body"
+  else
+    printf '%s' "$body" >&2
+  fi
+  exit "$code"
+}
+
 if [ -n "${XR_STUB_PAGES_BODIES:-}" ]; then
-    counter=${XR_STUB_PAGE_COUNTER:?counter required for multi-page mode}
-    page=$(cat "$counter" 2>/dev/null || printf '0')
-    page=$((page + 1))
-    printf '%d\n' "$page" > "$counter"
-    # Emit the Nth newline-delimited body.
-    printf '%s\n' "$XR_STUB_PAGES_BODIES" | sed -n "${page}p"
-    exit 0
+  counter=${XR_STUB_PAGE_COUNTER:?counter required for multi-page mode}
+  page=$(cat "$counter" 2>/dev/null || printf '0')
+  page=$((page + 1))
+  printf '%d\n' "$page" >"$counter"
+  body=$(printf '%s\n' "$XR_STUB_PAGES_BODIES" | sed -n "${page}p")
+  code=0
+  if [ -n "${XR_STUB_PAGES_EXITS:-}" ]; then
+    # shellcheck disable=SC2086
+    set -- $XR_STUB_PAGES_EXITS
+    if [ "$page" -le $# ]; then
+      code=${!page}
+    fi
+  fi
+  emit "$body" "$code"
 fi
 
 for arg in "$@"; do
-    if [ "$arg" = "--dry-run" ] || [ "$arg" = "--dry-run=true" ]; then
-        printf '%s' "${XR_STUB_DRYRUN_BODY:-}"
-        exit "${XR_STUB_DRYRUN_EXIT:-0}"
-    fi
+  if [ "$arg" = "--dry-run" ] || [ "$arg" = "--dry-run=true" ]; then
+    emit "${XR_STUB_DRYRUN_BODY:-}" "${XR_STUB_DRYRUN_EXIT:-0}"
+  fi
 done
 
-printf '%s' "${XR_STUB_LIVE_BODY:-}"
-exit "${XR_STUB_LIVE_EXIT:-0}"
+emit "${XR_STUB_LIVE_BODY:-}" "${XR_STUB_LIVE_EXIT:-0}"

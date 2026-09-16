@@ -24,7 +24,7 @@ In scope:
 
 Out of scope:
 
-- Vulnerabilities in [`xurl-rs`](https://github.com/brettdavies/xurl-rs) itself — file those against that repository.
+- Vulnerabilities in [`xurl-rs`](https://github.com/brettdavies/xurl-rs) itself; file those against that repository.
 - Best-practice debates about the skill's guidance; open a regular issue or PR for those.
 
 ## Supported Versions
