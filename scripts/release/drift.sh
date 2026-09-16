@@ -207,7 +207,8 @@ blob_at() {
 }
 
 # Classifies PATH as "contained", "differs", or "missing": whether base
-# already holds everything head changed in it since the anchor. First a
+# already holds everything head changed in it since the anchor. A path base
+# deleted counts as contained when head's copy is still the anchor's. First a
 # three-way merge of head's change onto base's copy; a clean merge that leaves
 # base's copy untouched is contained. When base has also edited nearby lines
 # the merge cannot answer, so the fallback checks head's change line by line:
@@ -227,7 +228,15 @@ classify_file_at() {
   anchor_blob=""
   [[ -n "$anchor_ref" ]] && anchor_blob=$(blob_at "$anchor_ref" "$path")
   if [[ -z "$base_blob" ]]; then
-    echo missing
+    # Base deleted a path head has not touched since the anchor: head carries
+    # nothing base never received, and the deletion is base's own change for
+    # the release to deliver. Only a head-side change since the anchor is
+    # missing from base.
+    if [[ -n "$anchor_blob" && "$head_blob" == "$anchor_blob" ]]; then
+      echo contained
+    else
+      echo missing
+    fi
     return
   fi
   if [[ "$head_blob" == "$base_blob" ]]; then
