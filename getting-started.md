@@ -5,9 +5,10 @@ working on this bundle are in [`AGENTS.md`](AGENTS.md).
 
 ## What this bundle is
 
-A consumer-side skill bundle for `xr` 1.3.0, the Rust port of the Go xurl. The CLI lives at
+A consumer-side skill bundle for `xr` 3.2.0, the Rust port of the Go xurl. The CLI lives at
 <https://github.com/brettdavies/xurl-rs>; this bundle teaches your coding agent how to drive it without inventing
-flags or trampling production state.
+flags or trampling production state. Every invocation the bundle documents is checked against a real `xr` build by
+`tests/contract.sh` before a bundle pass ships (see [`AGENTS.md`](AGENTS.md)).
 
 When the bundle is installed at `~/.claude/skills/xurl-rs/` (or the equivalent path on Codex / Cursor / Factory / Kiro /
 OpenCode), Claude Code automatically reads the description in `SKILL.md` and pulls the rest of the files in on demand.
@@ -37,8 +38,8 @@ Hosts and install paths:
 Update in place:
 
 ```bash
-xr skill update claude_code              # git pull --ff-only in the install dir
-xr skill update --all
+xr skill update claude_code              # remove the install dir and clone fresh
+xr skill update --all                    # refresh every known host (clones into hosts with no install yet)
 ```
 
 Uninstall:
@@ -54,7 +55,7 @@ Once installed, the skill auto-activates the next time you ask Claude Code to do
 > Post a draft tweet about my morning run.
 
 Claude will route through `SKILL.md`, open [`templates/post-reply-thread.md`](templates/post-reply-thread.md), require a
-`--dry-run` pass first, and ask for your confirmation before going live — because `xr` is configured against production
+`--dry-run` pass first, and ask for your confirmation before going live, because `xr` is configured against production
 credentials by design.
 
 To explore manually:
@@ -75,33 +76,37 @@ xurl-rs-skill/
 ├── getting-started.md                    # this file
 ├── AGENTS.md                             # producer-side notes (for editors of this bundle)
 ├── references/
-│   ├── escalation.md                     # when stuck — lookup order + iron rules
+│   ├── escalation.md                     # when stuck: lookup order + iron rules
 │   ├── self-introspection.md             # `xr examples`/`schema`/`validate`/`auth status`
 │   ├── auth-modes.md                     # OAuth2 PKCE, OAuth1, Bearer, multi-app
 │   ├── agent-flags.md                    # output, pagination, dry-run, env-var precedence
-│   ├── output-envelope.md                # `ok`/`dry_run`/`error` envelope + reason catalog
+│   ├── output-envelope.md                # API document / `ok` / `dry_run` / `error` + reason catalog
 │   └── x-api-essentials.md               # drift-resistant pointers into the X API docs
-└── templates/
-    ├── oauth2-setup.md                   # first-time auth (browser + headless)
-    ├── post-reply-thread.md              # compose / capture id / thread
-    ├── search-and-process.md             # `xr search --output jsonl | jaq`
-    └── media-upload.md                   # chunked upload + attach to post
+├── templates/
+│   ├── oauth2-setup.md                   # first-time auth (browser + headless)
+│   ├── post-reply-thread.md              # compose / capture id / thread
+│   ├── search-and-process.md             # `xr search --output json | jaq -c '.data[]'`
+│   └── media-upload.md                   # chunked upload + attach to post
+└── scripts/
+    ├── dry-run-gate.sh                   # --dry-run → confirm → live, for every write op
+    ├── paginate.sh                       # cursor loop for every list verb
+    └── README.md                         # the two scripts' contract
 ```
 
 ## Companion: the `x-api` skill
 
 This bundle is about **using** `xr`. For X API endpoint shapes, scope catalogs, and rate-limit tables, install the
-separate `x-api` skill — it auto-loads alongside `xurl-rs`. The two are complementary:
+separate `x-api` skill; it auto-loads alongside `xurl-rs`. The two are complementary:
 
-- `xurl-rs` (this bundle) — how to drive `xr`.
-- `x-api` — what the X API itself offers.
+- `xurl-rs` (this bundle): how to drive `xr`.
+- `x-api`: what the X API itself offers.
 
 If you don't have the `x-api` skill, fall through to <https://docs.x.com/> (append `.md` to any docs URL for
-agent-friendly markdown — see [`references/x-api-essentials.md`](references/x-api-essentials.md)).
+agent-friendly markdown; see [`references/x-api-essentials.md`](references/x-api-essentials.md)).
 
 ## Reporting issues
 
-This repository's GitHub issue tracker is disabled. File everything — CLI bugs, skill-bundle bugs, template requests —
+This repository's GitHub issue tracker is disabled. File everything (CLI bugs, skill-bundle bugs, template requests)
 at the upstream `xurl-rs` repo:
 
 ➡️ **<https://github.com/brettdavies/xurl-rs/issues/new/choose>**
