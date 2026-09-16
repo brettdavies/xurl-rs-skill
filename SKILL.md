@@ -22,8 +22,10 @@ Before any write op:
 
 1. Use `--dry-run` first to surface input validation errors and confirm intent. Every write verb emits a typed `status:
    "dry_run"` envelope when `--output json` and `--dry-run` are both set; check `would_succeed: true` and `exit_code:
-   0`. Dry-run validates inputs only: not credentials, not the filesystem, and not the verb's own confirmation gate
-   (`delete`, `auth clear`, `auth apps remove` need `--force` even for the preflight when there is no TTY).
+   0`. Dry-run validates inputs only: not credentials, not the filesystem, and not the verb's own confirmation gate.
+   Only the three verbs with no inverse (`delete`, `auth clear`, `auth apps remove`) gate themselves and need
+   `--force` even for the preflight when there is no TTY; every other write verb, `block` and `mute` included, takes
+   no `--force` (passing it is `invalid-args`).
 2. Confirm scope with the user before issuing the live call when the action is destructive (`delete`, `block`,
    `unfollow`, `dm`, `post` to anything besides a test thread the user already named).
 3. Prefer `--output json` with `--no-interactive` so failures arrive as structured envelopes you can act on.
@@ -82,19 +84,19 @@ what's already on the system. Install path after `xr skill install claude_code` 
 
 ## Routing table
 
-| Task                                       | First action                                                                                 |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| User wants to authenticate                 | [templates/oauth2-setup.md](templates/oauth2-setup.md)                                       |
-| User wants to post / reply / thread        | `scripts/dry-run-gate.sh` + [templates/post-reply-thread.md](templates/post-reply-thread.md) |
-| User wants to search and pipe to a tool    | `scripts/paginate.sh` + [templates/search-and-process.md](templates/search-and-process.md)   |
-| User wants to attach media                 | [templates/media-upload.md](templates/media-upload.md)                                       |
-| Block / mute someone, or list who is       | `scripts/dry-run-gate.sh -- xr block @user`; `scripts/paginate.sh -- xr blocked`             |
-| Pick an auth mode for a one-off            | [references/auth-modes.md](references/auth-modes.md)                                         |
-| Pick output format / pagination / dry-run  | [references/agent-flags.md](references/agent-flags.md)                                       |
-| Parse a response or an error               | [references/output-envelope.md](references/output-envelope.md)                               |
-| Look up X API endpoints / scopes / billing | [references/x-api-essentials.md](references/x-api-essentials.md)                             |
-| Don't know what `xr` can do                | [references/self-introspection.md](references/self-introspection.md)                         |
-| Stuck, what next?                          | [references/escalation.md](references/escalation.md)                                         |
+| Task                                       | First action                                                                                  |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| User wants to authenticate                 | [templates/oauth2-setup.md](templates/oauth2-setup.md)                                        |
+| User wants to post / reply / thread        | `scripts/dry-run-gate.sh` + [templates/post-reply-thread.md](templates/post-reply-thread.md)  |
+| User wants to search and pipe to a tool    | `scripts/paginate.sh` + [templates/search-and-process.md](templates/search-and-process.md)    |
+| User wants to attach media                 | [templates/media-upload.md](templates/media-upload.md)                                        |
+| Block / mute someone, or list who is       | `scripts/dry-run-gate.sh -- xr block @user`; `scripts/paginate.sh -- xr muted` (or `blocked`) |
+| Pick an auth mode for a one-off            | [references/auth-modes.md](references/auth-modes.md)                                          |
+| Pick output format / pagination / dry-run  | [references/agent-flags.md](references/agent-flags.md)                                        |
+| Parse a response or an error               | [references/output-envelope.md](references/output-envelope.md)                                |
+| Look up X API endpoints / scopes / billing | [references/x-api-essentials.md](references/x-api-essentials.md)                              |
+| Don't know what `xr` can do                | [references/self-introspection.md](references/self-introspection.md)                          |
+| Stuck, what next?                          | [references/escalation.md](references/escalation.md)                                          |
 
 ## Iron rules
 
@@ -127,6 +129,13 @@ xr version             # prints "xr <semver>"; this bundle describes the 3.3.0 c
 xr --help              # full surface
 xr auth status --output json | jaq -r '.apps[].name'   # which apps are registered
 ```
+
+A binary that prints `xr 3.2.0` is either the 3.2.0 release or a build from the development branch ahead of it. The
+release lacks three things this bundle documents: `auth status` / `auth apps list` answer a bare top-level array
+(read `.[]` instead of `.apps[]`), `block` / `unblock` / `blocked` / `muted` do not exist (`unknown-command`), and
+`skill update --all` installs into every host instead of skipping the ones with no install. Everything else here holds
+on 3.2.0. Prefer upgrading; `xr --help` listing `blocked` is the quickest tell that the build already carries the
+contract.
 
 If `xr` is not on `$PATH`, install it from <https://github.com/brettdavies/xurl-rs/releases>, or refresh this bundle
 with `xr skill update claude_code` (or whichever host; `xr skill update --all` refreshes every host that already has an

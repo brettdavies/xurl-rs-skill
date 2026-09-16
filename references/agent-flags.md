@@ -89,9 +89,12 @@ xr <cmd> --no-pager                     # documented no-op; safe to pass uncondi
 
 `xr` never invokes `$PAGER`; `--no-pager` is advertised so agents can always pass it without the binary rejecting it.
 The `--no-interactive` flag matters when running unattended; without it, `xr` may prompt for missing input on a TTY.
-Destructive verbs (`delete`, `auth clear`, `auth apps remove`) answer `reason: "confirmation-required"`, exit `1`, when
-they cannot prompt; pass `--force` after the user has confirmed. The gate runs before `--dry-run` is considered, so a
-headless preflight of `delete` needs `--force` too.
+The three verbs with no inverse (`delete`, `auth clear`, `auth apps remove`) gate themselves: they answer `reason:
+"confirmation-required"`, exit `1`, when they cannot prompt (no TTY, or `--no-interactive`) and `--force` is absent;
+pass `--force` after the user has confirmed. The gate runs before `--dry-run` is considered, so a headless preflight
+of `delete` needs `--force` too. Every other write verb, `block`, `mute`, `unfollow`, and `dm` included, takes no
+`--force`; passing it answers `invalid-args`, exit `2`. Whether to confirm those with the user is a judgment call the
+skill's guardrail makes, not a flag the binary requires.
 
 ## Timeouts
 
@@ -135,7 +138,11 @@ xr <list-cmd> --page <n>                # NOT supported by X; returns reason: "u
 
 Commands that thread `--cursor` through as `pagination_token`: `search`, `timeline`, `mentions`, `bookmarks`, `likes`,
 `following`, `followers`, `muted`, `blocked`, `dms`. (The `--cursor` help text lists the first eight; `muted` and
-`blocked` thread it the same way, verified on the 3.3.0 contract.)
+`blocked` thread it the same way, verified against the binary.)
+
+Every user-scoped list verb (`timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`, `muted`,
+`blocked`) resolves `/2/users/me` before each page to learn the caller's id, so one page costs **two** requests;
+`search` and `dms` cost one. Budget `--max-pages` against a rate-limit window accordingly.
 
 ### `--limit` and `-n/--max-results`
 

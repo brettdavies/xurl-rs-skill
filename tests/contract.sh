@@ -132,6 +132,8 @@ check "post --dry-run: media_ids echoed" 0 out '"2"' -- "$X" post "hi" --media-i
 check "reply --dry-run" 0 out '"command": "reply"' -- "$X" reply 1585341984679469056 "hi" --dry-run --output json
 check "quote --dry-run" 0 out '"command": "quote"' -- "$X" quote 1585341984679469056 "hi" --dry-run --output json
 check "block --dry-run" 0 out '"command": "block"' -- "$X" block @spammer --dry-run --output json
+check "block --dry-run echoes the handle" 0 out '"target_username": "@spammer"' -- "$X" block @spammer --dry-run --output json
+check "block --force: invalid-args" 2 err '"reason": "invalid-args"' -- "$X" block @spammer --force --dry-run --output json
 check "unblock --dry-run" 0 out '"command": "unblock"' -- "$X" unblock @spammer --dry-run --output json
 check "mute --dry-run" 0 out '"command": "mute"' -- "$X" mute @noisy --dry-run --output json
 check "unmute --dry-run" 0 out '"command": "unmute"' -- "$X" unmute @noisy --dry-run --output json
@@ -251,6 +253,8 @@ check "dms --cursor" 0 log '/2/dm_events?' -- "$X" dms --cursor abc --output jso
 check "blocked --cursor: /blocking + token" 0 log 'blocking?max_results=5&user.fields=created_at%2Cdescription%2Cpublic_metrics%2Cverified&pagination_token=abc' -- "$X" blocked --cursor abc -n 5 --output json
 check "muted --after: /muting + token" 0 log 'pagination_token=abc' -- "$X" muted --after abc --output json
 check "muted resolves /2/users/me first" 0 log '/2/users/me' -- "$X" muted --output json
+check "search does not resolve /2/users/me" 0 log '!/2/users/me' -- "$X" search x --output json
+check "user @handle: @ stripped in lookup" 0 log '/2/users/by/username/streamsoup_promo?' -- "$X" user @streamsoup_promo --output json
 check "reply <url>: id extracted" 0 log '"in_reply_to_tweet_id":"1585341984679469056"' -- "$X" reply "https://x.com/u/status/1585341984679469056" "hi" --output json
 check "quote <url>: id extracted" 0 log '"quote_tweet_id":"1585341984679469056"' -- "$X" quote "https://x.com/u/status/1585341984679469056" "hi" --output json
 check "read <url>: id extracted" 0 log '/2/tweets/1585341984679469056?' -- "$X" read "https://x.com/u/status/1585341984679469056" --output json

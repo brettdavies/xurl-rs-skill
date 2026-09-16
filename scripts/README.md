@@ -30,7 +30,8 @@ What it does:
    answers its document with no `status`, or `status=ok` for a local verb) is rejected with a "run it directly" note
    at exit `2`. A non-zero preflight exit is reported with the envelope's `reason` at exit `1`; when that reason is
    `confirmation-required`, the message says to pass `--force`.
-3. On a TTY, prompts `[y/N]`. Off a TTY, requires `--yes` or refuses.
+3. Echoes the accepted `dry_run` envelope on **stderr** (stdout is reserved for the live response), so capture
+   `2>&1` when you want to keep it. On a TTY, prompts `[y/N]`. Off a TTY, requires `--yes` or refuses at exit `3`.
 4. `exec`s the verb again with `--output json` (no `--dry-run`): the API document lands on stdout, a failure envelope
    on stderr, and the verb's exit code is the gate's.
 
@@ -74,7 +75,9 @@ controls them. The script refuses if they appear in args.
 
 Defaults:
 
-- `--max-pages 20`: safety cap to keep runaway queries from burning tweet caps.
+- `--max-pages 20`: safety cap to keep runaway queries from burning tweet caps. A user-scoped list verb resolves
+  `/2/users/me` before each page, so 20 pages of `timeline` or `muted` is up to 40 requests; `search` and `dms` cost
+  one per page.
 - `--sleep 0`: no delay between pages. Bump on rate-limit risk.
 
 Examples:

@@ -44,7 +44,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self._record(None)
         path = self.path
-        if "/stream" in path:
+        if path.startswith(("/2/tweets/search/stream", "/2/tweets/sample/stream")):
             body = b'{"data":{"id":"s1","text":"one"}}\n{"data":{"id":"s2","text":"two"}}\n'
             self.send_response(200)
             self.send_header("Content-Type", "application/json")

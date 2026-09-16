@@ -17,9 +17,10 @@ MESSAGES, MEDIA UPLOAD, RAW MODE, INSPECT SCHEMAS, MULTI-APP, ENVIRONMENT VARIAB
 command appears with two or three canonical invocations (text mode, then `--output json`, sometimes piped to `jaq`).
 This is the fastest way to learn the shape of any workflow.
 
-One caveat: the gallery's `xr bookmarks -n 100 --output jsonl | jaq '.id'` line answers `null`, because `--output jsonl`
-prints the whole document rather than one record per line. Filter the document instead: `--output json | jaq -c
-'.data[]?'`. See [agent-flags.md § Output format](agent-flags.md#output-format).
+One caveat: every `--output jsonl` line in the gallery and in the per-command `--help` examples (`bookmarks`, `likes`,
+`muted`, `blocked`, …) prints the whole document rather than one record per line, so the gallery's `| jaq '.id'`
+answers `null`. Filter the document instead: `--output json | jaq -c '.data[]?'`. See
+[agent-flags.md § Output format](agent-flags.md#output-format).
 
 ### 2. `xr <command> --help`: per-command flag matrix and examples
 

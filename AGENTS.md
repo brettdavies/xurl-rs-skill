@@ -10,7 +10,7 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 | xurl-rs commit       | `7a98220` on `dev` (2026-09-15), the tree the next `xr` release is cut from         |
 | Binary self-report   | `xr 3.2.0` (the version string moves at release time; the contract is 3.3.0)        |
 | Contract documented  | 3.3.0: `apps` wrapper, `next_step`, `block` / `unblock` / `blocked` / `muted`       |
-| Harness result       | `tests/contract.sh`: 133 checks passing against `target/debug/xr` from that commit  |
+| Harness result       | `tests/contract.sh`: 137 checks passing against `target/debug/xr` from that commit  |
 
 The bundle documents the contract of the **next** `xr` release, from the upstream `dev` head, so that the bundle
 pass ships beside the release rather than after it. When any row above moves, re-run the harness and update the row
