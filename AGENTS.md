@@ -3,7 +3,19 @@
 Producer-side instructions for agents (Claude Code, Codex, Cursor, OpenCode) working **on** this skill bundle.
 Consumer-side instructions (how an agent should *use* the bundle once installed) live in `SKILL.md`.
 
-> **Status:** bootstrap. Expand each section below as the skill content is authored.
+## Verified against
+
+| Field                | Value                                                                               |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| xurl-rs commit       | `7a98220` on `dev` (2026-09-15), the tree the next `xr` release is cut from         |
+| Binary self-report   | `xr 3.2.0` (the version string moves at release time; the contract is 3.3.0)        |
+| Contract documented  | 3.3.0: `apps` wrapper, `next_step`, `block` / `unblock` / `blocked` / `muted`       |
+| Harness result       | `tests/contract.sh`: 133 checks passing against `target/debug/xr` from that commit  |
+
+The bundle documents the contract of the **next** `xr` release, from the upstream `dev` head, so that the bundle
+pass ships beside the release rather than after it. When any row above moves, re-run the harness and update the row
+in the same PR. Consumers install from the head of `main` with the bundle's own `VERSION`; nothing pins the bundle to
+a binary version on either side.
 
 ## Repository shape
 
@@ -16,8 +28,8 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 | `scripts/`           | Consumer-side helpers shipped to install dirs (`dry-run-gate.sh`, `paginate.sh`) plus producer-side release tooling (`generate-changelog.py`, `sync-dev-after-release.sh`).                         |
 | `scripts/release/`   | Vendored release gates (`drift.sh`, `guarded-paths.sh`, `_lib.sh`). Refreshed as verbatim copies from the `github-repo-setup` skill; never edited in place.                                         |
 | `CODEOWNERS`         | Required reviewers for governance, release-integrity, legal-hygiene, and workflow-doc paths; pairs with the rulesets' code-owner-review rule. Lives at the repo root so a local-tree audit sees it. |
-| `tests/`             | Producer-side test runner (`run.sh`) for the scripts. Run by CI.                                                                                                                                    |
-| `fixtures/`          | Producer-side stub `xr` binary + fixture envelopes used by the test runner.                                                                                                                         |
+| `tests/`             | Producer-side: `run.sh` (stub-driven script tests, run by CI) and `contract.sh` + `stub-api.py` (the documented invocations against a real `xr`; local, needs `XR_BIN`).                            |
+| `fixtures/`          | Producer-side stub `xr` binary used by `tests/run.sh`; models the real streams (success on stdout, error envelope on stderr with the exit code).                                                    |
 | `evals/`             | Self-contained eval prompts dispatched against a fresh agent session. Producer.                                                                                                                     |
 | `docs/`              | Planning artifacts (brainstorms, plans, solutions, reviews). Blocked from `main`.                                                                                                                   |
 | `docs/solutions/`    | Symlink to `~/dev/solutions-docs` (shared knowledge store; categorized by `problem_type` with YAML frontmatter). Relevant when implementing or debugging in documented areas.                       |
@@ -41,6 +53,32 @@ See [`RELEASES.md`](RELEASES.md) for the full release workflow.
 | `guard-main-docs.yml`       | PR to `main`                | Blocks engineering docs from reaching `main`                                                  |
 | `guard-release-branch.yml`  | PR to `main`                | Rejects any head branch not under `release/`                                                  |
 | `guard-main-provenance.yml` | PR to `main`                | Requires every commit to carry a `(#N)` squash-merge reference                                |
+
+## Refreshing the bundle against a new `xr`
+
+The documented contract is only as true as the last binary it was run against. A refresh is a five-step loop; skip
+none of them, and never trust `xr --help`, the bundled schema files, or a previous pass's prose in place of running
+the invocation.
+
+1. Build the target: `cd ~/dev/xurl-rs && git checkout dev && git pull && cargo build`. Note the commit.
+2. Run the harness with the full path, never a bare `xr` (a Homebrew install and a dev build both answer to the name):
+   `XR_BIN=$HOME/dev/xurl-rs/target/debug/xr bash tests/contract.sh`. Every failing row is either a bundle claim that
+   is now wrong (fix the doc and the row) or an upstream regression (report it upstream, keep the row failing).
+3. Read the upstream delta (`git log --stat <last-verified>..HEAD`) for surface the harness has no row for: a new
+   command, a new flag, a new reason. Probe it, document it, add a row.
+4. Re-run `bash tests/run.sh` (the stub tests), `shellcheck --severity=style scripts/*.sh tests/*.sh fixtures/bin/xr`,
+   and `markdownlint-cli2 .`; then re-run the evals in `evals/` that touch the changed surface.
+5. Update the **Verified against** table above and `SKILL.md`'s contract-version sentence.
+
+Two groups in the harness matter equally. Group 1 runs against an empty store and a closed port and sees every failure
+envelope; group 2 runs against `tests/stub-api.py` with a fake user token and sees every **success** document. A
+closed-port harness alone never observes a success, so a bundle verified that way can document a success key the
+binary never emits and ship a paginator that fails on every real page. The stub server is what makes the success half
+checkable; the reasoning and the failure it guards against are in
+`docs/solutions/developer-experience/verify-cli-success-paths-with-a-stub-server-not-a-closed-port.md`.
+
+`tests/contract.sh` is not wired into CI: it needs a built `xr`, and the bundle intentionally tracks the upstream
+`dev` head ahead of any release artifact CI could download. Run it locally before every bundle pass.
 
 ## Issues
 

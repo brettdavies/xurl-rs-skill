@@ -10,8 +10,9 @@ xr auth status --output json                 # .apps[]: confirm the default app 
 xr whoami --output json                      # confirm the active user is who you think
 ```
 
-If `whoami` exits `77` (`reason: "auth-required"`), its envelope carries a `next_step` naming the fix; follow it via
-[templates/oauth2-setup.md](oauth2-setup.md) first.
+`whoami` succeeds with the API document `{"data":{"id":…,"username":…,"name":…}}` on stdout (no `status` key; that is
+the normal success shape for API-backed verbs). If it exits `77` (`reason: "auth-required"`), its envelope on stderr
+carries a `next_step` naming the fix; follow it via [templates/oauth2-setup.md](oauth2-setup.md) first.
 
 ## Preferred path: `scripts/dry-run-gate.sh`
 
@@ -43,9 +44,10 @@ deciding, or when you want a different output format on the live call.
 xr post "<TEXT>" --dry-run --output json
 ```
 
-Expect a `status: "dry_run"`, `would_succeed: true`, `exit_code: 0` envelope. If `would_succeed` is `false`, the
-envelope's payload names the failing input check (text too long, malformed ID). Dry-run validates inputs only; it does
-not check credentials, which is why the pre-flight `whoami` above matters. Fix and re-run the dry-run before going live.
+Expect a `status: "dry_run"`, `would_succeed: true`, `exit_code: 0` envelope on stdout, with the inputs it validated
+beside them (`command`, `body`, `media_ids`; `post_id` for `reply` / `quote`). If `would_succeed` is `false`, the
+payload names the failing input check (text too long, malformed ID). Dry-run validates inputs only; it does not check
+credentials, which is why the pre-flight `whoami` above matters. Fix and re-run the dry-run before going live.
 
 ### 2. Live
 
@@ -53,7 +55,8 @@ not check credentials, which is why the pre-flight `whoami` above matters. Fix a
 xr post "<TEXT>" --output json
 ```
 
-Capture the response. The new post ID is at the `data.id` path of the `ok` envelope:
+Capture the response. The live answer is the API document (`{"data":{"id":"…","text":"…"}}`, no `status` key); the
+new post ID is at `data.id`:
 
 ```bash
 POST_ID=$(xr post "<TEXT>" --output json | jaq -r '.data.id')
@@ -73,8 +76,8 @@ xr reply <PARENT_ID> "<TEXT>" --dry-run --output json
 xr reply <PARENT_ID> "<TEXT>" --output json
 ```
 
-`<PARENT_ID>` accepts a bare integer OR a full post URL (`https://x.com/<user>/status/<id>`); `xr` parses the URL and
-extracts the ID.
+`<PARENT_ID>` accepts a bare integer OR a full post URL (`https://x.com/<user>/status/<id>`); `xr` extracts the ID for
+the live request (`reply.in_reply_to_tweet_id`). The dry-run envelope echoes the argument as given, URL included.
 
 ## Quote post
 
@@ -129,8 +132,8 @@ Notes:
 Upload media first, capture the IDs, then attach via `--media-id` (repeatable):
 
 ```bash
-MEDIA_ID_A=$(xr media upload ./a.png --media-type image/png --category tweet_image --output json | jaq -r '.data.media_id')
-MEDIA_ID_B=$(xr media upload ./b.png --media-type image/png --category tweet_image --output json | jaq -r '.data.media_id')
+MEDIA_ID_A=$(xr media upload ./a.png --media-type image/png --category tweet_image --output json | jaq -r '.data.id')
+MEDIA_ID_B=$(xr media upload ./b.png --media-type image/png --category tweet_image --output json | jaq -r '.data.id')
 
 xr post "<TEXT>" --media-id "$MEDIA_ID_A" --media-id "$MEDIA_ID_B" --dry-run --output json
 xr post "<TEXT>" --media-id "$MEDIA_ID_A" --media-id "$MEDIA_ID_B" --output json
@@ -148,12 +151,13 @@ Destructive. Always confirm scope with the user before running, even on a dry-ru
 ```
 
 `--force` is the binary's own confirmation flag: `xr delete` prompts on a TTY and answers `reason:
-"confirmation-required"`, exit `1`, when it cannot. The gate is the confirmation step, so pass `--force` through it.
+"confirmation-required"`, exit `1`, when it cannot, **before** it considers `--dry-run`. The gate is the confirmation
+step, so pass `--force` through it; without it the gate's own preflight is refused.
 
 Manual path:
 
 ```bash
-xr delete <POST_ID> --dry-run --output json
+xr delete <POST_ID> --force --dry-run --output json     # --force is needed for the preflight off a TTY, too
 # User confirms.
 xr delete <POST_ID> --force --output json
 ```
@@ -173,7 +177,7 @@ If a live call returns `status: "error"`:
 - `reason: "confirmation-required"` (exit `1`) → the verb could not prompt; re-run with `--force` after the user
   confirms.
 - `reason: "invalid-args"` (exit `2`) → re-read `xr post --help` (or `xr reply --help`), fix the call.
-- `reason: "validation"` (exit `1`) → the server response didn't deserialize. Re-run with `--verbose` to capture the raw
-  body and compare against `xr schema post --output json`.
+- `reason: "serialization"` (exit `1`) → the server response didn't deserialize into the typed shape. Re-run in text
+  mode with `--verbose 2>wire.log` to capture the raw body and compare against `xr schema post --output json`.
 
 Full reason → action map: [references/output-envelope.md](../references/output-envelope.md).

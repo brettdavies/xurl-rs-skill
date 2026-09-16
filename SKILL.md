@@ -1,13 +1,13 @@
 ---
 name: xurl-rs
-description: Drive the X (Twitter) API from the command line via `xr`, the xurl-rs CLI. Use when the user wants to post or thread, reply, quote, delete, like, repost, bookmark, follow, mute, block, send DMs, search recent posts, read a timeline or mentions, look up a user, upload media, stream filtered tweets, hit a raw `/2/...` endpoint, manage OAuth2 / OAuth1 / Bearer auth, register multiple X apps, inspect token state, check API usage caps, or validate a tweet/user JSON payload against the typed response schema. Triggers on "post to X", "post to Twitter", "tweet from CLI", "X API call", "OAuth2 X", "xurl", "xr command", "search tweets", "send DM", "follow on X".
+description: Drive the X (Twitter) API from the command line via `xr`, the xurl-rs CLI. Use when the user wants to post or thread, reply, quote, delete, like, repost, bookmark, follow, mute, block, list who they have muted or blocked, send DMs, search recent posts, read a timeline or mentions, look up a user, upload media, stream filtered tweets, hit a raw `/2/...` endpoint, manage OAuth2 / OAuth1 / Bearer auth, register multiple X apps, inspect token state, check API usage or credits, or validate a tweet/user JSON payload against the typed response schema. Triggers on "post to X", "post to Twitter", "tweet from CLI", "X API call", "X CLI", "OAuth2 X", "xurl", "xr command", "search tweets", "send DM", "follow on X", "block on X", "mute on X".
 ---
 
 # xurl-rs (`xr`)
 
-`xr` is a Rust CLI for the X (Twitter) API. It ships ~30 high-level shortcut commands, a raw curl-style mode for any
+`xr` is a Rust CLI for the X (Twitter) API. It ships 31 high-level shortcut commands, a raw curl-style mode for any
 `/2/...` endpoint, OAuth1 / OAuth2-PKCE / Bearer auth with a multi-app token store at `~/.xurl`, chunked media upload,
-streaming, typed JSON-schema responses, and an agent-native output envelope.
+streaming, typed JSON-schema responses, and typed error envelopes with a `next_step` an agent can act on.
 
 The binary self-introspects. Treat it as the source of truth: this skill routes you to the binary's helpers and provides
 the workflow patterns that the binary can't describe on its own.
@@ -22,35 +22,38 @@ Before any write op:
 
 1. Use `--dry-run` first to surface input validation errors and confirm intent. Every write verb emits a typed `status:
    "dry_run"` envelope when `--output json` and `--dry-run` are both set; check `would_succeed: true` and `exit_code:
-   0`.
+   0`. Dry-run validates inputs only: not credentials, not the filesystem, and not the verb's own confirmation gate
+   (`delete`, `auth clear`, `auth apps remove` need `--force` even for the preflight when there is no TTY).
 2. Confirm scope with the user before issuing the live call when the action is destructive (`delete`, `block`,
    `unfollow`, `dm`, `post` to anything besides a test thread the user already named).
 3. Prefer `--output json` with `--no-interactive` so failures arrive as structured envelopes you can act on.
 
 Read ops (`read`, `search`, `whoami`, `user`, `timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`,
-`dms`, `usage`, `auth status`, `schema`, `validate`, `examples`, `version`) ignore `--dry-run` and are safe to run
-without confirmation.
+`muted`, `blocked`, `dms`, `usage`, `usage credits`, `media status`, `auth status`, `schema`, `validate`, `examples`,
+`version`) ignore `--dry-run` and are safe to run without confirmation.
 
 ## Quick start: let the binary teach you
 
-The binary ships three self-introspection commands. Reach for them before reading anything in `references/`:
+The binary ships five self-introspection commands. Reach for them before reading anything in `references/`:
 
 ```bash
-xr examples                          # curated invocation gallery, ~120 lines, every major workflow
+xr examples                          # curated invocation gallery, ~130 lines, every major workflow
 xr <command> --help                  # 3-5 examples per command + full flag matrix
-xr schema --list --output json       # 35 typed response shapes, one per command
+xr schema --list                     # 39 typed response shapes, one per command
 xr schema post --output json         # JSON Schema for a single response type
-xr schema --envelope --output json   # the canonical agent-native output envelope (ok / dry_run / error)
+xr schema --envelope --output json   # the ok / dry_run / error envelope variants and every error key
 xr auth status --output json         # {"status":"ok","apps":[...]}; read it through .apps[]
 ```
 
 For full read-only-probes-are-always-safe rules, see
 [references/self-introspection.md](references/self-introspection.md).
 
-## Errors tell you what to do next
+## Read the exit code, then the document
 
-Under `--output json`, every failure is a `status: "error"` envelope on **stderr** with a closed-set kebab-case
-`reason`, an `exit_code`, and, when a recovery exists, a `next_step` object. Exit `77` means no usable credential; its
+Under `--output json`, a **success is the X API document itself** on stdout (`data`, plus `meta` / `includes` / `errors`
+when the API sent them) with **no `status` key**; only local verbs (`auth …`, `validate`, `skill …`) add `status: "ok"`.
+A **failure** is a `status: "error"` envelope on **stderr** with a non-zero exit, a closed-set kebab-case `reason`, an
+`exit_code`, and, when a recovery exists, a `next_step` object. Exit `77` means no usable credential; its
 `next_step.action` is one of `register-app` / `sign-in` / `select-app` / `inspect-store` / `enroll-app`, and a `command`
 is safe to run verbatim while a `template` needs values only the user has:
 
@@ -59,18 +62,19 @@ xr auth status --output json                 # {"status":"ok","apps":[...]}; eac
 xr whoami --output json 2>&1 >/dev/null      # the failure itself, carrying next_step
 ```
 
-Branch on `reason` first and `next_step.action` second; never guess a credential fix. Full catalog and the exit-77
-recipe: [references/output-envelope.md](references/output-envelope.md).
+Branch on the exit code first, then on `reason` and `next_step.action`; never guess a credential fix, and never treat a
+missing `status` on a `0` exit as an error. Full contract, catalog, and the exit-77 recipe:
+[references/output-envelope.md](references/output-envelope.md).
 
 ## Deterministic helpers (`scripts/`)
 
 The bundle ships two shellcheck-clean scripts that encode the rules the references describe. Prefer them when you can:
 they enforce mechanically what the prose only requests.
 
-| Script                                                      | Use for                                                                                                                                      |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scripts/dry-run-gate.sh [--yes] -- xr <write-verb> [args]` | Every write op. Runs `--dry-run` preflight, refuses on `would_succeed: false`, prompts on TTY or honors `--yes`, then `exec`s the live call. |
-| `scripts/paginate.sh [--max-pages N] -- xr <list-verb>`     | Every cursor-paginated read. Streams `.data[]?` as compact JSONL, follows `meta.next_token`, caps at `--max-pages`.                          |
+| Script                                                      | Use for                                                                                                                                                                                            |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/dry-run-gate.sh [--yes] -- xr <write-verb> [args]` | Every write op. Runs `--dry-run` preflight, refuses on `would_succeed: false` or an error envelope (naming its `reason`), prompts on TTY or honors `--yes`, then `exec`s the live call.            |
+| `scripts/paginate.sh [--max-pages N] -- xr <list-verb>`     | Every cursor-paginated read (`search`, `timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`, `muted`, `blocked`, `dms`). Streams `.data[]?` as JSONL, follows `meta.next_token`. |
 
 Both auto-detect `jaq` (preferred) or `jq`. When neither is installed, they emit a PM-aware install advice ranked by
 what's already on the system. Install path after `xr skill install claude_code` (or the host equivalent) is
@@ -84,6 +88,7 @@ what's already on the system. Install path after `xr skill install claude_code` 
 | User wants to post / reply / thread        | `scripts/dry-run-gate.sh` + [templates/post-reply-thread.md](templates/post-reply-thread.md) |
 | User wants to search and pipe to a tool    | `scripts/paginate.sh` + [templates/search-and-process.md](templates/search-and-process.md)   |
 | User wants to attach media                 | [templates/media-upload.md](templates/media-upload.md)                                       |
+| Block / mute someone, or list who is       | `scripts/dry-run-gate.sh -- xr block @user`; `scripts/paginate.sh -- xr blocked`             |
 | Pick an auth mode for a one-off            | [references/auth-modes.md](references/auth-modes.md)                                         |
 | Pick output format / pagination / dry-run  | [references/agent-flags.md](references/agent-flags.md)                                       |
 | Parse a response or an error               | [references/output-envelope.md](references/output-envelope.md)                               |
@@ -100,15 +105,18 @@ what's already on the system. Install path after `xr skill install claude_code` 
 3. **Never paste credentials into chat, commits, PR bodies, or shell history.** Pass secrets through env vars
    (`XURL_BEARER_TOKEN`, `--client-secret "$(op read op://...)"`); never inline them.
 4. **Read-only probes are always fine**: `xr --help`, `xr <cmd> --help`, `xr examples`, `xr schema ...`, `xr validate <
-   file.json`, `xr auth status`, `xr version`, `xr usage`. No confirmation needed.
+   file.json`, `xr auth status`, `xr version`, `xr usage`, `xr usage credits`. No confirmation needed.
 
 ## Common flag patterns to apply across calls
 
-- `--output json` (or `XURL_OUTPUT=json`): machine-readable on every command.
+- `--output json` (or `XURL_OUTPUT=json`): machine-readable on every command. `--output jsonl` prints the same whole
+  document, not one record per line; get per-record lines with `jaq -c '.data[]?'` (or `scripts/paginate.sh`).
 - `--no-interactive`: fail with a structured envelope instead of prompting.
 - `--no-pager`: documented no-op, safe to always pass.
 - `--quiet`: suppress human-only banners (errors still go to stderr).
 - `--timeout 30` (the default): bump for streaming / slow networks.
+- `-n <1..100>` / `--limit`: page size for list verbs (`search` floors at 10, the API's minimum); `--cursor <token>`
+  from `meta.next_token` for the next page.
 
 Full agent-flag matrix and env-var precedence: [references/agent-flags.md](references/agent-flags.md).
 
@@ -132,12 +140,13 @@ installation and skips the rest).
   `validate`, `usage`).
 - [references/auth-modes.md](references/auth-modes.md): OAuth2 PKCE (browser + headless), OAuth1, Bearer, multi-app
   token store, the `auth status` `apps` shape, what to do on exit 77.
-- [references/agent-flags.md](references/agent-flags.md): output formats, pagination, dry-run, env-var precedence, exit
-  codes.
-- [references/output-envelope.md](references/output-envelope.md): the `ok` / `dry_run` / `error` envelope, the
-  closed-set reason catalog, `next_step`, the exit-77 recipe, exit-code matrix.
+- [references/agent-flags.md](references/agent-flags.md): output formats (and what `jsonl` really emits), pagination and
+  clamps, dry-run, verbose, env-var precedence, exit codes.
+- [references/output-envelope.md](references/output-envelope.md): the four document kinds (API document / `ok` /
+  `dry_run` / `error`), the closed-set reason catalog, `next_step`, the exit-77 recipe, exit-code matrix, which schema
+  validates which document.
 - [references/x-api-essentials.md](references/x-api-essentials.md): drift-resistant pointers into the X API (auth
-  scopes, tiers, rate limits).
+  scopes, tiers, rate limits, per-category doc URLs).
 
 ## Templates
 
@@ -145,8 +154,8 @@ installation and skips the rest).
   status`.
 - [templates/post-reply-thread.md](templates/post-reply-thread.md): compose, capture id, thread; leads with
   `scripts/dry-run-gate.sh`.
-- [templates/search-and-process.md](templates/search-and-process.md): `xr search --output jsonl | jaq`; leads with
-  `scripts/paginate.sh`.
+- [templates/search-and-process.md](templates/search-and-process.md): `xr search --output json | jaq -c '.data[]'`;
+  leads with `scripts/paginate.sh`.
 - [templates/media-upload.md](templates/media-upload.md): chunked upload, attach `--media-id` via the gate.
 
 ## Scripts
@@ -158,5 +167,5 @@ installation and skips the rest).
 ## Producer-side notes
 
 This file is the *consumer* entry point and is loaded into the agent's context when the skill activates. *Producer-side*
-notes for agents working **on** this bundle (release flow, branch model, CI) live in [AGENTS.md](AGENTS.md). Don't
-conflate the two.
+notes for agents working **on** this bundle (release flow, branch model, CI, the contract harness that verifies every
+claim above against a real binary) live in [AGENTS.md](AGENTS.md). Don't conflate the two.

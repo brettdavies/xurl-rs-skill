@@ -128,7 +128,8 @@ a multi-user host, because the URL contains the authorization code, which shell 
 Override the default with `XURL_NO_BROWSER=1` on hosts that should never attempt to open a browser.
 
 Step 1 against an app with no client id answers `reason: "client-credentials-missing"`, exit `2`, with a `select-app`
-`next_step` when another app has credentials.
+`next_step` when another registered app has credentials, or a `register-app` `next_step` (a `template`, values from
+the user) when none does.
 
 ## OAuth1
 
@@ -150,7 +151,8 @@ XURL_BEARER_TOKEN="$(op read op://...)" xr search "rustlang" --auth app
 
 For read-only v2 endpoints and search. Cannot post, like, follow, etc. A write verb against an app whose only
 credential is a Bearer answers `reason: "auth-method-mismatch"`, exit `2`, with `available_in_app: ["app"]` and the
-schemes the endpoint accepts in `supported`.
+schemes the endpoint accepts in `supported`. Forcing `--auth app` on a read when no bearer is staged answers `reason:
+"auth-required"`, exit `77`, with no `next_step`: stage one with `xr auth app --bearer-token` or drop the flag.
 
 ## Multi-app management
 
@@ -165,7 +167,7 @@ xr auth apps remove my-app --force --output json      # --force skips the prompt
 
 # Set default app for new shells.
 xr auth default my-app             # by name
-xr auth default my-app alice       # app + default user together
+xr auth default my-app alice       # app + default user together (two documents under --output json)
 xr auth default                    # interactive picker
 
 # Per-request override (no default change).
