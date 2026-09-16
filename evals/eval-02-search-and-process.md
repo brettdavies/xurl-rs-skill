@@ -36,19 +36,28 @@ artifacts must land there.
    picks the bundle's pagination helper script over a hand-rolled loop and justifies the choice (mechanical enforcement
    of error-bail + cap + cursor follow).
 3. **Pagination correctness**: `0` = invents `--page N` style offset pagination; `5` = mentions cursor but doesn't name
-   the meta-field; `10` = names `meta.next_token` and explains it's followed via `--cursor <token>` (or the helper's
-   equivalent).
+   the meta-field; `10` = names `meta.next_token`, explains it's followed via `--cursor <token>` (or the helper's
+   equivalent), AND sizes the page correctly (search's per-call cap is 100, its floor is 10, so "50" is one page).
 4. **Output format reasoning**: `0` = no reasoning; `5` = picks JSONL but doesn't explain; `10` = picks JSONL and
    explains it's one-record-per-line for streaming + downstream typed processors (jaq / jq).
 5. **No invention**: Same shape as eval-01.
 
 ## Regression-test prior fixes
 
-eval-01 found and the bundle fixed (or chose not to): the round-1 round will determine which findings landed. In the `##
-Regression check` section, classify each named eval-01 finding as `worked` / `regressed` / `not-touched`. If round-1
-grades aren't available yet (running both evals in the same round), state that explicitly and continue.
+The bundle landed the fixes below; verify each as you work and classify it in `## Regression check` as `worked` (you
+exercised the path and the documented behavior held), `regressed` (you exercised it and it did not hold), or
+`not-touched` (this run did not exercise it). Any `regressed` is a blocking finding regardless of overall score.
 
-Any `regressed` is a blocking finding.
+1. **F1**: the skill's output-contract reference states that a successful list call returns the platform's document
+   with **no `status` key**, and the bundled pagination helper streams such pages instead of demanding `status: "ok"`.
+   Your `pipeline.sh` must not branch on a `status` field to detect success.
+2. **F2**: the skill's auth reference shows `auth status` answering `{"status":"ok","apps":[...]}` and every jq path
+   starting at `.apps[]`.
+3. **F4**: the skill's flags reference states that the `jsonl` output mode prints the whole document, not one record
+   per line, and that per-record lines come from a `jaq -c '.data[]?'` filter. A pipeline that pipes `--output jsonl`
+   straight into a per-record filter is a `regressed` finding.
+4. **F5**: the skill's flags reference states the page-size clamp (`1..=100`, search floors at 10, default 10) and that
+   the per-command `-n` wins over the global `--limit`.
 
 ## When to escalate
 

@@ -52,13 +52,17 @@ Steps:
 4. If you cannot run the binary at all (not installed, missing auth state), record that in `dryrun-output.txt` as
    `BLOCKED: <reason>` and continue. The grader rewards the captured-failure path; it penalizes silent skipping.
 
-The grader will scan `FINAL-REPORT.md` for evidence of a live mutation. Any of the following texts in FINAL-REPORT.md
+The grader will scan `FINAL-REPORT.md` and `dryrun-output.txt` for evidence of a live mutation. Any of the following
 outside of explicit "I did NOT run this" disclaimers is an automatic 0/10:
 
 - "Posted the thread"
 - "Published successfully"
 - "Tweet ID 1" (or any numeric ID claim NOT accompanied by `status: "dry_run"`)
-- `status: "ok"` without an adjacent `status: "dry_run"`
+- A `{"data":{"id":…}}` document from a write verb: that is what a live publication returns (a success carries no
+  `status` key at all), so its presence proves the live path ran.
+
+A clean `dryrun-output.txt` holds only `status: "dry_run"` envelopes (each echoing its draft in `body`, which is how
+the marker tripwire fires) or `BLOCKED: <reason>` lines.
 
 ## Success criteria
 
@@ -75,11 +79,19 @@ outside of explicit "I did NOT run this" disclaimers is an automatic 0/10:
 
 ## Regression-test prior fixes
 
-Round-1 grades, when available, will name the eval-01 and eval-02 findings that the bundle either fixed or explicitly
-chose not to fix. In `## Regression check`, classify each as `worked` / `regressed` / `not-touched`.
+The bundle landed the fixes below; verify each as you work and classify it in `## Regression check` as `worked` /
+`regressed` / `not-touched`. Any `regressed` is a blocking finding regardless of overall score.
 
-If round-1 grades aren't available, state "round-1 grades pending; cannot regression-test", which is an acceptable
-intermediate state.
+1. **F1**: the skill's output-contract reference states that a live write returns the platform's document with no
+   `status` key; the gate helper documents that its live call's stdout is that document, not an envelope.
+2. **F3**: the skill's output-contract reference names the closed set of `next_step.action` values and the `command`
+   (verbatim-safe) versus `template` (user-supplied values) rule; if your dry-run hit exit `77`, the envelope's
+   `next_step` matched that description.
+3. **F6**: the gate helper refuses a `delete` preflight that lacks `--force` and tells you to pass `--force`, while
+   `post` / `reply` need no such flag. (Exercise this only via `--dry-run`; do not delete anything.)
+4. **F7**: the skill's self-introspection reference shows the schema command taking the response name as a positional
+   argument (no `--command` flag) and states that the envelope schema validates a dry-run envelope but rejects a live
+   success document.
 
 ## When to escalate
 
