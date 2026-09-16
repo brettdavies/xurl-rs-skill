@@ -2,6 +2,80 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-09-16
+
+### Added
+
+- `scripts/sync-dev-after-release.sh`, a release-backport tool that brings `dev` current with `main` after a tag
+  publishes (overwrites `VERSION` with the released number, copies `CHANGELOG.md` verbatim from `origin/main`, opens a
+  PR against `dev`). Idempotent on re-run. by @brettdavies in [#7](https://github.com/brettdavies/xurl-rs-skill/pull/7)
+- Add `tests/contract.sh` and `tests/stub-api.py`, a hermetic harness that runs every documented invocation against a
+  real `xr` build (`XR_BIN=/abs/path`) with a stub X API and asserts exit code, stream, body, and request log.
+- Add a regression-fix table (F1–F8) to `evals/README.md` that every eval from eval-02 on names by id.
+
+### Changed
+
+- Document the per-app fields `xr auth status` and `xr auth apps list` emit (`name`, `client_id_hint`, `default`,
+  `oauth2_users`, `oauth1`, `bearer`, `bearer_source`, `redirect_uri`, `redirect_uri_source`), and that both answer a
+  bare top-level array read through `.[]`. by @brettdavies in
+  [#13](https://github.com/brettdavies/xurl-rs-skill/pull/13)
+- Add `next_step` to the error-envelope reference (`register-app` / `sign-in` / `select-app` / `inspect-store` /
+  `enroll-app`, `command` vs `template`), the exit-77 recovery recipe with a script skeleton, and the closed-set reason
+  catalog with the exit codes the binary emits (77 for `auth-required` / `token-store`).
+- Document `status: "ok"` on the message-shaped auth verbs, and the `default` + `sign-in` `next_step` that `xr auth apps
+  add` carries.
+- Document `xr skill install --all` as one aggregated envelope with `installations[]`, `xr skill update --all` as one
+  per-host document per known host, `command_preview` on update envelopes, and `remove-failed` on a failed removal.
+- Change `xr version` guidance to `xr <semver>` and state the bundle describes the 3.2.0 release.
+- Change `scripts/sync-dev-after-release.sh` to discover every path `main` and `dev` disagree about since the previous
+  release tag, adopting release-prep paths and reporting contested ones, with `--dry-run`, `--only <path>`, and
+  `--include-contested`. by @brettdavies in [#14](https://github.com/brettdavies/xurl-rs-skill/pull/14)
+- Change `scripts/release/drift.sh` to fail its `.github/` gate only on changes `dev` carries that `main` never
+  received.
+- Change the output-contract reference to the four document kinds the binary emits: API-backed successes are the X API
+  document with no `status` key; `status: "ok"` is local verbs only; `dry_run` on stdout; `error` on stderr with the
+  exit code (`skill` verbs on stdout). by @brettdavies in [#17](https://github.com/brettdavies/xurl-rs-skill/pull/17)
+- Change `--output jsonl` guidance: it prints the same whole document as `json`; per-record lines come from `jaq -c
+  '.data[]?'`; only streaming endpoints emit one chunk per line.
+- Change the page-size guidance: `1..=100`, default 10, `search` floors at 10; `-n` wins over `--limit`.
+- Change `scripts/paginate.sh` and `scripts/dry-run-gate.sh` to capture stderr, name the envelope `reason` on refusal,
+  accept statusless success documents, and pass the verb's exit code through.
+- Change every docs.x.com URL that had moved (users, posts, lists, DMs, streams, media, usage, pagination, rate limits)
+  and add the X API v2 `llms.txt` index and `AGENTS.md` to the escalation order.
+
+### Fixed
+
+- Fix invocations that did not run as written: `xr schema <name>` (not `--command`), `--schema post` (not `tweet`),
+  `auth clear` selectors with `--force`, `auth apps redirect-uri get` / `set`, `auth default <APP> <USER>`, `--username`
+  / `-u`, and `--force` on `delete` (including through `dry-run-gate.sh`). by @brettdavies in
+  [#13](https://github.com/brettdavies/xurl-rs-skill/pull/13)
+- Fix the `auth status` verification steps that expected `expires_at` and `refresh_token`; presence is reported through
+  `oauth2_users`, and `xr` refreshes transparently.
+- Fix the `--output toml` note: it is a clap usage error at exit 2, not an `invalid-args` envelope.
+- Fix the update mechanism description: `xr skill update` removes the install directory and clones again.
+- Fix the last `xr schema --command <name>` invocation in `references/x-api-essentials.md`.
+- Fix `paginate.sh` exiting 0 on a failed page and refusing every real page (it required `status: "ok"`). by
+  @brettdavies in [#17](https://github.com/brettdavies/xurl-rs-skill/pull/17)
+- Fix the media id path (`.data.id`, not `.data.media_id`) in the media and post templates.
+- Fix `delete` guidance: `--force` is needed for the `--dry-run` preflight off a TTY; the gate reports it.
+- Fix `validate --schema envelope` recipes that a real success fails; validate API responses against the verb's schema
+  (`user`, `posts`, …).
+- Fix `--verbose` guidance: diagnostics print in text mode only; under `--output json` they are suppressed.
+- Fix the schema count (35) and two scope names asserted from memory in the escalation reference.
+
+### Documentation
+
+- `AGENTS.md` gains a row describing the `docs/solutions/` symlink convention, the shared `brettdavies/solutions-docs`
+  knowledge store, and when to consult it. The symlink itself is per-machine and gitignored. by @brettdavies in
+  [#6](https://github.com/brettdavies/xurl-rs-skill/pull/6)
+- `RELEASES.md` gains an `### After publish: sync dev with the release` subsection describing the
+  `scripts/sync-dev-after-release.sh` invocation, the PR-based flow (cuts `chore/sync-dev-after-vX.Y.Z`, opens a PR
+  rather than committing directly to dev), why the backport matters (without it, dev's `VERSION` and `CHANGELOG.md` stay
+  frozen at pre-release state), and the script's idempotency. by @brettdavies in
+  [#8](https://github.com/brettdavies/xurl-rs-skill/pull/8)
+
+**Full Changelog**: [v0.1.0...v0.2.0](https://github.com/brettdavies/xurl-rs-skill/compare/v0.1.0...v0.2.0)
+
 ## [0.1.0] - 2026-06-04
 
 ### Added
