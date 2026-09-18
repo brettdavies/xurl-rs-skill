@@ -117,20 +117,22 @@ envelope on stderr carries a `next_step` naming the fix; see the troubleshooting
 
 ## Troubleshooting
 
-| Symptom                                                           | Likely cause                                  | Fix                                                                                 |
-| ----------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Exit `77`, `next_step.action: "register-app"`                     | No app registered                             | Run the Pre-flight `apps add` with real values from the user                        |
-| Exit `77`, `next_step.action: "sign-in"`                          | App registered, no token                      | Run `next_step.command` verbatim (Branch B step 1), then step 2                     |
-| Exit `77`, `next_step.action: "select-app"`                       | The credentials live on another app           | Run `next_step.command` verbatim; it names the app with `--app`                     |
-| Exit `77`, `next_step.action: "inspect-store"`                    | `~/.xurl` exists but could not be read        | `xr auth status` names the file; back it up, move it aside, re-run                  |
-| `reason: "auth-method-mismatch"`, exit `2`                        | Only a Bearer is staged, or `--auth` is wrong | Read `supported`; run the OAuth2 flow or drop the `--auth` flag                     |
-| `reason: "client-credentials-missing"` on step 1                  | Target app has no client id                   | Follow its `next_step`, or `apps update <APP_NAME> --client-id … --client-secret …` |
-| Browser opens to a redirect-uri mismatch error                    | Registered URI differs from `xr`'s            | `xr auth apps redirect-uri set <APP_NAME> <URI>` to match the portal                |
-| `reason: "auth-required"` after a successful flow, no `next_step` | A scope the verb needs wasn't requested       | Re-grant the missing scope in the developer portal, re-run flow                     |
-| `next_step.action: "enroll-app"` (HTTP 403)                       | X refused the app                             | Open `next_step.docs`; the fix is in the developer portal                           |
-| `reason: "token-store"` from `auth status`                        | `~/.xurl` is corrupt or unreadable            | Back up `~/.xurl`, move it aside, re-run Pre-flight                                 |
-| Browser never opens (Branch A on a headless host)                 | Use Branch B                                  | `xr auth oauth2 --no-browser --step 1 / 2`                                          |
-| Step 2 fails with `invalid_grant`                                 | Code expired (typically ~60s after grant)     | Re-run Step 1, complete Step 2 promptly                                             |
+| Symptom                                                              | Likely cause                                  | Fix                                                                                 |
+| -------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Exit `77`, `next_step.action: "register-app"`                        | No app registered                             | Run the Pre-flight `apps add` with real values from the user                        |
+| Exit `77`, `next_step.action: "sign-in"`                             | App registered, no token                      | Run `next_step.command` verbatim (Branch B step 1), then step 2                     |
+| Exit `77`, `next_step.action: "select-app"`                          | The credentials live on another app           | Run `next_step.command` verbatim; it names the app with `--app`                     |
+| Exit `77`, `next_step.action: "inspect-store"`                       | `~/.xurl` exists but could not be read        | `xr auth status` names the file; back it up, move it aside, re-run                  |
+| `reason: "auth-method-mismatch"`, exit `2`                           | Only a Bearer is staged, or `--auth` is wrong | Read `supported`; run the OAuth2 flow or drop the `--auth` flag                     |
+| `reason: "client-credentials-missing"` on step 1                     | Target app has no client id                   | Follow its `next_step`, or `apps update <APP_NAME> --client-id … --client-secret …` |
+| Browser opens to a redirect-uri mismatch error                       | Registered URI differs from `xr`'s            | `xr auth apps redirect-uri set <APP_NAME> <URI>` to match the portal                |
+| `reason: "auth-required"` after a successful flow, no `next_step`    | A scope the verb needs wasn't requested       | Re-grant the missing scope in the developer portal, re-run flow                     |
+| `reason: "forbidden"`, `next_step.action: "enroll-app"`              | X refused the app (403 naming enrollment)     | Open `next_step.docs`; the fix is in the developer portal                           |
+| `reason: "forbidden"`, no `next_step`                                | The token lacks a scope, or the tier the path | Read `message`; grant the scope in the portal and re-run the flow, or change tier   |
+| `broadcasts moderators …` exits `77` on a token that works elsewhere | Token predates the `broadcast.*` scopes       | Allow them in the portal, then re-run Branch A or B for that app                    |
+| `reason: "token-store"` from `auth status`                           | `~/.xurl` is corrupt or unreadable            | Back up `~/.xurl`, move it aside, re-run Pre-flight                                 |
+| Browser never opens (Branch A on a headless host)                    | Use Branch B                                  | `xr auth oauth2 --no-browser --step 1 / 2`                                          |
+| Step 2 fails with `invalid_grant`                                    | Code expired (typically ~60s after grant)     | Re-run Step 1, complete Step 2 promptly                                             |
 
 ## Multi-user on the same app
 

@@ -7,10 +7,10 @@ OpenCode) once installed.
 Both scripts auto-detect [`jaq`](https://github.com/01mf02/jaq) (preferred) or `jq`. They are `#!/usr/bin/env bash`,
 shellcheck-clean, and meant to be invoked from any working directory.
 
-| Script            | Purpose                                                          | Exit codes                                                                                  |
-| ----------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `dry-run-gate.sh` | Enforce `--dry-run` → confirm → live for any `xr` write op.      | 0 live OK · 1 dry-run reject · 2 usage · 3 non-TTY w/o `--yes` · 4 declined · * passthrough |
-| `paginate.sh`     | Cursor-paginate any list-style verb; stream `.data[]?` as JSONL. | 0 done · 1 stdout error/dry_run document · 2 usage · * xr's exit on a failed page           |
+| Script            | Purpose                                                          | Exit codes                                                                                                   |
+| ----------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `dry-run-gate.sh` | Enforce `--dry-run` → confirm → live for any `xr` write op.      | 0 live OK · 1 dry-run reject · 2 usage · 3 non-TTY w/o `--yes` · 4 declined · * passthrough                  |
+| `paginate.sh`     | Cursor-paginate any list-style verb; stream `.data[]?` as JSONL. | 0 done · 1 stdout error/dry_run document, or a cursor that did not advance · 2 usage · * xr's exit on a page |
 
 Both model the binary's streams: a success is the raw X API document on stdout (no `status` key), a failure is an
 error envelope on stderr with a non-zero exit. Each script captures stderr during its own calls so a refusal names the
@@ -67,7 +67,9 @@ What it does:
    "error"` or `status: "dry_run"` document on stdout ends it at exit `1`.
 2. Streams `.data[]?` to stdout as compact JSONL, one record per line. A page is the raw API document; the script does
    not expect a `status` key.
-3. Reads `meta.next_token`. If empty, exits 0. Otherwise re-runs with `--cursor <token>` until `--max-pages`.
+3. Reads `meta.next_token`. If empty, exits 0. Otherwise re-runs with `--cursor <token>` until `--max-pages`. A page
+   that hands back the very cursor it was fetched with ends the loop at exit `1`: the verb ignores `--cursor`
+   (`broadcasts moderators list` does), so every further page would repeat the one already streamed.
 4. On `--max-pages` cap, exits 0 and prints the next cursor on stderr so you can resume.
 
 Do NOT pass `--cursor`, `--after`, `--page`, `--output`, `--json`, `--jsonl`, or `--dry-run` to the verb; the script
@@ -95,6 +97,9 @@ Examples:
 # Any list verb: timeline, mentions, bookmarks, likes, following, followers, muted, blocked, dms.
 ~/.claude/skills/xurl-rs/scripts/paginate.sh --max-pages 5 -- xr muted -n 100
 ```
+
+Not `broadcasts moderators list`: it is a single unpaged `GET`, so run it bare (`xr broadcasts moderators list --output
+json | jaq -c '.data[]?'`); the script would stop it at page 2 with the cursor-did-not-advance message.
 
 ## Local invocation (from the bundle directory)
 

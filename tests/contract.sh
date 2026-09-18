@@ -117,6 +117,13 @@ apps:
       bearer: fakebearer
 default_app: demo
 EOF
+cat >"$WORK/creds.yaml" <<'EOF'
+apps:
+  demo:
+    client_id: abcdefgh12345
+    client_secret: shh
+default_app: demo
+EOF
 
 printf '\n# Group 1: empty store, closed port\n'
 check "auth status: apps wrapper, empty" 0 out '"apps": []' -- "$X" auth status --output json
@@ -168,24 +175,62 @@ check "skill install --dry-run: command_preview" 0 out 'git clone --depth 1' -- 
 check "skill update --all --dry-run: installations" 0 out '"installations"' -- "$X" skill update --all --dry-run --output json
 check "skill update --all --dry-run: not-installed" 0 out '"not-installed"' -- "$X" skill update --all --dry-run --output json
 check "schema --list: message rows" 0 out '"message"' -- "$X" schema --list --output json
-check "schema --list: block" 0 out 'block              ApiResponse<BlockingResult>' -- "$X" schema --list
-check "schema --list: muted" 0 out 'muted              ApiResponse<Vec<User>>' -- "$X" schema --list
+check "schema --list: block" 0 out 'block ApiResponse<BlockingResult>' -- bash -c "'$X' schema --list | awk '{print \$1, \$2}'"
+check "schema --list: muted" 0 out 'muted ApiResponse<Vec<User>>' -- bash -c "'$X' schema --list | awk '{print \$1, \$2}'"
+check "schema --list: broadcasts-moderators-add" 0 out 'broadcasts-moderators-add ApiResponse<ChatModeratorsResult>' -- bash -c "'$X' schema --list | awk '{print \$1, \$2}'"
+check "schema --list: broadcasts-moderators-list" 0 out 'broadcasts-moderators-list ApiResponse<Vec<User>>' -- bash -c "'$X' schema --list | awk '{print \$1, \$2}'"
+check "schema --list: dm is the send confirmation" 0 out 'dm ApiResponse<DmSentResult>' -- bash -c "'$X' schema --list | awk '{print \$1, \$2}'"
+check "schema validate: schema not available" 1 err 'schema not available' -- "$X" schema validate --output json
+check "schema validate: reason validation" 1 err '"reason": "validation"' -- "$X" schema validate --output json
+check "schema version: schema not available" 1 err 'schema not available' -- "$X" schema version --output json
+check "schema completions: schema not available" 1 err 'schema not available' -- "$X" schema completions --output json
+check "schema bogus: reason validation, not unknown-command" 1 err '!unknown-command' -- "$X" schema bogus --output json
+check "schema bogus: lists valid names" 1 err 'broadcasts-moderators-list' -- "$X" schema bogus --output json
+check "schema broadcasts-moderators-add: moderator_user_ids" 0 out 'moderator_user_ids' -- "$X" schema broadcasts-moderators-add --output json
+check "schema dm: dm_event_id" 0 out 'dm_event_id' -- "$X" schema dm --output json
 check "schema block: positional" 0 out 'blocking' -- "$X" schema block --output json
 check "schema --envelope: next_step declared" 0 out 'next_step' -- "$X" schema --envelope --output json
 check "schema --envelope: enroll-app" 0 out 'enroll-app' -- "$X" schema --envelope --output json
 check "validate --schema block" 0 out '"valid": true' -- bash -c "printf '%s' '{\"data\":{\"blocking\":true}}' | '$X' validate --schema block --output json"
 check "validate unknown schema" 1 err '"reason": "unknown-schema"' -- bash -c "printf '{}' | '$X' validate --schema tweet --output json"
 check "validate known_schemas lists block" 1 err '"block"' -- bash -c "printf '{}' | '$X' validate --schema tweet --output json"
+check "validate known_schemas lists moderators" 1 err '"moderators"' -- bash -c "printf '{}' | '$X' validate --schema tweet --output json"
+check "validate known_schemas lists dm-event" 1 err '"dm-event"' -- bash -c "printf '{}' | '$X' validate --schema tweet --output json"
+check "validate --help names moderators" 0 out 'moderators' -- "$X" validate --help
+check "validate --help names dm-event" 0 out 'dm-event' -- "$X" validate --help
+check "validate --schema moderators: needs moderator_user_ids" 1 err 'moderator_user_ids' -- bash -c "printf '%s' '{\"data\":[]}' | '$X' validate --schema moderators --output json"
 check "validate missing file: io exit 1" 1 err '"reason": "io"' -- "$X" validate ./nope.json --schema post --output json
-check "version: xr <semver>" 0 out 'xr 3.' -- "$X" version
+check "version: xr <semver>" 0 out 'xr 4.' -- "$X" version
+check "version --verbose: names xdk-rs" 0 out '(xdk-rs ' -- "$X" version --verbose
+check "version --output json: version key" 0 out '"version": "4.' -- "$X" version --output json
+check "version --output json: xdk_rs key" 0 out '"xdk_rs"' -- "$X" version --output json
+check "version --output json: no status key" 0 out '!"status"' -- "$X" version --output json
+check "version --output yaml" 0 out 'xdk_rs: ' -- "$X" version --output yaml
+check "version envelope validation rejects it" 1 err '"reason": "validation-failed"' -- bash -c "'$X' version --output json | '$X' validate --schema envelope --output json"
 check "examples: block pair" 0 out 'xr unblock @spammer --output json' -- "$X" examples
 check "examples: muted list" 0 out 'xr muted -n 100 --output jsonl' -- "$X" examples
 check "examples: usage credits" 0 out 'xr usage credits --output json' -- "$X" examples
+check "examples: BROADCASTS section" 0 out 'BROADCASTS:' -- "$X" examples
+check "examples: TOOLING section" 0 out 'TOOLING:' -- "$X" examples
+check "examples: moderators add" 0 out 'xr broadcasts moderators add @helper' -- "$X" examples
+check "examples: version --output json" 0 out 'xr version --output json' -- "$X" examples
+check "examples: 150+ lines" 0 out 'ok' -- bash -c "[ \$('$X' examples | wc -l) -ge 150 ] && echo ok"
 check "--help: blocked command" 0 out 'blocked      List users you have blocked' -- "$X" --help
 check "--help: EXIT CODES section" 0 out 'EXIT CODES:' -- "$X" --help
+check "--help: 5 is network error" 0 out '5    network error' -- "$X" --help
+check "--help: broadcasts command" 0 out 'broadcasts   Broadcast chat moderation' -- "$X" --help
+check "broadcasts moderators add --dry-run" 0 out '"command": "broadcasts-moderators-add"' -- "$X" broadcasts moderators add @helper --dry-run --output json
+check "broadcasts moderators add --dry-run echoes handle" 0 out '"target_username": "@helper"' -- "$X" broadcasts moderators add @helper --dry-run --output json
+check "broadcasts moderators add --force: invalid-args" 2 err '"reason": "invalid-args"' -- "$X" broadcasts moderators add @helper --force --dry-run --output json
+check "broadcasts moderators remove --dry-run" 0 out '"command": "broadcasts-moderators-remove"' -- "$X" broadcasts moderators remove @helper --dry-run --output json
+check "broadcasts moderators list ignores --dry-run" 77 err '"reason": "auth-required"' -- "$X" broadcasts moderators list --dry-run --output json
+check "closed port: network-error exit 5" 5 err '"reason": "network-error"' -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" search x --auth app --output json
+check "closed port: URL containing 429 is still network-error" 5 err '"reason": "network-error"' -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" /2/tweets/429 --auth app --output json
+check "--auth oauth2 with creds, no token: 77" 77 err '"reason": "auth-required"' -- env XURL_TOKEN_STORE="$WORK/creds.yaml" "$X" --auth oauth2 whoami --output json
+check "--auth oauth2 with creds, no token: sign-in" 77 err '"action": "sign-in"' -- env XURL_TOKEN_STORE="$WORK/creds.yaml" "$X" --auth oauth2 whoami --output json
 check "block --help: USERNAME positional" 0 out '<USERNAME>' -- "$X" block --help
 check "usage --help: credits subcommand" 0 out 'credits' -- "$X" usage --help
-check "schema count is 39" 0 out '39' -- bash -c "'$X' schema --list | wc -l"
+check "schema count is 42" 0 out '42' -- bash -c "'$X' schema --list | wc -l"
 
 # --- Group 2: staged user token, stub API (every success path) -----------
 
@@ -265,6 +310,33 @@ check "delete --force: DELETE /2/tweets/<id>" 0 log '"path": "/2/tweets/123"' --
 check "HTTP 429: rate-limited exit 3" 3 err '"reason": "rate-limited"' -- "$X" /2/ratelimit --output json
 check "HTTP 429: no next_step" 3 err '!next_step' -- "$X" /2/ratelimit --output json
 check "HTTP 404: not-found exit 4" 4 err '"reason": "not-found"' -- "$X" /2/missing --output json
+check "HTTP 401: auth-required exit 77" 77 err '"reason": "auth-required"' -- "$X" /2/unauthorized --output json
+check "HTTP 401: no next_step" 77 err '!next_step' -- "$X" /2/unauthorized --output json
+check "HTTP 403: forbidden exit 1" 1 err '"reason": "forbidden"' -- "$X" /2/forbidden --output json
+check "HTTP 403 bare: no next_step" 1 err '!next_step' -- "$X" /2/forbidden --output json
+check "HTTP 403 enrollment: forbidden" 1 err '"reason": "forbidden"' -- "$X" /2/notenrolled --output json
+check "HTTP 403 enrollment: enroll-app next_step" 1 err '"action": "enroll-app"' -- "$X" /2/notenrolled --output json
+check "HTTP 403 enrollment: docs URL" 1 err 'x-platform-enrollment' -- "$X" /2/notenrolled --output json
+check "HTTP 400: invalid-request exit 1" 1 err '"reason": "invalid-request"' -- "$X" /2/badrequest --output json
+check "HTTP 422: invalid-request exit 1" 1 err '"reason": "invalid-request"' -- "$X" /2/unprocessable --output json
+check "HTTP 500: server-error exit 1" 1 err '"reason": "server-error"' -- "$X" /2/servererror --output json
+check "HTTP 418: api-error exit 1" 1 err '"reason": "api-error"' -- "$X" /2/teapot --output json
+check "HTTP refusal: problem document in message" 1 err 'Unprocessable Entity' -- "$X" /2/unprocessable --output json
+check "dm: send confirmation document" 0 out '"dm_event_id": "e1"' -- "$X" dm @bob "hi" --output json
+check "dm: POST /2/dm_conversations/with/<id>/messages" 0 log '/2/dm_conversations/with/7/messages' -- "$X" dm @bob "hi" --output json
+check "validate dm: send confirmation" 0 out '"valid": true' -- bash -c "'$X' dm @bob hi --output json | '$X' validate --schema dm --output json"
+check "broadcasts moderators list: GET path" 0 log '"path": "/2/broadcasts/chat/moderators?' -- "$X" broadcasts moderators list --output json
+check "broadcasts moderators list: no /2/users/me" 0 log '!/2/users/me' -- "$X" broadcasts moderators list --output json
+check "broadcasts moderators list: --cursor not threaded" 0 log '!pagination_token' -- "$X" broadcasts moderators list --cursor abc --output json
+check "broadcasts moderators list: --limit not threaded" 0 log '!max_results' -- "$X" broadcasts moderators list --limit 5 --output json
+check "broadcasts moderators list: no -n flag" 2 err '"reason": "invalid-args"' -- "$X" broadcasts moderators list -n 5 --output json
+check "broadcasts moderators list: user list, no status" 0 out '!"status"' -- "$X" broadcasts moderators list --output json
+check "validate users: moderators list page" 0 out '"valid": true' -- bash -c "'$X' broadcasts moderators list --output json | '$X' validate --schema users --output json"
+check "broadcasts moderators add: lookup then POST" 0 log '"path": "/2/broadcasts/chat/moderators"' -- "$X" broadcasts moderators add @helper --output json
+check "broadcasts moderators add: user_id body" 0 log '{"user_id":"7"}' -- "$X" broadcasts moderators add @helper --output json
+check "broadcasts moderators add: moderator_user_ids" 0 out '"moderator_user_ids"' -- "$X" broadcasts moderators add @helper --output json
+check "broadcasts moderators remove: DELETE /<user_id>" 0 log '/2/broadcasts/chat/moderators/7' -- "$X" broadcasts moderators remove helper --output json
+check "validate moderators: add response" 0 out '"valid": true' -- bash -c "'$X' broadcasts moderators add @helper --output json | '$X' validate --schema moderators --output json"
 check "raw GET: no status key" 0 out '!"status"' -- "$X" /2/users/me --output json
 check "media upload: v2 initialize" 0 log '/2/media/upload/initialize' -- "$X" media upload "$WORK/tiny.png" --media-type image/png --category tweet_image --output json
 check "media upload: category sent" 0 log '"media_category":"tweet_image"' -- bash -c "'$X' media upload '$WORK/tiny.png' --media-type image/png --category tweet_image --output json"
@@ -281,6 +353,7 @@ check "auth default <app> <user>: two documents" 0 out 'Default user set to' -- 
 printf '\n# Group 3: bundled scripts against the real binary\n'
 check "paginate.sh: streams statusless pages" 0 out '"id":"1"' -- "$ROOT/scripts/paginate.sh" --max-pages 2 -- "$X" search x
 check "paginate.sh: follows next_token" 0 log 'pagination_token=T2' -- "$ROOT/scripts/paginate.sh" --max-pages 2 -- "$X" search x
+check "paginate.sh: third page carries the advanced cursor" 0 log 'pagination_token=T3' -- "$ROOT/scripts/paginate.sh" --max-pages 3 -- "$X" search x
 check "paginate.sh: cap message" 0 err 'stopped after 2 pages' -- "$ROOT/scripts/paginate.sh" --max-pages 2 -- "$X" search x
 check "paginate.sh: blocked" 0 out '"username":"u"' -- "$ROOT/scripts/paginate.sh" --max-pages 1 -- "$X" blocked -n 5
 check "paginate.sh: 429 passes exit 3 through" 3 err 'reason=rate-limited (exit 3)' -- "$ROOT/scripts/paginate.sh" -- "$X" /2/ratelimit
@@ -290,6 +363,9 @@ check "dry-run-gate.sh: read op refused" 2 err 'READ op' -- "$ROOT/scripts/dry-r
 check "dry-run-gate.sh: delete without --force" 1 err 'pass --force' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" delete 123
 check "dry-run-gate.sh: delete --force goes live" 0 log '"path": "/2/tweets/123"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" delete 123 --force
 check "dry-run-gate.sh: block goes live" 0 log '"path": "/2/users/42/blocking"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" block @spammer
+check "dry-run-gate.sh: moderators add goes live" 0 log '"path": "/2/broadcasts/chat/moderators"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" broadcasts moderators add @helper
+check "paginate.sh: moderators list stops on a repeated cursor" 1 err 'answered the cursor it was fetched with' -- "$ROOT/scripts/paginate.sh" --max-pages 5 -- "$X" broadcasts moderators list
+check "paginate.sh: moderators list streams the page once before stopping" 1 out '"username":"u"' -- "$ROOT/scripts/paginate.sh" --max-pages 5 -- "$X" broadcasts moderators list
 
 printf '\n'
 if [ "$FAILED" -gt 0 ]; then

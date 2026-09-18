@@ -4,7 +4,7 @@
 file describes each path, when to use it, how to verify it, and how to recover when a verb exits `77`.
 
 > **Verify, don't guess.** Run `xr auth status --output json` to see what's actually configured before reaching for a
-> flow. The answer is `{"status":"ok","apps":[...]}`; read it through `.apps[]`.
+> flow. The answer is `{"status":"ok","apps":[...]}`; read it through `.apps[]`. Verified on `xr 4.0.0`.
 
 ## The four paths
 
@@ -22,7 +22,9 @@ The CLI picks per request:
 - Otherwise the user-scoped tokens for the active app drive the call.
 - Multi-app: `--app <name>` (or `XURL_APP=<name>`) overrides which app's credentials run the call.
 - `--auth <oauth1|oauth2|app>` forces a specific path when the default would pick wrong. Forcing a scheme the endpoint
-  rejects answers `reason: "auth-method-mismatch"`, exit `2`, with the accepted schemes in `supported`.
+  rejects answers `reason: "auth-method-mismatch"`, exit `2`, with the accepted schemes in `supported`. Forcing
+  `--auth oauth2` on an app that has client credentials but no stored token answers `reason: "auth-required"`, exit
+  `77`, with a `sign-in` `next_step`; it never opens a browser mid-request.
 
 ## What `auth status` returns
 
@@ -66,7 +68,9 @@ xr auth status --output json | jaq -e '.apps[] | select(.default) | .oauth2_user
 ```
 
 Token expiry is not reported; `xr` refreshes an expired OAuth2 access token transparently on the next call when a
-refresh token is stored, and answers `reason: "auth-required"` (exit `77`) when it cannot.
+refresh token is stored, and answers `reason: "auth-required"` (exit `77`) when it cannot. An HTTP 401 from the API is
+the same `auth-required` at `77`, without a `next_step`: the credential exists but X rejected it, so the fix is a scope
+or a re-enrollment, not a store repair.
 
 ## When a verb exits 77
 
@@ -202,7 +206,9 @@ Use this before re-running a flow when `xr auth status` shows an entry you no lo
 ## Token store
 
 YAML at `~/.xurl` (override the path with `XURL_TOKEN_STORE`). Multi-app, with transparent format migration on every
-load. Don't hand-edit it; use `xr auth ...` commands. If the file is corrupt, `xr auth status` answers `reason:
+load. Every write is atomic, created `0600`, and serialized across concurrent `xr` processes by an OS file lock at
+`~/.xurl.lock`, so two agents refreshing a token at once cannot truncate the store or drop a rotated refresh token.
+Don't hand-edit it; use `xr auth ...` commands. If the file is corrupt, `xr auth status` answers `reason:
 "token-store"` (exit `77`) naming the path; back it up, move it aside, and run a fresh `xr auth apps add` + `xr auth
 oauth2`.
 
@@ -215,5 +221,11 @@ markdown).
 
 When a verb returns `reason: "auth-required"` after a successful auth flow, the most likely cause is a missing scope in
 the OAuth2 app configuration, not a `xr` bug. Have the user grant the additional scope in the developer portal, re-run
-the OAuth2 flow, and re-try. When X refuses the app itself (HTTP 403), the envelope carries an `enroll-app` `next_step`
-whose `docs` URL is the enrollment recipe.
+the OAuth2 flow, and re-try. When X refuses the app itself (a 403 whose body names `client-not-enrolled` or
+`client-forbidden`), the envelope is `reason: "forbidden"` with an `enroll-app` `next_step` whose `docs` URL is the
+enrollment recipe; a bare `forbidden` (no `next_step`) is an ordinary permission refusal, read `message`.
+
+`xr auth oauth2` on `xr 4.0.0` requests the scopes the `broadcasts` verbs need (the release notes name
+`broadcast.read` and `broadcast.write`; the vendored X API spec agrees). A token enrolled before those scopes were
+requested does not carry them: `xr broadcasts moderators …` answers `auth-required` (or a bare `forbidden`) until the
+user re-runs `xr auth oauth2` for that app, after the app's developer-portal configuration allows the scopes.
