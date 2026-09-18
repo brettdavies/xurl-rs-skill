@@ -177,6 +177,12 @@ If a live call returns `status: "error"`:
 - `reason: "confirmation-required"` (exit `1`) → the verb could not prompt; re-run with `--force` after the user
   confirms.
 - `reason: "invalid-args"` (exit `2`) → re-read `xr post --help` (or `xr reply --help`), fix the call.
+- `reason: "invalid-request"` (exit `1`) → X rejected the post itself (HTTP 400 / 422: too long, a duplicate, a bad
+  `--media-id`); `message` carries X's problem document. Fix the input; the same call will not pass on retry.
+- `reason: "forbidden"` (exit `1`) → X refused the write (HTTP 403). With `next_step.action: "enroll-app"`, open its
+  `docs`; without one, the token lacks a scope or the tier lacks the endpoint, and re-running does not help.
+- `reason: "server-error"` (exit `1`) → HTTP 5xx; one retry after a pause is reasonable.
+- `reason: "network-error"` (exit `5`) → the request never got an answer; retry once, then check `--timeout`.
 - `reason: "serialization"` (exit `1`) → the server response didn't deserialize into the typed shape. Re-run in text
   mode with `--verbose 2>wire.log` to capture the raw body and compare against `xr schema post --output json`.
 
