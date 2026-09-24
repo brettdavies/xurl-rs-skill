@@ -77,7 +77,8 @@ the invocation.
 3. Read the upstream delta (`git log --stat <last-verified>..HEAD`) for surface the harness has no row for: a new
    command, a new flag, a new reason. Probe it, document it, add a row.
 4. Re-run `bash tests/run.sh` (the stub tests), `shellcheck --severity=style scripts/*.sh tests/*.sh fixtures/bin/xr`,
-   and `markdownlint-cli2 .`; then re-run the evals in `evals/` that touch the changed surface.
+   and `markdownlint-cli2 '**/*.md' '#node_modules'` (the globs CI lints; a bare `.` checks only the root-level files);
+   then re-run the evals in `evals/` that touch the changed surface.
 5. Update the **Verified against** table above and `SKILL.md`'s contract-version sentence.
 
 Two groups in the harness matter equally. Group 1 runs against an empty store and a closed port and sees every failure

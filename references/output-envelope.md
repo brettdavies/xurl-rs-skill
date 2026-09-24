@@ -348,8 +348,8 @@ esac
 ## Exit-code → envelope mapping
 
 `xr` always sets both `exit_code` in the envelope AND the process exit code. They agree. Use the envelope's `reason` for
-branching (finer-grained, easier to match; keep a default branch) and the exit code for coarse retry policy: back off on `3`, give up on `2` (the
-cause is local), recover credentials on `77`.
+branching (finer-grained, easier to match; keep a default branch) and the exit code for coarse retry policy: back off on
+`3`, give up on `2` (the cause is local), recover credentials on `77`.
 
 | `exit_code` | `reason`(s)                                                                                                                                                                                                                                                                                            |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
