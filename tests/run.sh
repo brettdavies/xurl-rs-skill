@@ -122,7 +122,7 @@ test_gate__reject_would_not_succeed() {
 }
 
 test_gate__reject_read_op_api_document() {
-  # A read op ignores --dry-run and answers the raw API document: no status key.
+  # A read op ignores --dry-run and answers the X API document: no status key.
   XR_STUB_DRYRUN_BODY='{"data":{"id":"42","username":"alice"}}'
   export XR_STUB_DRYRUN_BODY
 

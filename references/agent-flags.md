@@ -1,7 +1,7 @@
 # Agent flags: output, pagination, dry-run, env-var precedence
 
 This file enumerates the global flags every `xr` command honors. The per-command flags are documented by `xr <cmd>
---help`. Verified on `xr 4.0.0`.
+--help`. Verified on `xr 4.1.0`.
 
 ## Output format
 
@@ -33,7 +33,9 @@ xr search "rustlang" -n 100 --output json | jaq -c '.data[]?'
 
 Where `jsonl` / `ndjson` do matter is a streaming endpoint (`xr /2/tweets/search/stream --auth app`): every chunk the
 stream delivers is printed as its own line under any structured format, and text mode adds `Connecting…` /
-`End of stream` banners around them.
+`End of stream` banners around them. `xr` streams every path the X API spec it vendors marks as streaming (the search
+and sample streams, `/2/likes/firehose/stream`, the compliance streams, `/2/activity/stream`, …) without `-s`; `-s` /
+`--stream` forces streaming on any other path.
 
 Formats outside this enum (e.g. `toml`, `xml`) are rejected at flag parsing: a clap usage error on stderr listing the
 possible values, exit `2`, no envelope.
@@ -72,12 +74,17 @@ xr <cmd> --trace                        # add X-B3-Flags trace header (per-reque
 
 `--quiet` plus `--output json` is the canonical agent pattern: structured success, structured error, no banner noise.
 
-`--verbose` prints the request line, the response status, the response headers (including `x-rate-limit-*`), and the
-raw body on stderr **in text mode only**; under any structured `--output` the diagnostics are suppressed so stderr
-stays reserved for the error envelope. To capture a wire exchange, run the text-mode form and keep stdout separate:
+`--verbose` prints the request line, the response status, and the response headers (including `x-rate-limit-*`) on
+stderr **in text mode only**, plus one `info:` line per legacy post-vocabulary key a typed verb renamed (`info: X sent
+retweet_count; read as repost_count (number)`). It does not print the response body. Under any structured `--output`,
+and under `--quiet`, all of it is suppressed so stderr stays reserved for the error envelope.
+
+To see the body exactly as X sent it, take the path from the `> GET` line and request it in raw mode, which prints the
+body without the typed verb's renames or filled-in fields:
 
 ```bash
-xr whoami --verbose 2>wire.log >/dev/null
+xr whoami --verbose 2>wire.log >/dev/null        # wire.log: the "> GET <url>" line, the status, the headers
+xr '/2/users/me?user.fields=created_at' --output json   # the body as sent
 ```
 
 ## Interactivity
@@ -161,6 +168,10 @@ Use `--limit` as a default cap across a script; override per call with `-n`. The
 verb clamps the value to `1..=100`, except `search`, which the X API floors at 10: `xr search … -n 3` sends
 `max_results=10`. Ask for fewer than 10 search results by filtering the page, not by lowering `-n`.
 
+`--limit`, `-n`, and `--cursor` / `--after` apply to the typed list verbs only. Raw mode (`xr /2/...`) sends the URL as
+written and ignores all three, without an error; put `max_results` and `pagination_token` in the URL instead
+(`xr '/2/tweets/search/recent?query=rust&max_results=50&pagination_token=<token>'`).
+
 ## Multi-app override
 
 ```bash
@@ -231,7 +242,8 @@ The API refusals on exit `1` are `forbidden` (403), `invalid-request` (400 / 422
 `api-error` (any other status); only `auth-required` carries a `next_step`, and only when a credential fix exists.
 
 When `--output json` is set, the same information is carried in the error envelope's `reason` field. Prefer the
-envelope's `reason` over the exit code for branching in scripts, since it's a closed set and easier to pattern-match.
+envelope's `reason` over the exit code for branching in scripts, since it is finer-grained; keep a default branch for a
+reason a newer `xr` adds.
 The reason → exit-code matrix and the exit-77 recipe are in [output-envelope.md](output-envelope.md).
 
 ## Canonical agent invocation

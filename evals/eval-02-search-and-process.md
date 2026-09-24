@@ -7,9 +7,10 @@ artifacts must land there.
 
 ## Task
 
-> Pull the latest 50 posts from the social platform X that mention "Rust" and write a one-paragraph summary of the
-> top themes. Skip the actual API call if it would burn rate budget; show me the plan and the post-processing
-> pipeline I'd run. I want JSONL output piped into a typed processor.
+> Pull the latest 50 posts from the social platform X that mention "Rust", rank them by how many times each was
+> reposted, and write a one-paragraph summary of the top themes among the most-reposted ones. Skip the actual API
+> call if it would burn rate budget; show me the plan and the post-processing pipeline I'd run. I want JSONL output
+> piped into a typed processor.
 
 ## Required artifacts
 
@@ -58,6 +59,10 @@ exercised the path and the documented behavior held), `regressed` (you exercised
    straight into a per-record filter is a `regressed` finding.
 4. **F5**: the skill's flags reference states the page-size clamp (`1..=100`, search floors at 10, default 10) and that
    the per-command `-n` wins over the global `--limit`.
+5. **F11**: the skill's output-contract reference states that typed output reads engagement counters under the post
+   vocabulary (`public_metrics.repost_count`, never `retweet_count`) and prints a counter the platform omitted as `0`.
+   A pipeline that reads `retweet_count` from typed output, or treats a typed `0` as proof of zero engagement without
+   saying so, is a `regressed` finding.
 
 ## When to escalate
 
