@@ -134,11 +134,11 @@ test_gate__reject_read_op_api_document() {
 }
 
 test_gate__reject_read_op_local_verb() {
-  # Local verbs (validate, auth apps add) answer status: "ok".
-  XR_STUB_DRYRUN_BODY='{"status":"ok","schema":"post","valid":true}'
+  # Local verbs (auth status, validate) answer status: "ok".
+  XR_STUB_DRYRUN_BODY='{"status":"ok","apps":[]}'
   export XR_STUB_DRYRUN_BODY
 
-  run_script "$ROOT/scripts/dry-run-gate.sh" --yes -- xr validate
+  run_script "$ROOT/scripts/dry-run-gate.sh" --yes -- xr auth status
 
   assert_exit 2 || return 1
   assert_stderr_contains "status=ok" || return 1
@@ -352,6 +352,24 @@ test_paginate__reject_forbidden_output_flag() {
   assert_stderr_contains "do not pass --output" || return 1
 }
 
+test_paginate__stop_when_cursor_does_not_advance() {
+  # A verb that ignores --cursor (broadcasts moderators list) answers the
+  # same page, and the same next_token, on every call. Page 2 is fetched
+  # with t1 and hands t1 back: stop there instead of looping to --max-pages.
+  XR_STUB_PAGES_BODIES=$'{"data":[{"id":"m1"}],"meta":{"next_token":"t1"}}\n{"data":[{"id":"m1"}],"meta":{"next_token":"t1"}}\n{"data":[{"id":"m1"}],"meta":{"next_token":"t1"}}'
+  export XR_STUB_PAGES_BODIES
+
+  run_script "$ROOT/scripts/paginate.sh" --max-pages 3 -- xr broadcasts moderators list
+
+  assert_exit 1 || return 1
+  assert_stderr_contains "page 2 answered the cursor it was fetched with" || return 1
+  assert_stderr_not_contains "stopped after 3 pages" || return 1
+  [ "$(cat "$XR_STUB_PAGE_COUNTER")" = "2" ] || {
+    printf '    expected 2 calls, got %s\n' "$(cat "$XR_STUB_PAGE_COUNTER")" >&2
+    return 1
+  }
+}
+
 test_paginate__reject_bad_max_pages() {
   run_script "$ROOT/scripts/paginate.sh" --max-pages abc -- xr search "rust"
 
@@ -383,6 +401,7 @@ run_test test_paginate__error_envelope_on_stderr_passes_exit_through
 run_test test_paginate__error_envelope_on_stdout
 run_test test_paginate__rejects_dry_run_document
 run_test test_paginate__stop_at_max_pages
+run_test test_paginate__stop_when_cursor_does_not_advance
 run_test test_paginate__reject_forbidden_cursor_flag
 run_test test_paginate__reject_forbidden_output_flag
 run_test test_paginate__reject_bad_max_pages

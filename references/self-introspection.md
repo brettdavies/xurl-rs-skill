@@ -13,14 +13,17 @@ xr examples
 ```
 
 Plain-text gallery organized by use case: AUTHENTICATE, POST AND READ, MANAGE SOCIAL GRAPH, INSPECT YOUR ACCOUNT, DIRECT
-MESSAGES, MEDIA UPLOAD, RAW MODE, INSPECT SCHEMAS, MULTI-APP, ENVIRONMENT VARIABLE PRECEDENCE. About 130 lines. Each
-command appears with two or three canonical invocations (text mode, then `--output json`, sometimes piped to `jaq`).
-This is the fastest way to learn the shape of any workflow.
+MESSAGES, BROADCASTS, MEDIA UPLOAD, INSPECT SCHEMAS, TOOLING (the skill installer, shell completions, `version`),
+ENVIRONMENT VARIABLE PRECEDENCE. About 160 lines on `xr 4.0.0`. Each command appears with two or three canonical
+invocations (text mode, then `--output json`, sometimes piped to `jaq`). This is the fastest way to learn the shape of
+any workflow.
 
-One caveat: every `--output jsonl` line in the gallery and in the per-command `--help` examples (`bookmarks`, `likes`,
-`dms`, …) prints the whole document rather than one record per line, so the gallery's `| jaq '.id'`
-answers `null`. Filter the document instead: `--output json | jaq -c '.data[]?'`. See
-[agent-flags.md § Output format](agent-flags.md#output-format).
+Two caveats. Every `--output jsonl` line in the gallery and in the per-command `--help` examples (`bookmarks`, `likes`,
+`muted`, `blocked`, …) prints the whole document rather than one record per line, so the gallery's `| jaq '.id'`
+answers `null`; filter the document instead: `--output json | jaq -c '.data[]?'` (see
+[agent-flags.md § Output format](agent-flags.md#output-format)). And the gallery's `delete` line says
+`--no-interactive` stands in for the confirmation; it does not: off a TTY the verb answers `confirmation-required`
+until `--force` is passed (see [output-envelope.md § Write-op preflight](output-envelope.md#write-op-preflight-status-dry_run)).
 
 ### 2. `xr <command> --help`: per-command flag matrix and examples
 
@@ -42,10 +45,10 @@ When in doubt about whether a flag exists, run `--help` rather than guessing.
 ### 3. `xr schema`: typed response shapes
 
 ```bash
-xr schema --list                            # 35 rows: <name>  <Rust type>, one per response shape
+xr schema --list                            # 42 rows: <name>  <Rust type>, one per response shape
 xr schema post --output json                # JSON Schema for the `post` response
 xr schema whoami --output json              # JSON Schema for the `whoami` response
-xr schema followers --output json           # JSON Schema for the `followers` list
+xr schema blocked --output json             # JSON Schema for the `blocked` list
 xr schema --envelope --output json          # the agent-native envelope (oneOf ok/dry_run/error)
 xr schema --all --output json               # every schema in one document
 ```
@@ -58,8 +61,13 @@ shape.
 rather than structured fields, so the reliable way to read the names is the text form:
 
 ```bash
-xr schema --list | awk '{print $1}'         # auth-apps-list auth-status bookmark … whoami envelope
+xr schema --list | awk '{print $1}'         # auth-apps-list auth-status block blocked … whoami envelope
 ```
+
+Not every command has a typed response. `xr schema validate` (also `skill`, `examples`, `version`, `completions`,
+`auth`, `media`) answers `reason: "validation"`, exit `1`, with the message `schema not available for '<name>' (no
+typed response)`; a name that is not a command at all answers the same `reason` with the valid names listed in
+`message`. Neither is `unknown-command`; that reason belongs to the top-level parser.
 
 The `--envelope` document is the one to read for the error contract: its `error` variant declares every key the runtime
 can emit, including `next_step`, and its `reason` description is the closed set. Its `ok` variant describes the local
@@ -80,9 +88,12 @@ Reads JSON from a file argument or stdin (`-` or omitted argument both mean stdi
 with the field-level error. Use this to confirm a response shape after parsing it through a pipeline, or to gate a
 script that expects a specific schema.
 
-`--schema` accepts `post`, `posts`, `user`, `users`, `dm`, `dms`, `usage`, `credits`, `envelope`, `like`, `follow`,
-`delete`, `repost`, `bookmark`, `mute`; anything else answers `reason: "unknown-schema"` with the list in
-`known_schemas`. Without `--schema`, it auto-detects from the top-level shape.
+`--schema` accepts `post`, `posts`, `user`, `users`, `dm`, `dms`, `dm-event`, `usage`, `credits`, `envelope`, `like`,
+`follow`, `delete`, `repost`, `bookmark`, `mute`, `block`, `moderators`; anything else answers `reason:
+"unknown-schema"` with the same eighteen in `known_schemas`. Without `--schema`, it auto-detects from the top-level
+shape. `dm` is the send confirmation (`dm_conversation_id`, `dm_event_id`), `dm-event` one event from a `dms` page,
+and `moderators` the `moderator_user_ids` document from `broadcasts moderators add` / `remove`; the moderators list
+page validates as `users`.
 
 Pick the schema by what came back: an API-backed success (`whoami`, `search`, `post`, …) validates against the verb's
 schema; `envelope` accepts the `error`, `dry_run`, and local `ok` documents and **rejects** an API success, since that
@@ -92,12 +103,12 @@ document has no `status` key.
 
 ```bash
 xr auth status --output json
-xr auth status --output json | jaq -r '.[] | select(.default) | .name'
+xr auth status --output json | jaq -r '.apps[] | select(.default) | .name'
 ```
 
-No API calls. Reads `~/.xurl` and answers a bare array, `[{...}, ...]`, one entry per registered app with `name`,
+No API calls. Reads `~/.xurl` and answers `{"status":"ok","apps":[...]}`: one entry per registered app with `name`,
 `client_id_hint`, `default`, `oauth2_users` (names only), `oauth1` / `bearer` presence booleans, `bearer_source`, and
-the effective `redirect_uri` with its source. Read it through `.[]`; an empty store answers `[]`. Use it
+the effective `redirect_uri` with its source. Read it through `.apps[]`; an empty store answers `"apps": []`. Use it
 before any verb that needs a specific auth mode to confirm the right credential is staged. Full field list and the
 exit-77 recovery recipe: [auth-modes.md](auth-modes.md).
 
@@ -111,8 +122,14 @@ against the app-level cap, so don't poll them from a tight loop.
 
 ### `xr version`
 
-Prints `xr <semver>` (`xr 3.2.0`) as plain text under every output mode; there is no JSON form. No API calls. Use it
-to confirm the bundle matches the binary; this bundle describes the 3.2.0 release.
+Text mode prints `xr <semver>` (`xr 4.0.0`), or `xr 4.0.0 (xdk-rs 0.1.0)` with `--verbose`, naming the `xdk-rs`
+library the binary links. Under `--output json` it prints `{"name":"xr","version":"4.0.0","xdk_rs":"0.1.0"}` (YAML
+under `--output yaml`), with no `status` key. `xr --version` is the plain clap line. No API calls. Use it to confirm the
+bundle matches the binary; this bundle describes the `xr 4.0.0` contract.
+
+```bash
+xr version --output json | jaq -r '.version'     # 4.0.0
+```
 
 ### `xr completions <shell>`
 
@@ -126,32 +143,29 @@ skills directory; `update` removes that directory and clones again. Both honor `
 clone` command (`command_preview`) without spawning a process. Hosts: `claude_code`, `codex`, `cursor`, `factory`,
 `kiro`, `opencode`.
 
-`install --all` answers one aggregated envelope; `update --all` prints one document per known host:
+`--all` answers one aggregated envelope for either verb:
 
 ```json
 {
-  "action": "skill-install",
+  "action": "skill-update",
   "status": "ok",
   "installations": [
-    { "host": "claude_code", "status": "ok", "exit_code": 0, "install_dir": "…", "command_preview": "git clone --depth 1 …", "destination_status": "absent", "action": "skill-install" },
-    { "host": "codex",       "status": "ok", "exit_code": 0, "install_dir": "…", "command_preview": "…", "destination_status": "absent", "action": "skill-install" }
+    { "host": "claude_code", "status": "ok",      "exit_code": 0, "install_dir": "…", "command_preview": "git clone --depth 1 …", "destination_status": "non-empty-dir", "action": "skill-update" },
+    { "host": "codex",       "status": "skipped", "exit_code": 0, "reason": "not-installed", "install_dir": "…", "command_preview": "…", "destination_status": "absent", "action": "skill-update" }
   ],
   "exit_code": 0
 }
 ```
 
-- `install --all` installs to every known host and answers the aggregated document above; scripts read the per-host
-  records from `.installations[]`, and the top-level `exit_code` is the worst one observed.
-- `update --all` refreshes every known host, cloning into hosts that had no installation, and prints one per-host
-  record per host as separate JSON documents (parse them as a stream: `jaq -c .`). Pass a single `<host>` to touch
-  only that one.
+- `install --all` installs to every known host; `update --all` refreshes only hosts that already have an installation
+  and reports the rest as `status: "skipped"`, `reason: "not-installed"`, exit code `0`.
+- Scripts read the per-host records from `.installations[]`; the top-level `exit_code` is the worst one observed.
 - A single-host call answers the per-host record alone, with the same fields.
 - A failed removal during `update` answers `reason: "remove-failed"`, exit `1`, with no operating-system error text
   appended; `install` into an occupied path answers `destination-not-empty` or `destination-is-file`.
 
 ```bash
-xr skill install --all --output json | jaq -r '.installations[] | "\(.host): \(.status) \(.reason // "")"'
-xr skill update --all --output json | jaq -r '"\(.host): \(.status) \(.reason // "")"'
+xr skill update --all --output json | jaq -r '.installations[] | "\(.host): \(.status) \(.reason // "")"'
 ```
 
 ## Workflow: verify before parsing

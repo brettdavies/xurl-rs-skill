@@ -9,17 +9,18 @@ Walk these in order. Stop at the first one that answers the question.
 1. **`xr <command> --help`**: the binary's own docs, always current with the installed version. The root `xr --help`
    ends with `ENVIRONMENT VARIABLES`, `INPUT FROM STDIN`, `EXIT CODES`, and `TTY behavior` sections. Most "how do I pass
    X?" questions resolve here.
-2. **`xr examples`**: curated invocation gallery, ~130 lines, every major workflow with two-or-three lines per case.
+2. **`xr examples`**: curated invocation gallery, ~160 lines, every major workflow with two-or-three lines per case.
    When the question is "what does the canonical pattern look like?", this is the answer.
-3. **`xr schema --list`**: 35 typed response shapes, one row per verb (`<name> <Rust type>`). When the question is "what
-   does this response look like?" or "which fields can I rely on?", this is the answer.
+3. **`xr schema --list`**: 42 typed response shapes, one row per verb (`<name> <Rust type>`). When the question is "what
+   does this response look like?" or "which fields can I rely on?", this is the answer. A verb with no typed response
+   (`validate`, `skill`, `examples`, `version`, `auth`, `media`) answers `schema not available`.
 4. **`xr schema <name> --output json`**: JSON Schema for one response type. Drop it into a generator or feed it back
    through `xr validate`.
 5. **`xr schema --envelope --output json`**: the canonical agent-native envelope (`ok` / `dry_run` / `error`). When
    parsing automation output, read the exit code first: non-zero means an error envelope on stderr (`reason`, then
    `next_step`); zero with no `status` key means an API document on stdout, which is the normal success shape. See
    [output-envelope.md](output-envelope.md).
-6. **`xr auth status --output json`**: a bare array of the registered apps, which is default, which
+6. **`xr auth status --output json`**: `{"status":"ok","apps":[...]}` with the registered apps, which is default, which
    OAuth2 users and which credential kinds each holds. When OAuth feels broken, look here before re-running the flow.
    When a verb exits `77`, its own envelope's `next_step` already names the fix.
 7. **`xr usage --output json`**: current API caps and daily breakdown. When you hit `rate-limited`, this tells you
@@ -30,9 +31,11 @@ Walk these in order. Stop at the first one that answers the question.
    short index of nested indexes; the X API v2 reference index is <https://docs.x.com/x-api/llms.txt>, and
    <https://docs.x.com/AGENTS.md> carries X's own instructions for agents reading the docs. Use `defuddle` (or the
    agent's `fetch-web` skill) to clean MDX.
-10. **Upstream issues**: <https://github.com/brettdavies/xurl-rs/issues>. Skill-bundle issues (stale references, wrong
-    invocations, missing templates) **also** file here with a `[skill]` title prefix; this bundle's own issue tracker is
-    disabled by design.
+10. **Upstream repository**: the CLI reference is `crates/xurl-cli/README.md` and its changelog
+    `crates/xurl-cli/CHANGELOG.md` in <https://github.com/brettdavies/xurl-rs> (the root README routes between the
+    `xr` CLI and the `xdk-rs` Rust library; a Rust program that wants the X API embeds `xdk-rs`, not the CLI). Issues:
+    <https://github.com/brettdavies/xurl-rs/issues>. Skill-bundle issues (stale references, wrong invocations, missing
+    templates) **also** file here with a `[skill]` title prefix; this bundle's own issue tracker is disabled by design.
 11. **Ask the user**: last resort, only when the answer requires user-side context (which thread to post in, which app
     to act as, whether to proceed with a destructive op).
 
@@ -53,7 +56,7 @@ This rule has two carve-outs so it doesn't over-constrain:
 
 **Halt and ask the user** when:
 
-- The action is destructive (`delete`, `unfollow`, `mute`, `dm` to anyone unfamiliar, `post` to anything besides a
+- The action is destructive (`delete`, `block`, `unfollow`, `dm` to anyone unfamiliar, `post` to anything besides a
   thread the user named).
 - Authentication is missing for a verb that requires a user-scoped scope (Bearer can't post; OAuth2 PKCE needs the
   appropriate scope grants).
@@ -102,13 +105,23 @@ Done at step 1; nothing to escalate.
 ### "A read verb exited 77."
 
 1. Capture the failure itself: `xr whoami --output json 2>&1`. It carries `reason: "auth-required"` and a `next_step`.
-2. `xr auth status --output json` → `.[]`: is the default app the intended one, and does it list an `oauth2_users`
+2. `xr auth status --output json` → `.apps[]`: is the default app the intended one, and does it list an `oauth2_users`
    entry? (Expiry is not reported; `xr` refreshes silently when a refresh token exists.)
 3. Branch on `next_step.action`: `sign-in` / `select-app` / `inspect-store` carry a `command` to run verbatim;
    `register-app` carries a `template` whose placeholders only the user can fill; ask, do not invent.
 4. Re-verify with `xr whoami --output json`; expect exit `0` and the `{"data":{…}}` document (no `status` key).
 
 Full recipe: [output-envelope.md § Exit 77 recipe](output-envelope.md#exit-77-recipe).
+
+### "A call answered `reason: "forbidden"`. Is the app broken?"
+
+1. Check for `next_step`. `action: "enroll-app"` means the 403 body named enrollment (`client-not-enrolled` /
+   `client-forbidden`): open `next_step.docs`; the fix is in the developer portal.
+2. No `next_step`: read `message`, which carries X's problem document. A permission refusal on one endpoint is usually
+   a scope the token does not carry (re-run `xr auth oauth2` after the portal grants it) or a tier that does not
+   include the endpoint; both are answered by the per-endpoint page on docs.x.com, not by retrying.
+3. Neither `forbidden` nor `invalid-request` (400 / 422) is transient. Only `server-error` (5xx) and `network-error`
+   (exit `5`, no answer at all) earn one retry.
 
 ### "What scope does `xr dm` need?"
 

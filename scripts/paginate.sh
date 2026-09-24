@@ -17,7 +17,8 @@
 # Exit codes:
 #     0   pagination completed (no more pages, OR --max-pages cap hit)
 #     1   a page answered a `status: "error"` or `status: "dry_run"`
-#         document on stdout with exit 0, or produced no output
+#         document on stdout with exit 0, produced no output, or handed
+#         back the cursor it was fetched with (a verb that ignores --cursor)
 #     2   usage error (missing args, forbidden flag, non-numeric option value)
 #     *   xr's own non-zero exit code when a page call failed (the usual
 #         path for rate-limited (3), not-found (4), auth-required (77))
@@ -49,6 +50,8 @@ Options:
     -h, --help       This help.
 
 Output: compact JSONL (one record per line) on stdout. Diagnostics on stderr.
+Exits 1 when a page hands back the cursor it was fetched with: the verb
+ignores --cursor (broadcasts moderators list does), so run it bare instead.
 
 The script adds --cursor and --output json itself; do NOT pass --cursor,
 --after, --page, --output, --json, --jsonl, or --dry-run in the verb args.
@@ -186,10 +189,17 @@ while [ "$PAGE" -lt "$MAX_PAGES" ]; do
 
   printf '%s' "$RESP" | "$JQ_BIN" -c '.data[]?'
 
+  PREV_CURSOR=$CURSOR
   CURSOR=$(printf '%s' "$RESP" | "$JQ_BIN" -r '.meta.next_token // ""')
   if [ -z "$CURSOR" ]; then
     printf '%s: page %d was the last (no next_token).\n' "$PROG" "$PAGE" >&2
     exit 0
+  fi
+  if [ "$CURSOR" = "$PREV_CURSOR" ]; then
+    printf '%s: page %d answered the cursor it was fetched with (%s); the verb ignores --cursor, so every further page would repeat this one.\n' \
+      "$PROG" "$PAGE" "$CURSOR" >&2
+    printf '%s: run the verb directly; the records above are one page, streamed twice.\n' "$PROG" >&2
+    exit 1
   fi
 
   if [ "$SLEEP_SECS" -gt 0 ]; then

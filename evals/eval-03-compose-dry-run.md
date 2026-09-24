@@ -88,7 +88,7 @@ The bundle landed the fixes below; verify each as you work and classify it in `#
    (verbatim-safe) versus `template` (user-supplied values) rule; if your dry-run hit exit `77`, the envelope's
    `next_step` matched that description.
 3. **F6**: the gate helper refuses a `delete` preflight that lacks `--force` and tells you to pass `--force`, while
-   `post` / `reply` / `mute` need no such flag. (Exercise this only via `--dry-run`; do not delete anything.)
+   `post` / `reply` need no such flag. (Exercise this only via `--dry-run`; do not delete anything.)
 4. **F7**: the skill's self-introspection reference shows the schema command taking the response name as a positional
    argument (no `--command` flag) and states that the envelope schema validates a dry-run envelope but rejects a live
    success document.
