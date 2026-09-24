@@ -20,6 +20,8 @@ LOG = sys.argv[2]
 USER = {"id": "42", "username": "alice", "name": "Alice"}
 LIST_RECORDS = [{"id": "1", "text": "hi", "username": "u", "name": "U"}]
 MODERATORS = {"moderator_user_ids": ["7"]}
+# X still answers some endpoints in its pre-rename post vocabulary.
+LEGACY_POST_KEYS = {"edit_history_tweet_ids": ["777"], "public_metrics": {"retweet_count": 3}}
 SINGLE_POST = re.compile(r"^/2/tweets/(\d+)(\?|$)")
 BY_USERNAME = re.compile(r"^/2/users/by/username/([^/?]+)")
 PAGINATION_TOKEN = re.compile(r"pagination_token=T(\d+)")
@@ -64,7 +66,7 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path
         if self._refusal():
             return None
-        if path.startswith(("/2/tweets/search/stream", "/2/tweets/sample/stream")):
+        if path.startswith(("/2/tweets/search/stream", "/2/tweets/sample/stream", "/2/likes/firehose/stream")):
             body = b'{"data":{"id":"s1","text":"one"}}\n{"data":{"id":"s2","text":"two"}}\n'
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -79,7 +81,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._reply({"data": {"id": "7", "username": match.group(1), "name": "U"}})
         match = SINGLE_POST.match(path)
         if match:
-            return self._reply({"data": {"id": match.group(1), "text": "hi"}})
+            return self._reply({"data": {"id": match.group(1), "text": "hi", **LEGACY_POST_KEYS}})
         return self._reply(self._list_page())
 
     def _list_page(self):
@@ -98,7 +100,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.startswith("/2/media/upload"):
             return self._reply({"data": {"id": "m1", "media_key": "3_m1", "expires_after_secs": 3600}})
         if self.path.startswith("/2/tweets"):
-            return self._reply({"data": {"id": "777", "text": "posted"}}, 201)
+            return self._reply({"data": {"id": "777", "text": "posted", **LEGACY_POST_KEYS}}, 201)
         return self._reply(
             {
                 "data": {

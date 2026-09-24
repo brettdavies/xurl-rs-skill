@@ -4,7 +4,7 @@
 file describes each path, when to use it, how to verify it, and how to recover when a verb exits `77`.
 
 > **Verify, don't guess.** Run `xr auth status --output json` to see what's actually configured before reaching for a
-> flow. The answer is `{"status":"ok","apps":[...]}`; read it through `.apps[]`. Verified on `xr 4.0.0`.
+> flow. The answer is `{"status":"ok","apps":[...]}`; read it through `.apps[]`. Verified on `xr 4.1.0`.
 
 ## The four paths
 
@@ -225,7 +225,7 @@ the OAuth2 flow, and re-try. When X refuses the app itself (a 403 whose body nam
 `client-forbidden`), the envelope is `reason: "forbidden"` with an `enroll-app` `next_step` whose `docs` URL is the
 enrollment recipe; a bare `forbidden` (no `next_step`) is an ordinary permission refusal, read `message`.
 
-`xr auth oauth2` on `xr 4.0.0` requests the scopes the `broadcasts` verbs need (the release notes name
+`xr auth oauth2` on `xr 4.x` requests the scopes the `broadcasts` verbs need (the release notes name
 `broadcast.read` and `broadcast.write`; the vendored X API spec agrees). A token enrolled before those scopes were
 requested does not carry them: `xr broadcasts moderators …` answers `auth-required` (or a bare `forbidden`) until the
 user re-runs `xr auth oauth2` for that app, after the app's developer-portal configuration allows the scopes.

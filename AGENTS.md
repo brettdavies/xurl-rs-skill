@@ -5,17 +5,19 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 
 ## Verified against
 
-| Field               | Value                                                                                               |
-| ------------------- | --------------------------------------------------------------------------------------------------- |
-| xurl-rs commit      | `582b80b`, the `v4.0.0` tag (2026-09-18); `dev` head `054d939` changes nothing under `crates/*/src` |
-| Binary self-report  | `xr 4.0.0` (`xdk-rs 0.1.0`), the Homebrew bottle `brettdavies/tap/xurl-rs 4.0.0`                    |
-| Contract documented | 4.0.0: refusal reasons split, `network-error` at 5, `broadcasts moderators`, `version` JSON         |
-| Harness result      | `tests/contract.sh`: 206 checks passing against that bottle                                         |
+| Field               | Value                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
+| xurl-rs commit      | `4da143c`, the `v4.1.0` tag (2026-09-24)                                                         |
+| Binary self-report  | `xr 4.1.0` (`xdk-rs 0.1.1`), the `x86_64-unknown-linux-gnu` asset of the `v4.1.0` GitHub release |
+| Contract documented | 4.1.0: `show-help` on `unknown-command`, post-vocabulary names in typed output, parse-error text |
+| Harness result      | `tests/contract.sh`: 230 checks passing against that binary                                      |
 
 The bundle documents the contract of the `xr` release it ships beside: the upstream `dev` head when a release is
-being cut from it, or the released artifact when the two agree (as above, where the tag and the head differ only in
-release tooling). When any row above moves, re-run the harness and update the row in the same PR. Consumers install
-from the head of `main` with the bundle's own `VERSION`; nothing pins the bundle to a binary version on either side.
+being cut from it, or the released artifact once it is out. A release that changes nothing the bundle documents gets
+no bundle pass: `v4.1.1` changes only the vendored X API spec (`crates/xdk/vendor`) and version metadata, so the
+contract above holds for it. When any row above moves, re-run the harness and update the row in the same PR. Consumers
+install from the head of `main` with the bundle's own `VERSION`; nothing pins the bundle to a binary version on either
+side.
 
 ## Repository shape
 
@@ -61,8 +63,11 @@ none of them, and never trust `xr --help`, the bundled schema files, or a previo
 the invocation.
 
 1. Pick the target. When a release is out and `git diff --stat <tag> origin/dev -- crates/*/src` is empty, the
-   Homebrew bottle is the contract (`brew upgrade xurl-rs`, then `xr --version`). Otherwise build the head:
-   `cd ~/dev/xurl-rs && git checkout dev && git pull && cargo build`. Note the commit either way.
+   Homebrew bottle is the contract (`brew upgrade xurl-rs`, then `xr --version`). When the bottle has moved past the
+   target release, use that release's asset: `gh release download v<x.y.z> -R brettdavies/xurl-rs -p
+   'xurl-rs-x86_64-unknown-linux-gnu.tar.gz' -p sha256sum.txt`, check it with `sha256sum -c`, and unpack it outside
+   the repo. Otherwise build the head: `cd ~/dev/xurl-rs && git checkout dev && git pull && cargo build`. Note the
+   commit either way.
 2. Run the harness with the full path, never a bare `xr` (a Homebrew install and a dev build both answer to the name):
    `XR_BIN=$(brew --prefix)/bin/xr bash tests/contract.sh` or `XR_BIN=$HOME/dev/xurl-rs/target/debug/xr …`. Every
    failing row is either a bundle claim that is now wrong (fix the doc and the row) or an upstream regression (report

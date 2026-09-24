@@ -5,7 +5,7 @@ working on this bundle are in [`AGENTS.md`](AGENTS.md).
 
 ## What this bundle is
 
-A consumer-side skill bundle for `xr` (the `xr 4.0.0` contract), the Rust port of the Go xurl. The CLI lives at
+A consumer-side skill bundle for `xr` (the `xr 4.1.0` contract), the Rust port of the Go xurl. The CLI lives at
 <https://github.com/brettdavies/xurl-rs> (its reference is `crates/xurl-cli/README.md`; the Rust library beside it is
 `xdk-rs`); this bundle teaches your coding agent how to drive it without inventing flags or trampling production
 state. Every invocation the bundle documents is checked against a real `xr` build by
@@ -66,7 +66,7 @@ xr --help                    # full surface
 xr examples                  # curated invocation gallery
 xr <cmd> --help              # per-command flags + examples
 xr schema --list             # 42 typed response shapes
-xr version --output json     # {"name":"xr","version":"4.0.0","xdk_rs":"0.1.0"}
+xr version --output json     # {"name":"xr","version":"4.1.0","xdk_rs":"0.1.1"}
 xr auth status               # who's authenticated
 ```
 

@@ -14,7 +14,7 @@ xr examples
 
 Plain-text gallery organized by use case: AUTHENTICATE, POST AND READ, MANAGE SOCIAL GRAPH, INSPECT YOUR ACCOUNT, DIRECT
 MESSAGES, BROADCASTS, MEDIA UPLOAD, INSPECT SCHEMAS, TOOLING (the skill installer, shell completions, `version`),
-ENVIRONMENT VARIABLE PRECEDENCE. About 160 lines on `xr 4.0.0`. Each command appears with two or three canonical
+ENVIRONMENT VARIABLE PRECEDENCE. About 160 lines on `xr 4.1.0`. Each command appears with two or three canonical
 invocations (text mode, then `--output json`, sometimes piped to `jaq`). This is the fastest way to learn the shape of
 any workflow.
 
@@ -41,6 +41,11 @@ Every command's `--help` includes:
 - Three to five curated examples at the bottom.
 
 When in doubt about whether a flag exists, run `--help` rather than guessing.
+
+`--help` on a word that names no command does not fall back to the root help: `xr whoam --help` (and `-h`, `--version`,
+`-V`) exits `2` with `reason: "unknown-command"`, a `suggestion` when a real command is close, and a `show-help`
+`next_step` whose `command` is the help to run instead (`xr whoami --help`; the family's help, such as `xr auth
+--help`, when nothing is close). `xr help --help` prints the `help` command's own page.
 
 ### 3. `xr schema`: typed response shapes
 
@@ -70,7 +75,8 @@ typed response)`; a name that is not a command at all answers the same `reason` 
 `message`. Neither is `unknown-command`; that reason belongs to the top-level parser.
 
 The `--envelope` document is the one to read for the error contract: its `error` variant declares every key the runtime
-can emit, including `next_step`, and its `reason` description is the closed set. Its `ok` variant describes the local
+can emit, including `next_step`, and its `reason` and `action` descriptions list every value the release emits and
+say a newer release can add one. Its `ok` variant describes the local
 verbs only; API-backed successes carry no `status` key. See [output-envelope.md](output-envelope.md).
 
 ### 4. `xr validate`: schema check arbitrary JSON
@@ -122,13 +128,13 @@ against the app-level cap, so don't poll them from a tight loop.
 
 ### `xr version`
 
-Text mode prints `xr <semver>` (`xr 4.0.0`), or `xr 4.0.0 (xdk-rs 0.1.0)` with `--verbose`, naming the `xdk-rs`
-library the binary links. Under `--output json` it prints `{"name":"xr","version":"4.0.0","xdk_rs":"0.1.0"}` (YAML
+Text mode prints `xr <semver>` (`xr 4.1.0`), or `xr 4.1.0 (xdk-rs 0.1.1)` with `--verbose`, naming the `xdk-rs`
+library the binary links. Under `--output json` it prints `{"name":"xr","version":"4.1.0","xdk_rs":"0.1.1"}` (YAML
 under `--output yaml`), with no `status` key. `xr --version` is the plain clap line. No API calls. Use it to confirm the
-bundle matches the binary; this bundle describes the `xr 4.0.0` contract.
+bundle matches the binary; this bundle describes the `xr 4.1.0` contract.
 
 ```bash
-xr version --output json | jaq -r '.version'     # 4.0.0
+xr version --output json | jaq -r '.version'     # 4.1.0
 ```
 
 ### `xr completions <shell>`

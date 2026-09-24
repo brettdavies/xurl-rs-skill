@@ -28,6 +28,11 @@ The answer is the X API document, `{"data":[…],"meta":{"result_count":…,"nex
 [references/output-envelope.md](../references/output-envelope.md)). `-n` is the page size, `10..=100` for search (the
 API's floor is 10; the other list verbs accept `1..=100`).
 
+Engagement counters read under the post vocabulary (`public_metrics.repost_count`, never `retweet_count`), and a
+counter X left out of a record prints as `0`. When a missing counter has to stay distinguishable from a real zero, run
+the search in raw mode (`xr '/2/tweets/search/recent?query=<URL-ENCODED>&tweet.fields=public_metrics' --output json`),
+which prints X's fields as sent.
+
 Capture and pipe:
 
 ```bash

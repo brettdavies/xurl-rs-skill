@@ -84,9 +84,10 @@ The bundle landed the fixes below; verify each as you work and classify it in `#
 
 1. **F1**: the skill's output-contract reference states that a live write returns the platform's document with no
    `status` key; the gate helper documents that its live call's stdout is that document, not an envelope.
-2. **F3**: the skill's output-contract reference names the closed set of `next_step.action` values and the `command`
-   (verbatim-safe) versus `template` (user-supplied values) rule; if your dry-run hit exit `77`, the envelope's
-   `next_step` matched that description.
+2. **F3**: the skill's output-contract reference names every `next_step.action` value the binary emits, says a newer
+   release can add one (an unrecognized action is a default branch that shows the step rather than running it), and
+   states the `command` (verbatim-safe) versus `template` (user-supplied values) rule; if your dry-run hit exit `77`,
+   the envelope's `next_step` matched that description.
 3. **F6**: the gate helper refuses a `delete` preflight that lacks `--force` and tells you to pass `--force`, while
    `post` / `reply` need no such flag. (Exercise this only via `--dry-run`; do not delete anything.)
 4. **F7**: the skill's self-introspection reference shows the schema command taking the response name as a positional

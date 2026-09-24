@@ -8,7 +8,7 @@ description: Drive the X (Twitter) API from the command line via `xr`, the xurl-
 `xr` is a Rust CLI for the X (Twitter) API. It ships 34 high-level shortcut verbs, a raw curl-style mode for any
 `/2/...` endpoint, OAuth1 / OAuth2-PKCE / Bearer auth with a multi-app token store at `~/.xurl`, chunked media upload,
 streaming, typed JSON-schema responses, and typed error envelopes with a `next_step` an agent can act on. This bundle
-describes the `xr 4.0.0` contract.
+describes the `xr 4.1.0` contract.
 
 The binary self-introspects. Treat it as the source of truth: this skill routes you to the binary's helpers and provides
 the workflow patterns that the binary can't describe on its own.
@@ -55,13 +55,17 @@ For full read-only-probes-are-always-safe rules, see
 ## Read the exit code, then the document
 
 Under `--output json`, a **success is the X API document itself** on stdout (`data`, plus `meta` / `includes` / `errors`
-when the API sent them) with **no `status` key**; only local verbs (`auth …`, `validate`, `skill …`) add `status: "ok"`.
-A **failure** is a `status: "error"` envelope on **stderr** with a non-zero exit, a closed-set kebab-case `reason`, an
-`exit_code`, and, when a recovery exists, a `next_step` object. An HTTP refusal is `rate-limited` (exit `3`),
-`not-found` (`4`), `auth-required` (`77`), or one of `forbidden` / `invalid-request` / `server-error` / `api-error`
-(all exit `1`); `network-error` (exit `5`) means the request never got an answer. Exit `77` means no usable credential;
-its `next_step.action` is one of `register-app` / `sign-in` / `select-app` / `inspect-store` / `enroll-app`, and a
-`command` is safe to run verbatim while a `template` needs values only the user has:
+when the API sent them; typed verbs print renamed post fields under the spec's current names, such as
+`edit_history_post_ids` and `repost_count`) with **no `status` key**; only local verbs (`auth …`, `validate`, `skill …`)
+add `status: "ok"`. A **failure** is a `status: "error"` envelope on **stderr** with a non-zero exit, a kebab-case
+`reason`, an `exit_code`, and, when a recovery exists, a `next_step` object. An HTTP refusal is `rate-limited` (exit
+`3`), `not-found` (`4`), `auth-required` (`77`), or one of `forbidden` / `invalid-request` / `server-error` /
+`api-error` (all exit `1`); `network-error` (exit `5`) means the request never got an answer. Exit `77` means no usable
+credential; its `next_step.action` is one of `register-app` / `sign-in` / `select-app` / `inspect-store`. Two more
+actions ride on other reasons: `enroll-app` on a `forbidden` that names enrollment, and `show-help` on `unknown-command`
+(run its `command`: it is the help of the nearest real command). A `command` is safe to run verbatim while a `template`
+needs values only the user has. A newer `xr` can add a `reason` or an `action`, so every branch needs a default that
+reads `message` and shows the user the step rather than acting on it:
 
 ```bash
 xr auth status --output json                 # {"status":"ok","apps":[...]}; each entry carries client_id_hint and bearer
@@ -131,17 +135,23 @@ Full agent-flag matrix and env-var precedence: [references/agent-flags.md](refer
 ## Verifying the install
 
 ```bash
-xr version                                   # prints "xr 4.0.0"; this bundle describes the 4.0.0 contract
+xr version                                   # prints "xr 4.1.0"; this bundle describes the 4.1.0 contract
 xr version --output json | jaq -r '.version' # the same, machine-readable; .xdk_rs is the linked library version
-xr --help                                    # full surface; `broadcasts` in the command list is the 4.0.0 tell
-xr auth status --output json | jaq -r '.apps[].name'   # which apps are registered
+xr --help                                    # full surface
+xr whoam --output json 2>&1 | jaq -r '.next_step.action'   # "show-help" on 4.1.0 and later
+xr auth status --output json | jaq -r '.apps[].name'       # which apps are registered
 ```
 
-A binary that prints `xr 3.x` predates this bundle. Against a 3.2.0 build, four things documented here are wrong:
-`auth status` / `auth apps list` answer a bare top-level array (read `.[]` instead of `.apps[]`), `block` / `unblock` /
-`blocked` / `muted` and the `broadcasts` family do not exist (`unknown-command`), every non-401/404/429 HTTP failure is
-`network-error` at exit `1` rather than `forbidden` / `invalid-request` / `server-error` / `api-error`, and `xr
-version` has no structured form. Upgrade (`brew upgrade xurl-rs`, or
+`xr` versions its contract by SemVer: a patch release only fixes, a minor release only adds, and a major release is
+the only one that removes, renames, or retypes a command, exit code, or structured-output field (text-mode output is not
+part of the contract). A newer `4.x` therefore keeps everything this bundle documents; what it adds reaches you as an
+unrecognized `reason`, `action`, or key, which the default branches above absorb.
+
+An older binary does not. On `xr 4.0.x`, an `unknown-command` envelope carries `suggestion` but no `next_step`, and
+typed output prints X's legacy post field names (`edit_history_tweet_ids`, `retweet_count`) where X sends them. On
+`xr 3.x`, `auth status` / `auth apps list` answer a bare top-level array (read `.[]` instead of `.apps[]`), `block` /
+`unblock` / `blocked` / `muted` and the `broadcasts` family do not exist (`unknown-command`), every non-401/404/429 HTTP
+failure is `network-error` at exit `1`, and `xr version` has no structured form. Upgrade (`brew upgrade xurl-rs`, or
 <https://github.com/brettdavies/xurl-rs/releases>) rather than adapting the calls.
 
 If `xr` is not on `$PATH`, install it from <https://github.com/brettdavies/xurl-rs/releases>, or refresh this bundle
@@ -159,8 +169,9 @@ installation and skips the rest).
 - [references/agent-flags.md](references/agent-flags.md): output formats (and what `jsonl` really emits), pagination and
   clamps, dry-run, verbose, env-var precedence, exit codes.
 - [references/output-envelope.md](references/output-envelope.md): the four document kinds (API document / `ok` /
-  `dry_run` / `error`), the closed-set reason catalog (including the four HTTP-refusal reasons and `network-error` at
-  exit `5`), `next_step`, the exit-77 recipe, exit-code matrix, which schema validates which document.
+  `dry_run` / `error`), the reason catalog (including the four HTTP-refusal reasons and `network-error` at exit `5`),
+  `next_step` with `show-help` and the default-branch rule, typed output's post vocabulary, the exit-77 recipe,
+  exit-code matrix, which schema validates which document.
 - [references/x-api-essentials.md](references/x-api-essentials.md): drift-resistant pointers into the X API (auth
   scopes, tiers, rate limits, per-category doc URLs).
 

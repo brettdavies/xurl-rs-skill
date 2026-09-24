@@ -38,8 +38,8 @@ Create a fresh workdir at `/tmp/xurl-rs-eval-04-$(date +%s)/` and treat it as CW
 
 1. **Discovery**: Same shape as eval-01 (0/5/10).
 2. **Envelope decode correctness**: `0` = misnamed a field; `5` = decoded `reason` correctly but didn't tie it to the
-   exit-code mapping; `10` = decoded all three fields against the bundle's documented schema (closed-set reason catalog
-   - exit-code mapping table) AND noted that no `next_step` is present: the binary attaches one only when a credential
+   exit-code mapping; `10` = decoded all three fields against the bundle's documented schema (the reason catalog and
+   the exit-code mapping table) AND noted that no `next_step` is present: the binary attaches one only when a credential
    or enrollment fix exists, and a rate limit has neither.
 3. **Triage commands correctness**: `0` = no triage; `5` = says "check rate limits" without naming the command; `10` =
    names the binary's `usage` subcommand (and its `credits` form for pay-per-use projects) with `--output json` for
