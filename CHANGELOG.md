@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-09-24
+
+### Added
+
+- Add `show-help` to the documented `next_step` actions: an `unknown-command` envelope, including `xr <word> --help` /
+  `--version` for a word that names no command, carries the help command to run, and every branch on `reason` or
+  `action` keeps a default that shows the step rather than acting on it. by @brettdavies in
+  [#23](https://github.com/brettdavies/xurl-rs-skill/pull/23)
+- Add typed output's shape to the output contract: renamed post fields print under the spec's names
+  (`edit_history_post_ids`, `repost_count`), `public_metrics` counters X omitted print as `0`, and raw mode prints X's
+  fields as sent.
+
+### Changed
+
+- Change the documented contract to `xr 4.1.0`: `invalid-args` messages without an `error:` prefix, streaming for every
+  spec-marked streaming endpoint without `-s`, the `--verbose` legacy-vocabulary note, and how newer and older binaries
+  relate under `xr`'s SemVer policy. by @brettdavies in [#23](https://github.com/brettdavies/xurl-rs-skill/pull/23)
+
+### Fixed
+
+- Fix the `--verbose` guidance: it prints the request line, status, and headers, not the response body; the body as sent
+  comes from requesting the same path in raw mode. by @brettdavies in
+  [#23](https://github.com/brettdavies/xurl-rs-skill/pull/23)
+- Fix the `serialization` guidance for write verbs: the write most likely landed, so it is not retried.
+- Fix `SKILL.md` listing `enroll-app` among the exit-77 actions; it rides on a 403 `forbidden` at exit 1.
+- Fix the raw-mode search example to use `post.fields`, and document that raw mode takes `max_results` and
+  `pagination_token` in the URL because it ignores `-n`, `--limit`, and `--cursor`.
+- Fix the search pre-flight so a bearer staged through `XURL_BEARER_TOKEN`, which `auth status` does not list when no
+  app is registered, counts as a credential.
+
+**Full Changelog**: [v0.3.0...v0.4.0](https://github.com/brettdavies/xurl-rs-skill/compare/v0.3.0...v0.4.0)
+
 ## [0.3.0] - 2026-09-24
 
 ### Added
