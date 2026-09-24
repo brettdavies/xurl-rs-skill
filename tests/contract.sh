@@ -161,6 +161,18 @@ check "missing positional: invalid-args envelope" 2 err '"reason": "invalid-args
 check "media upload --wait false: invalid-args" 2 err '"reason": "invalid-args"' -- "$X" media upload ./x.png --wait false --output json
 check "media upload bearer-only: auth-method-mismatch" 2 err '"available_in_app"' -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" media upload "$WORK/tiny.png" --output json
 check "unknown command: suggestion" 2 err '"suggestion": "whoami"' -- "$X" whoam --output json
+check "unknown command: show-help next_step" 2 err '"action": "show-help"' -- "$X" whoam --output json
+check "unknown command: help of the nearest command" 2 err '"command": "xr whoami --help"' -- "$X" whoam --output json
+check "unknown subcommand: nearest in the family" 2 err '"command": "xr auth status --help"' -- "$X" auth statsu --output json
+check "unknown subcommand, nothing close: family help" 2 err '"command": "xr auth --help"' -- "$X" auth zzzzzz --output json
+check "unknown top-level word, nothing close: root help" 2 err '"command": "xr --help"' -- "$X" zzzzzzzz --output json
+check "<typo> --help: unknown-command, exit 2" 2 err '"reason": "unknown-command"' -- "$X" whoam --help --output json
+check "<typo> -V: unknown-command, exit 2" 2 err '"reason": "unknown-command"' -- "$X" whoam -V --output json
+check "help --help: the help page, exit 0" 0 out 'Print this message or the help' -- "$X" help --help
+check "invalid-args message: no error: prefix" 2 err '"message": "unexpected argument' -- "$X" post hi --bogus --output json
+check "invalid-args message: names the help to read" 2 err "Try 'xr post --help'." -- "$X" post hi --bogus --output json
+check "--output toml: names the help to read" 2 err "Try 'xr whoami --help'." -- "$X" whoami --output toml
+check "schema --envelope: show-help declared" 0 out 'show-help' -- "$X" schema --envelope --output json
 check "bare xr --output json: invalid-args" 2 err '"reason": "invalid-args"' -- "$X" --output json
 check "--auth app without bearer: 77" 77 err '"reason": "auth-required"' -- "$X" search x --auth app --output json
 check "--auth app without bearer: no next_step" 77 err '!next_step' -- "$X" search x --auth app --output json
@@ -267,7 +279,7 @@ check "auth status: per-app fields" 0 out '"client_id_hint": "abcdefgh"' -- "$X"
 check "auth status: oauth2_users" 0 out '"alice"' -- "$X" auth status --output json
 check "auth status: bearer_source" 0 out '"bearer_source": "store"' -- "$X" auth status --output json
 check "auth status: no token values" 0 out '!fakeaccess' -- "$X" auth status --output json
-check "whoami: raw API document" 0 out '"username": "alice"' -- "$X" whoami --output json
+check "whoami: the X API document" 0 out '"username": "alice"' -- "$X" whoami --output json
 check "whoami: NO status key on success" 0 out '!"status"' -- "$X" whoami --output json
 check "whoami --raw: compact" 0 out '{"data":{"id":"42"' -- "$X" whoami --output json --raw
 check "whoami text mode piped: JSON" 0 out '"username": "alice"' -- "$X" whoami
@@ -348,6 +360,23 @@ check "validate envelope accepts an error" 0 out '"valid": true' -- bash -c "'$X
 check "validate envelope accepts a dry_run" 0 out '"valid": true' -- bash -c "'$X' post hi --dry-run --output json | '$X' validate --schema envelope --output json"
 check "--verbose text: request line on stderr" 0 err '> GET' -- "$X" whoami --verbose
 check "--verbose json: diagnostics suppressed" 0 err '!> GET' -- "$X" whoami --output json --verbose
+check "--verbose text: no response body on stderr" 0 err '!"username"' -- "$X" whoami --verbose
+check "typed post: edit_history_post_ids" 0 out '"edit_history_post_ids"' -- "$X" post "hello" --output json
+check "typed post: no legacy edit_history_tweet_ids" 0 out '!edit_history_tweet_ids' -- "$X" post "hello" --output json
+check "typed read: retweet_count reads as repost_count" 0 out '"repost_count": 3' -- "$X" read 123 --output json
+check "typed read: omitted counter prints 0" 0 out '"like_count": 0' -- "$X" read 123 --output json
+check "typed read: omitted optional field stays absent" 0 out '!created_at' -- "$X" read 123 --output json
+check "raw mode: legacy keys as sent" 0 out '"edit_history_tweet_ids"' -- "$X" /2/tweets/123 --output json
+check "raw mode: omitted counter stays absent" 0 out '!like_count' -- "$X" /2/tweets/123 --output json
+check "typed search: sends post.fields" 0 log 'post.fields=' -- "$X" search x --output json
+check "raw mode: --cursor not threaded" 0 log '!pagination_token' -- "$X" '/2/tweets/search/recent?query=x' --cursor abc --output json
+check "raw mode: --limit not threaded" 0 log '!max_results' -- "$X" '/2/tweets/search/recent?query=x' --limit 5 --output json
+check "env bearer, empty store: auth status lists no app" 0 out '"apps": []' -- env XURL_TOKEN_STORE="$WORK/empty.yaml" XURL_BEARER_TOKEN=fakebearer "$X" auth status --output json
+check "env bearer, empty store: search uses it" 0 out '"next_token"' -- env XURL_TOKEN_STORE="$WORK/empty.yaml" XURL_BEARER_TOKEN=fakebearer "$X" search x --output json
+check "--verbose text: legacy-vocabulary note" 0 err 'info: X sent edit_history_tweet_ids; read as edit_history_post_ids' -- "$X" read 123 --verbose
+check "--verbose json: no vocabulary note" 0 err '!info: X sent' -- "$X" read 123 --verbose --output json
+check "--verbose --quiet: no vocabulary note" 0 err '!info: X sent' -- "$X" read 123 --verbose --quiet
+check "spec-marked stream: firehose streams without -s" 0 out '{"data":{"id":"s2","text":"two"}}' -- "$X" /2/likes/firehose/stream --auth app --output json --timeout 5
 check "auth default <app> <user>: two documents" 0 out 'Default user set to' -- "$X" auth default demo alice --output json
 
 printf '\n# Group 3: bundled scripts against the real binary\n'

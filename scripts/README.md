@@ -12,7 +12,7 @@ shellcheck-clean, and meant to be invoked from any working directory.
 | `dry-run-gate.sh` | Enforce `--dry-run` → confirm → live for any `xr` write op.      | 0 live OK · 1 dry-run reject · 2 usage · 3 non-TTY w/o `--yes` · 4 declined · * passthrough                  |
 | `paginate.sh`     | Cursor-paginate any list-style verb; stream `.data[]?` as JSONL. | 0 done · 1 stdout error/dry_run document, or a cursor that did not advance · 2 usage · * xr's exit on a page |
 
-Both model the binary's streams: a success is the raw X API document on stdout (no `status` key), a failure is an
+Both model the binary's streams: a success is the X API document on stdout (no `status` key), a failure is an
 error envelope on stderr with a non-zero exit. Each script captures stderr during its own calls so a refusal names the
 `reason`, and passes the verb's exit code through when the verb fails. See
 [references/output-envelope.md](../references/output-envelope.md) for the contract they encode.
@@ -65,7 +65,7 @@ What it does:
 1. Calls the verb with `--output json --quiet`, capturing stderr. A non-zero exit ends the loop with the envelope's
    `reason` on stderr and the verb's exit code (`3` for `rate-limited`, `77` for `auth-required`, …). A `status:
    "error"` or `status: "dry_run"` document on stdout ends it at exit `1`.
-2. Streams `.data[]?` to stdout as compact JSONL, one record per line. A page is the raw API document; the script does
+2. Streams `.data[]?` to stdout as compact JSONL, one record per line. A page is the X API document; the script does
    not expect a `status` key.
 3. Reads `meta.next_token`. If empty, exits 0. Otherwise re-runs with `--cursor <token>` until `--max-pages`. A page
    that hands back the very cursor it was fetched with ends the loop at exit `1`: the verb ignores `--cursor`
