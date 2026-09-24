@@ -51,8 +51,8 @@ exercised the path and the documented behavior held), `regressed` (you exercised
 1. **F1**: the skill's output-contract reference states that a successful list call returns the platform's document
    with **no `status` key**, and the bundled pagination helper streams such pages instead of demanding `status: "ok"`.
    Your `pipeline.sh` must not branch on a `status` field to detect success.
-2. **F2**: the skill's auth reference shows `auth status` answering a bare top-level array (no `status` key) and every
-   jq path starting at `.[]`.
+2. **F2**: the skill's auth reference shows `auth status` answering `{"status":"ok","apps":[...]}` and every jq path
+   starting at `.apps[]`.
 3. **F4**: the skill's flags reference states that the `jsonl` output mode prints the whole document, not one record
    per line, and that per-record lines come from a `jaq -c '.data[]?'` filter. A pipeline that pipes `--output jsonl`
    straight into a per-record filter is a `regressed` finding.

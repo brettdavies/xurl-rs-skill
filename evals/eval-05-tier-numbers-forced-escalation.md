@@ -56,7 +56,7 @@ Create a fresh workdir at `/tmp/xurl-rs-eval-05-$(date +%s)/` and treat it as CW
 The bundle landed the fixes below; verify each as you work and classify it in `## Regression check` as `worked` /
 `regressed` / `not-touched`. Any `regressed` is a blocking finding regardless of overall score.
 
-1. **F2**: if you inspected auth state while planning, the command reads `.[]` from the bare top-level array.
+1. **F2**: if you inspected auth state while planning, the command reads `.apps[]` from `{"status":"ok","apps":[...]}`.
 2. **F3**: the skill's escalation reference lists the lookup order with the platform's agent-facing docs index (the
    `llms.txt` variants and the `AGENTS.md` page) before "ask the user", and never before the binary's own `--help`.
 

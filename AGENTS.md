@@ -5,17 +5,17 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 
 ## Verified against
 
-| Field                | Value                                                                                     |
-| -------------------- | ----------------------------------------------------------------------------------------- |
-| xurl-rs commit       | `b0779c1`, the `v3.2.0` tag (the released binary; Homebrew `xurl-rs` 3.2.0 bottle)        |
-| Binary self-report   | `xr 3.2.0`                                                                                |
-| Contract documented  | 3.2.0: bare `auth status` array, `next_step` and the reason catalog, 27 shortcuts         |
-| Harness result       | `tests/contract.sh`: 141 checks passing against `target/debug/xr` from that tag           |
+| Field               | Value                                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------------- |
+| xurl-rs commit      | `582b80b`, the `v4.0.0` tag (2026-09-18); `dev` head `054d939` changes nothing under `crates/*/src` |
+| Binary self-report  | `xr 4.0.0` (`xdk-rs 0.1.0`), the Homebrew bottle `brettdavies/tap/xurl-rs 4.0.0`                    |
+| Contract documented | 4.0.0: refusal reasons split, `network-error` at 5, `broadcasts moderators`, `version` JSON         |
+| Harness result      | `tests/contract.sh`: 206 checks passing against that bottle                                         |
 
-`main` documents the released binary; `dev` documents the upstream `dev` head, so the next bundle release ships
-beside the next `xr` release with the tree already written. When any row above moves, re-run the harness and update
-the row in the same PR. Consumers install from the head of `main` with the bundle's own `VERSION`; nothing pins the
-bundle to a binary version on either side.
+The bundle documents the contract of the `xr` release it ships beside: the upstream `dev` head when a release is
+being cut from it, or the released artifact when the two agree (as above, where the tag and the head differ only in
+release tooling). When any row above moves, re-run the harness and update the row in the same PR. Consumers install
+from the head of `main` with the bundle's own `VERSION`; nothing pins the bundle to a binary version on either side.
 
 ## Repository shape
 
@@ -60,10 +60,15 @@ The documented contract is only as true as the last binary it was run against. A
 none of them, and never trust `xr --help`, the bundled schema files, or a previous pass's prose in place of running
 the invocation.
 
-1. Build the target: `cd ~/dev/xurl-rs && git checkout <tag or dev> && cargo build`. Note the commit.
+1. Pick the target. When a release is out and `git diff --stat <tag> origin/dev -- crates/*/src` is empty, the
+   Homebrew bottle is the contract (`brew upgrade xurl-rs`, then `xr --version`). Otherwise build the head:
+   `cd ~/dev/xurl-rs && git checkout dev && git pull && cargo build`. Note the commit either way.
 2. Run the harness with the full path, never a bare `xr` (a Homebrew install and a dev build both answer to the name):
-   `XR_BIN=$HOME/dev/xurl-rs/target/debug/xr bash tests/contract.sh`. Every failing row is either a bundle claim that
-   is now wrong (fix the doc and the row) or an upstream regression (report it upstream, keep the row failing).
+   `XR_BIN=$(brew --prefix)/bin/xr bash tests/contract.sh` or `XR_BIN=$HOME/dev/xurl-rs/target/debug/xr …`. Every
+   failing row is either a bundle claim that is now wrong (fix the doc and the row) or an upstream regression (report
+   it upstream, keep the row failing). The harness runs under a scratch `HOME` and `XURL_TOKEN_STORE`; keep every
+   ad-hoc probe under the same two overrides, because a `cargo test` run in `xurl-rs` once overwrote a real `~/.xurl`
+   (`docs/solutions/conventions/hermetic-cli-spawn-seam-with-unwritable-default-store-and-escape-hatch-guard.md`).
 3. Read the upstream delta (`git log --stat <last-verified>..HEAD`) for surface the harness has no row for: a new
    command, a new flag, a new reason. Probe it, document it, add a row.
 4. Re-run `bash tests/run.sh` (the stub tests), `shellcheck --severity=style scripts/*.sh tests/*.sh fixtures/bin/xr`,

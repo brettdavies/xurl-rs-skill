@@ -30,7 +30,7 @@ Create a fresh workdir at `/tmp/xurl-rs-eval-04-$(date +%s)/` and treat it as CW
    modes? Be specific about the conditions for each branch.
 5. `## What I did NOT invent`: Same shape as eval-01. Specifically: did you invent a specific rate-limit number (e.g.,
    "you're limited to 100 calls per 15 minutes")? You should NOT have.
-6. `## Regression check`: Classify each named eval-01/02/03 finding as `worked` / `regressed` / `not-touched`. Any
+6. `## Regression check`: Classify each named fix (F1, F2, F3, F9) as `worked` / `regressed` / `not-touched`. Any
    `regressed` is blocking.
 7. `## Dead ends`: Same shape as eval-01.
 
@@ -44,9 +44,9 @@ Create a fresh workdir at `/tmp/xurl-rs-eval-04-$(date +%s)/` and treat it as CW
 3. **Triage commands correctness**: `0` = no triage; `5` = says "check rate limits" without naming the command; `10` =
    names the binary's `usage` subcommand (and its `credits` form for pay-per-use projects) with `--output json` for
    machine reading AND a command that reads the current auth state so the user knows which token bucket is exhausted,
-   reading its entries as the bare top-level array it is (`.[]`) rather than expecting a wrapper object.
+   reading its entries through the `apps` wrapper (`.apps[]`) rather than as a bare top-level array.
 4. **Decision-tree quality**: `0` = "just wait" with no condition; `5` = wait/pivot but vague conditions; `10` =
-   conditional tree keyed on usage output AND the entries of auth status (`bearer` vs `oauth2_users` decides
+   conditional tree keyed on usage output AND the `apps` entries of auth status (`bearer` vs `oauth2_users` decides
    which bucket the call drew from), with explicit "if X, then Y" rules.
 5. **No rate-limit-number invention**: `0` = quoted a specific number from memory; `5` = hedged with "around X"; `10` =
    explicitly deferred specifics to the platform's docs and the binary's `usage` output. The skill's x-api-essentials
@@ -59,10 +59,14 @@ The bundle landed the fixes below; verify each as you work and classify it in `#
 
 1. **F1**: the skill's output-contract reference decides the document kind by exit code and stream first (`3` on
    stderr here), and states that a success would have been the platform's document with no `status` key.
-2. **F2**: the auth-state command in your `next-steps.sh` reads `.[]` from the bare top-level array and does not look
-   for an `expires_at` field.
+2. **F2**: the auth-state command in your `next-steps.sh` reads `.apps[]` from `{"status":"ok","apps":[...]}` and does
+   not look for an `expires_at` field.
 3. **F3**: the reason catalog says `rate-limited` carries no `next_step`, and your envelope interpretation says so
    rather than treating its absence as a parse problem.
+4. **F9**: the reason catalog and the exit-code mapping in the skill's output-contract reference separate the retryable
+   refusals from the rest: `rate-limited` at exit `3` and `server-error` at exit `1` earn a paced retry, `network-error`
+   at exit `5` one retry, while `forbidden` and `invalid-request` (both exit `1`) do not change on retry. Your decision
+   tree must not key on "exit 1" alone, because that code carries both kinds.
 
 ## When to escalate
 

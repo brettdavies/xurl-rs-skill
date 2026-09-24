@@ -6,7 +6,7 @@ into a typed processor like `jaq`. Read-only, so no `--dry-run` needed.
 ## Pre-flight
 
 ```bash
-xr auth status --output json                 # .[]: search works on bearer: true OR an oauth2_users entry
+xr auth status --output json                 # .apps[]: search works on bearer: true OR an oauth2_users entry
 xr usage --output json                       # check remaining caps; search counts against tweet caps
 ```
 
@@ -84,7 +84,8 @@ while [ "$PAGE" -lt "$MAX_PAGES" ]; do
     RESP=$(xr search "$QUERY" -n 100 --cursor "$CURSOR" --output json --quiet 2>&1) || EC=$?
   fi
 
-  # A failure is a non-zero exit with the error envelope (captured via 2>&1).
+  # A failure is a non-zero exit with the error envelope (captured via 2>&1):
+  # 3 rate-limited, 77 auth-required, 5 network-error, 1 for an API refusal.
   if [ "$EC" -ne 0 ]; then
     printf 'Page %d failed (%s): %s\n' "$PAGE" \
       "$(printf '%s' "$RESP" | jaq -r '.reason // "usage"')" "$RESP" >&2
@@ -153,10 +154,16 @@ The same cursor-pagination loop works for every list-style verb:
 | `likes`     | Your liked posts     |
 | `following` | Users you follow     |
 | `followers` | Users following you  |
+| `muted`     | Users you have muted |
+| `blocked`   | Users you blocked    |
 | `dms`       | Recent DM events     |
 
 Substitute the verb in the loop above; the `--cursor` plumbing is identical. Confirm per-verb flags with `xr <verb>
 --help`.
+
+`xr broadcasts moderators list` is **not** in this table: it sends one `GET /2/broadcasts/chat/moderators`, ignores
+`--cursor` and `--limit`, and has no `-n`, so run it directly (`xr broadcasts moderators list --output json | jaq -c
+'.data[]?'`) rather than through the loop or `scripts/paginate.sh`.
 
 ## Streaming endpoints
 

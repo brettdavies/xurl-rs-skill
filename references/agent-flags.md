@@ -1,7 +1,7 @@
 # Agent flags: output, pagination, dry-run, env-var precedence
 
 This file enumerates the global flags every `xr` command honors. The per-command flags are documented by `xr <cmd>
---help`.
+--help`. Verified on `xr 4.0.0`.
 
 ## Output format
 
@@ -92,7 +92,7 @@ The `--no-interactive` flag matters when running unattended; without it, `xr` ma
 The three verbs with no inverse (`delete`, `auth clear`, `auth apps remove`) gate themselves: they answer `reason:
 "confirmation-required"`, exit `1`, when they cannot prompt (no TTY, or `--no-interactive`) and `--force` is absent;
 pass `--force` after the user has confirmed. The gate runs before `--dry-run` is considered, so a headless preflight
-of `delete` needs `--force` too. Every other write verb, `mute`, `unfollow`, and `dm` included, takes no
+of `delete` needs `--force` too. Every other write verb, `block`, `mute`, `unfollow`, and `dm` included, takes no
 `--force`; passing it answers `invalid-args`, exit `2`. Whether to confirm those with the user is a judgment call the
 skill's guardrail makes, not a flag the binary requires.
 
@@ -112,8 +112,8 @@ XURL_DRY_RUN=1 xr <write-verb> --output json
 ```
 
 **Honored by every write op**: `post`, `reply`, `quote`, `delete`, `like`, `unlike`, `repost`, `unrepost`, `bookmark`,
-`unbookmark`, `follow`, `unfollow`, `mute`, `unmute`, `dm`, `media upload`. Read ops ignore
-`--dry-run`.
+`unbookmark`, `follow`, `unfollow`, `block`, `unblock`, `mute`, `unmute`, `dm`, `broadcasts moderators add`,
+`broadcasts moderators remove`, `media upload`. Read ops ignore `--dry-run`.
 
 Output shape:
 
@@ -137,11 +137,18 @@ xr <list-cmd> --page <n>                # NOT supported by X; returns reason: "u
 ```
 
 Commands that thread `--cursor` through as `pagination_token`: `search`, `timeline`, `mentions`, `bookmarks`, `likes`,
-`following`, `followers`, `dms`.
+`following`, `followers`, `muted`, `blocked`, `dms`. (The `--cursor` help text lists the first eight; `muted` and
+`blocked` thread it the same way, verified against the binary.)
 
-Every user-scoped list verb (`timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`) resolves
-`/2/users/me` before each page to learn the caller's id, so one page costs **two** requests;
+Every user-scoped list verb (`timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`, `muted`,
+`blocked`) resolves `/2/users/me` before each page to learn the caller's id, so one page costs **two** requests;
 `search` and `dms` cost one. Budget `--max-pages` against a rate-limit window accordingly.
+
+`broadcasts moderators list` is not a paged verb: it sends one `GET /2/broadcasts/chat/moderators` with no
+`max_results` and no `pagination_token`, whatever `--limit` or `--cursor` say (its `--help` advertises the global
+flags; the request ignores them), and it has no `-n` at all (`invalid-args`, exit `2`). Run it directly, not through
+`scripts/paginate.sh`, which stops it at page 2 with a repeated-cursor message if the API ever returns a
+`next_token`.
 
 ### `--limit` and `-n/--max-results`
 
@@ -213,12 +220,15 @@ The full env-var index is at the bottom of `xr --help`:
 | Code | Meaning                                                                                                          |
 | ---- | ---------------------------------------------------------------------------------------------------------------- |
 | 0    | success                                                                                                          |
-| 1    | general error (also where `network-error` lands today)                                                           |
+| 1    | general error: every local failure, plus every API refusal other than 401 / 404 / 429                            |
 | 2    | invalid arguments (a clap usage message or an `invalid-args` envelope), unknown command, or auth-method mismatch |
 | 3    | rate-limited (HTTP 429)                                                                                          |
 | 4    | not found (HTTP 404)                                                                                             |
-| 5    | `io` on file-access failures (a missing `media upload` path); `network-error` lands on 1                         |
-| 77   | authentication required (`auth-required`, `token-store`); the envelope carries `next_step`                       |
+| 5    | `network-error` (the request never got an answer) and file-access `io` (a missing `media upload` path)           |
+| 77   | authentication required (`auth-required`, `token-store`; an HTTP 401 lands here too)                             |
+
+The API refusals on exit `1` are `forbidden` (403), `invalid-request` (400 / 422), `server-error` (5xx), and
+`api-error` (any other status); only `auth-required` carries a `next_step`, and only when a credential fix exists.
 
 When `--output json` is set, the same information is carried in the error envelope's `reason` field. Prefer the
 envelope's `reason` over the exit code for branching in scripts, since it's a closed set and easier to pattern-match.
