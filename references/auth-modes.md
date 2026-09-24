@@ -4,7 +4,7 @@
 file describes each path, when to use it, how to verify it, and how to recover when a verb exits `77`.
 
 > **Verify, don't guess.** Run `xr auth status --output json` to see what's actually configured before reaching for a
-> flow. The answer is `{"status":"ok","apps":[...]}`; read it through `.apps[]`. Verified on `xr 4.0.0`.
+> flow. The answer is `{"status":"ok","apps":[...]}`; read it through `.apps[]`. Verified on `xr 4.1.0`.
 
 ## The four paths
 
@@ -53,9 +53,11 @@ xr auth status --output json
 
 Per app: `name`, `client_id_hint` (first 8 characters of the client id, never the secret), `default`, `oauth2_users`
 (usernames with a stored OAuth2 token: names only, no expiry), `oauth1` and `bearer` (presence booleans),
-`bearer_source` (`env` or `store`; omitted when `bearer` is `false`), `redirect_uri` with `redirect_uri_source`
-(`env-var` / `app-config` / `built-in-default`) and `redirect_uri_stored` when the env var overrides a stored value, and
-`oauth2_unnamed` only when a `/2/users/me`-failed salvage token exists. No secret or token value is ever rendered.
+`bearer_source` (`env` or `store`; omitted when `bearer` is `false`; `env` appears only on a registered app, so an
+`XURL_BEARER_TOKEN` with no app in the store is not listed at all, though read verbs still use it), `redirect_uri` with
+`redirect_uri_source` (`env-var` / `app-config` / `built-in-default`) and `redirect_uri_stored` when the env var
+overrides a stored value, and `oauth2_unnamed` only when a `/2/users/me`-failed salvage token exists. No secret or token
+value is ever rendered.
 
 It does not hit the X API. An empty store answers `{"status":"ok","apps":[]}`. `xr auth apps list --output json` returns
 the same shape.
@@ -225,7 +227,7 @@ the OAuth2 flow, and re-try. When X refuses the app itself (a 403 whose body nam
 `client-forbidden`), the envelope is `reason: "forbidden"` with an `enroll-app` `next_step` whose `docs` URL is the
 enrollment recipe; a bare `forbidden` (no `next_step`) is an ordinary permission refusal, read `message`.
 
-`xr auth oauth2` on `xr 4.0.0` requests the scopes the `broadcasts` verbs need (the release notes name
+`xr auth oauth2` on `xr 4.x` requests the scopes the `broadcasts` verbs need (the release notes name
 `broadcast.read` and `broadcast.write`; the vendored X API spec agrees). A token enrolled before those scopes were
 requested does not carry them: `xr broadcasts moderators …` answers `auth-required` (or a bare `forbidden`) until the
 user re-runs `xr auth oauth2` for that app, after the app's developer-portal configuration allows the scopes.

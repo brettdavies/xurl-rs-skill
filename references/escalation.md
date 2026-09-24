@@ -8,7 +8,8 @@ Walk these in order. Stop at the first one that answers the question.
 
 1. **`xr <command> --help`**: the binary's own docs, always current with the installed version. The root `xr --help`
    ends with `ENVIRONMENT VARIABLES`, `INPUT FROM STDIN`, `EXIT CODES`, and `TTY behavior` sections. Most "how do I pass
-   X?" questions resolve here.
+   X?" questions resolve here. A mistyped command answers `unknown-command` with a `show-help` `next_step`: its
+   `command` is the right help page to read.
 2. **`xr examples`**: curated invocation gallery, ~160 lines, every major workflow with two-or-three lines per case.
    When the question is "what does the canonical pattern look like?", this is the answer.
 3. **`xr schema --list`**: 42 typed response shapes, one row per verb (`<name> <Rust type>`). When the question is "what
@@ -69,6 +70,8 @@ This rule has two carve-outs so it doesn't over-constrain:
 - The action is read-only, the credentials are present, and the user's intent maps unambiguously to one endpoint.
 - A `--dry-run` envelope has already returned `would_succeed: true` and the user has authorized the live call.
 - The fix for a `validation` envelope is mechanically derivable (a typo'd field name, a missing required argument).
+- An envelope carries `next_step.action: "show-help"`: its `command` is a help page, read-only, so run it and retry the
+  corrected invocation.
 
 ## Worked examples
 
@@ -95,7 +98,7 @@ Done at step 1; the lookup short-circuits.
 ### "The JSON from `xr timeline --output json` has no `status` field. Did it fail?"
 
 1. Check the exit code and the stream: exit `0` with the document on stdout is a success.
-2. API-backed verbs print the X API document as returned (`data`, `meta`, `includes`, `errors`); only local verbs (`auth
+2. API-backed verbs print the X API document (`data`, `meta`, `includes`, `errors`); only local verbs (`auth
    …`, `validate`, `skill …`) add `status: "ok"`. [output-envelope.md](output-envelope.md) tabulates the four document
    kinds.
 3. Read `.data[]` and `.meta.next_token`; `scripts/paginate.sh` already does, across pages.

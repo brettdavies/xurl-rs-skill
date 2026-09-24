@@ -10,6 +10,9 @@ xr auth status --output json                 # .apps[]: search works on bearer: 
 xr usage --output json                       # check remaining caps; search counts against tweet caps
 ```
 
+`auth status` reads the token store only. A bearer staged through `XURL_BEARER_TOKEN` does not appear there (an empty
+store still answers `"apps": []`), yet `xr search` uses it; check the variable as well before refusing to run.
+
 If only the Bearer is staged, force it:
 
 ```bash
@@ -27,6 +30,12 @@ xr search "<QUERY>" -n 50 --output json
 The answer is the X API document, `{"data":[…],"meta":{"result_count":…,"next_token":…}}`, with no `status` key (see
 [references/output-envelope.md](../references/output-envelope.md)). `-n` is the page size, `10..=100` for search (the
 API's floor is 10; the other list verbs accept `1..=100`).
+
+Engagement counters read under the post vocabulary (`public_metrics.repost_count`, never `retweet_count`), and a
+counter X left out of a record prints as `0`. When a missing counter has to stay distinguishable from a real zero, run
+the search in raw mode (`xr '/2/tweets/search/recent?query=<URL-ENCODED>&post.fields=public_metrics&max_results=50'
+--output json`), which prints X's fields as sent. `post.fields` is the parameter typed `xr search` sends. Raw mode
+takes its paging in the URL (`max_results`, `pagination_token`): it ignores `-n`, `--limit`, and `--cursor`.
 
 Capture and pipe:
 
@@ -53,6 +62,9 @@ The bundle ships a deterministic paginator that streams `.data[]?` records as co
   -- xr search "<QUERY>" -n 100 \
   | jaq -c '{id, text, author_id}'
 ```
+
+The script streams `.data[]` only, so `includes` (the `users` a typed search expands from `author_id`) does not reach
+its output; join authors with the enrich pattern below, or read `includes` from a single-page `--output json` call.
 
 Options: `--max-pages N` (default 20), `--cursor TOKEN` (resume), `--sleep SECS` (pace against rate limits). Do NOT pass
 `--cursor` / `--after` / `--page` / `--output` / `--json` / `--jsonl` / `--dry-run` to the verb; the script controls

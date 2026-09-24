@@ -7,7 +7,7 @@
 # from xr (its error envelope arrives on stderr and is re-emitted with the
 # reason), or a `status: "error"` / `status: "dry_run"` document on stdout.
 #
-# A successful page is the raw X API document (`data`, `meta`, `includes`,
+# A successful page is the X API document (`data`, `meta`, `includes`,
 # `errors`); it carries no `status` key, so the script never requires one.
 #
 # Usage:

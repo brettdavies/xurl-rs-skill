@@ -8,7 +8,7 @@ than this bundle is republished.
 For how to drive the API from the command line, look elsewhere in this bundle: [auth-modes.md](auth-modes.md),
 [agent-flags.md](agent-flags.md), [output-envelope.md](output-envelope.md), and the four templates.
 
-**Verified on:** 2026-09-18 (every URL below answered HTTP 200 that day). Treat any concrete name, number, or path below
+**Verified on:** 2026-09-24 (every URL below answered HTTP 200 that day). Treat any concrete name, number, or path below
 as a hint that should be confirmed at the official URL before you act on it.
 
 > **Iron rule:** never invent X API endpoint paths, OAuth scopes, billing tiers, or rate-limit numbers. They change.
@@ -69,7 +69,7 @@ OAuth 2.0 scopes are granted at two layers: at app configuration time in the dev
 request) and at consent time by the user (which of those scopes they grant). The scope catalog is a **closed set**
 defined by X; do not invent names. Scope groups historically include reads on tweets and users, writes on tweets,
 follows, likes, bookmarks, DMs, mutes/blocks, broadcast chat moderation (`broadcast.read` / `broadcast.write` in the
-spec revision `xr 4.0.0` vendors), and offline-access (refresh-token).
+spec revision `xr 4.1.0` vendors), and offline-access (refresh-token).
 
 Authoritative catalog: <https://docs.x.com/fundamentals/authentication/oauth-2-0/authorization-code.md>.
 
@@ -133,6 +133,11 @@ because `xr` turns an HTTP error into a `status: "error"` envelope on stderr (se
 [output-envelope.md](output-envelope.md)). The API's own problem document (`{title, type, status, detail}`) survives as
 that envelope's `message` string.
 
+X names post fields in a post vocabulary (`edit_history_post_ids`, `public_metrics.repost_count`) that the spec and
+the docs use, but some endpoints still answer with the tweet-era spellings (`edit_history_tweet_ids`,
+`retweet_count`). Typed `xr` verbs print the spec's names; raw mode prints whichever spelling X sent, so a raw-mode
+pipeline reads both. See [output-envelope.md](output-envelope.md#api-backed-success-the-x-api-document-no-status).
+
 Per-resource shapes (Tweet, User, DM, etc.) are documented per endpoint. For the shapes `xr` types, see `xr schema
 <name> --output json`; those mirror the API as of the bundled `xr` version.
 
@@ -189,7 +194,7 @@ drop to raw mode and consult the docs category index:
 When a page moves, <https://docs.x.com/x-api/llms.txt> lists the current path under the same category heading.
 
 The broadcast chat moderator endpoints (`/2/broadcasts/chat/moderators`, which `xr broadcasts moderators` wraps) are in
-the X API spec `xr 4.0.0` vendors, tagged `Broadcasts`, but no docs page for them was indexed in `x-api/llms.txt` on
+the X API spec `xr 4.1.0` vendors, tagged `Broadcasts`, but no docs page for them was indexed in `x-api/llms.txt` on
 the verified date. Look for a `Broadcasts` heading there before citing a URL; until one exists, `xr broadcasts
 moderators <verb> --help` and `xr schema broadcasts-moderators-list --output json` are the only shape references.
 

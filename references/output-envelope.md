@@ -5,19 +5,20 @@ got is decided by the **exit code and the stream first**, and by the `status` ke
 
 | Exit     | Stream | `status` key | What it is                                                                                                    |
 | -------- | ------ | ------------ | ------------------------------------------------------------------------------------------------------------- |
-| 0        | stdout | **absent**   | An API-backed success: the X API document as returned (`data`, plus `includes` / `meta` / `errors` when sent) |
-| 0        | stdout | **absent**   | `xr version`: `{"name":"xr","version":"4.0.0","xdk_rs":"0.1.0"}`, the one local verb with no `status`         |
+| 0        | stdout | **absent**   | An API-backed success: the X API document (`data`, plus `includes` / `meta` / `errors` when sent)             |
+| 0        | stdout | **absent**   | `xr version`: `{"name":"xr","version":"4.1.0","xdk_rs":"0.1.1"}`, the one local verb with no `status`         |
 | 0        | stdout | `"ok"`       | A local verb's success (`auth …`, `validate`, `skill …`): verb-specific keys beside `status`                  |
 | 0        | stdout | `"dry_run"`  | A write verb's preflight under `--dry-run`: `would_succeed`, `exit_code`, and the inputs it validated         |
-| non-zero | stderr | `"error"`    | A failure: closed-set `reason`, `exit_code`, `message`, and `next_step` when a recovery exists                |
+| non-zero | stderr | `"error"`    | A failure: kebab-case `reason`, `exit_code`, `message`, and `next_step` when a recovery exists                |
 
-Two exceptions to the stream rule, both verified on `xr 4.0.0`:
+Two exceptions to the stream rule, both verified on `xr 4.1.0`:
 
 - The `skill install` / `skill update` verbs write their error envelope to **stdout** with the non-zero exit
   (`missing-host` and `destination-not-empty` verified). Feature-detect on `status == "error"` there.
-- An invalid `--output` value (`--output toml`) is a plain clap usage message on stderr at exit `2`, because no
-  structured mode was resolved. Every other flag-parsing failure (an unknown flag, a missing positional, a bad
-  `--timeout`) is an `invalid-args` envelope whose `message` carries clap's text.
+- An invalid `--output` value (`--output toml`) is a plain usage message on stderr at exit `2` (`Error: invalid value
+  'toml' for '--output <OUTPUT>'`, ending `Try 'xr <cmd> --help'.`), because no structured mode was resolved. Every
+  other flag-parsing failure (an unknown flag, a missing positional, a bad `--timeout`) is an `invalid-args` envelope
+  whose `message` carries the parser's text without an `error:` prefix, ending with the same `Try '… --help'.` line.
 
 Capture both streams when you intend to branch on the result: `RESPONSE=$(xr whoami --output json 2>&1)`. Capturing
 stdout alone leaves the variable empty on exactly the path a script wants to inspect.
@@ -46,10 +47,23 @@ the verb's own schema instead (`xr validate --schema posts`, `--schema user`, �
 Every verb that calls the X API (`post`, `reply`, `quote`, `delete`, `read`, `search`, `whoami`, `user`, `timeline`,
 `mentions`, `like` … `unbookmark`, `bookmarks`, `likes`, `follow` … `followers`, `mute` / `unmute` / `muted`, `block` /
 `unblock` / `blocked`, `dm`, `dms`, `broadcasts moderators list` / `add` / `remove`, `usage`, `usage credits`, `media
-upload`, `media status`, and raw mode) prints the response body as the API sent it: `data` (an object for lookups and
-writes, an array for list verbs), and `includes`, `meta` (`next_token`, `result_count`), `errors` (partial failures
-beside valid data) when present. Typed verbs deserialize the body into the shape `xr schema <verb>` declares before
-printing, so a body the type cannot hold is a `serialization` error, not a partial document.
+upload`, `media status`, and raw mode) prints the X API document: `data` (an object for lookups and writes, an array
+for list verbs), and `includes`, `meta` (`next_token`, `result_count`), `errors` (partial failures beside valid data)
+when present. Typed verbs deserialize the body into the shape `xr schema <verb>` declares before printing, so a body the
+type cannot hold is a `serialization` error, not a partial document.
+
+Typed output is that shape, not the bytes X sent, in two ways that matter when reading fields:
+
+- **Post vocabulary.** X still answers some endpoints with its pre-rename field names. Typed verbs print the name the
+  spec uses and keep X's value: `edit_history_tweet_ids` reads as `edit_history_post_ids`, `public_metrics.retweet_count`
+  as `repost_count`. Read the current names in typed output (the rename table comes from the vendored spec; a legacy
+  spelling that is also a current name elsewhere in the spec is left as sent). Raw mode (`xr /2/...`) prints exactly
+  what X sent, legacy names included. Text-mode `--verbose` prints one line per renamed key on stderr
+  (`info: X sent edit_history_tweet_ids; read as edit_history_post_ids (array, length 1)`); structured output and
+  `--quiet` suppress it.
+- **Counters are filled.** Inside `public_metrics`, every counter the typed shape declares is printed, so one X did not
+  send reads as `0`; optional fields X omitted elsewhere (`created_at`, `author_id`, …) stay absent. When "absent" and
+  "zero" must differ for a counter, fetch the resource in raw mode (`xr /2/tweets/<id>`).
 
 Three write verbs answer a confirmation object rather than the resource: `dm` prints `{"data":{"dm_conversation_id":
 "…","dm_event_id":"…"}}` (the schema `dm` validates exactly that), and `broadcasts moderators add` / `remove` print
@@ -84,9 +98,9 @@ Verbs that never touch the API answer `status: "ok"` with their own keys beside 
 `auth default <app> <user>` prints two documents (the app message with `status`, then the user message without); parse
 the first or run the two forms separately.
 
-`xr version` is local but carries no `status`: under `--output json` it prints `{"name":"xr","version":"4.0.0",
-"xdk_rs":"0.1.0"}` (the CLI version beside the `xdk-rs` library it links), `--output yaml` the same keys, and text mode
-the line `xr 4.0.0`, or `xr 4.0.0 (xdk-rs 0.1.0)` with `--verbose`. `xr --version` stays the plain clap line. Read
+`xr version` is local but carries no `status`: under `--output json` it prints `{"name":"xr","version":"4.1.0",
+"xdk_rs":"0.1.1"}` (the CLI version beside the `xdk-rs` library it links), `--output yaml` the same keys, and text mode
+the line `xr 4.1.0`, or `xr 4.1.0 (xdk-rs 0.1.1)` with `--verbose`. `xr --version` is the plain clap line. Read
 `.version`; `xr validate --schema envelope` rejects the document for the missing `status`.
 
 **`auth status` and `auth apps list` wrap the array**: the shape is `{"status":"ok","apps":[...]}`, never a bare
@@ -159,7 +173,7 @@ and there is no `payload` key.
 
 Mandatory fields:
 
-- `reason` (string, kebab-case): typed kind from a **closed set** (catalog below).
+- `reason` (string, kebab-case): typed kind from the set the release emits (catalog below); keep a default branch.
 - `exit_code` (integer): the process exit code; the two always agree.
 
 Optional fields, each **omitted entirely (not `null`) when absent**, so feature-detect by key presence:
@@ -184,10 +198,16 @@ An error that knows how to recover carries a `next_step` object:
 { "action": "select-app",   "command":  "xr auth oauth2 --no-browser --step 1 --app other-app" }
 { "action": "inspect-store","command":  "xr auth status" }
 { "action": "enroll-app",   "docs":     "https://github.com/brettdavies/xurl-rs#x-platform-enrollment" }
+{ "action": "show-help",    "command":  "xr auth status --help" }
 ```
 
-`action` is a closed set. A step carries **either** `command` (runnable verbatim by a non-TTY caller) **or** `template`
-(angle-bracket placeholders only the caller can fill), never both; `enroll-app` carries only `docs`.
+A step carries **either** `command` (runnable verbatim by a non-TTY caller) **or** `template` (angle-bracket
+placeholders only the caller can fill), never both; `enroll-app` carries only `docs`.
+
+The six actions below are every one `xr 4.1.0` emits, and `xr schema --envelope` lists the same six. A newer `xr` can
+add one without a major version bump, so give every branch on `action` a default: an action you do not recognize means
+"read `message` and show the user the step", never "ignore it" and never "run its `command` unread". The same holds for
+`reason` (see [Reason catalog](#reason-catalog)).
 
 | `action`        | Meaning                                          | Do                                                           |
 | --------------- | ------------------------------------------------ | ------------------------------------------------------------ |
@@ -196,9 +216,12 @@ An error that knows how to recover carries a `next_step` object:
 | `select-app`    | A different registered app is the one to use     | Run `command` verbatim (it names the app with `--app`)       |
 | `inspect-store` | `~/.xurl` exists but could not be read or parsed | Run `command`; the `message` names the file path to inspect  |
 | `enroll-app`    | X refused the app: a 403 naming enrollment       | Open `docs`; the fix is in the developer portal, not the CLI |
+| `show-help`     | `unknown-command`: the word names no command     | Run `command`; it prints the help to read before retrying    |
 
 `enroll-app` rides on `reason: "forbidden"` only when the 403 body contains `client-not-enrolled` or `client-forbidden`;
-any other 403 is a bare `forbidden` with no `next_step`.
+any other 403 is a bare `forbidden` with no `next_step`. `show-help` names the help of the nearest command (`xr auth
+statsu` → `xr auth status --help`), of the family the word was typed under when nothing is close (`xr auth zzz` → `xr
+auth --help`), or the root help (`xr --help`); the help is read-only, so running it needs no confirmation.
 
 `next_step` also appears on one **success** envelope: `xr auth apps add` answers `status: "ok"` with a `sign-in` step so
 the next command is already spelled out.
@@ -233,11 +256,9 @@ if [ "$(printf '%s' "$RESPONSE" | jaq -r '.status // ""')" = "error" ] &&
     register-app)
       printf 'Register an app: %s\n' "$(printf '%s' "$RESPONSE" | jaq -r '.next_step.template')" >&2
       ;;                                    # needs values only the user has; ask, do not invent
-    enroll-app)
-      printf 'Enroll the app: %s\n' "$(printf '%s' "$RESPONSE" | jaq -r '.next_step.docs')" >&2
-      ;;
-    none)
+    *)                                      # none, or an action a newer xr added: surface it, do not act on it
       printf '%s\n' "$(printf '%s' "$RESPONSE" | jaq -r '.message')" >&2
+      printf '%s\n' "$(printf '%s' "$RESPONSE" | jaq -c '.next_step // empty')" >&2
       ;;
   esac
   exit 77
@@ -249,7 +270,9 @@ names the file. Back it up, then `xr auth clear --all --force` or move it aside,
 
 ## Reason catalog
 
-Closed set. Exit codes are what the binary emits today.
+Every reason `xr 4.1.0` emits, with the exit code it emits it at. A newer `xr` can add a reason without a major version
+bump, so a script that branches on `reason` needs a default branch; the exit code still classifies an unknown reason
+coarsely (`2` local usage, `3` back off, `77` credentials, `1` / `5` read `message`).
 
 | `reason`                                                                            | `exit_code`             | What it means                                                                                                                          | First response                                                                                             |
 | ----------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -258,7 +281,7 @@ Closed set. Exit codes are what the binary emits today.
 | `auth-method-mismatch`                                                              | 2                       | `--auth X` (or the app's only scheme) is rejected by the endpoint                                                                      | Read `supported` / `other_apps_with_creds`; change `--auth` or `--app`                                     |
 | `client-credentials-missing`                                                        | 2                       | `auth oauth2` on an app with no client id                                                                                              | Follow `next_step` (`register-app` when no app has one, `select-app` when another does)                    |
 | `invalid-args`                                                                      | 2                       | Flag parsing failed (unknown flag, missing positional, bad value)                                                                      | Re-read `xr <cmd> --help`; fix the call                                                                    |
-| `unknown-command`                                                                   | 2                       | Mistyped verb                                                                                                                          | Use `suggestion` when present                                                                              |
+| `unknown-command`                                                                   | 2                       | Mistyped verb, including `xr <word> --help` / `--version` when the word names no command                                               | Run `next_step.command` (`show-help`); `suggestion` names the nearest verb when one is close               |
 | `missing-host`                                                                      | 2                       | `skill install` / `skill update` without `<host>` or `--all` (on stdout)                                                               | Pick from `known_hosts`                                                                                    |
 | `rate-limited`                                                                      | 3                       | HTTP 429                                                                                                                               | `xr usage --output json` → wait or pivot to caching                                                        |
 | `not-found`                                                                         | 4                       | HTTP 404                                                                                                                               | Verify the post/user ID; some hits are normal                                                              |
@@ -271,7 +294,7 @@ Closed set. Exit codes are what the binary emits today.
 | `invalid-url`                                                                       | 1                       | Raw-mode URL is not absolute `http(s)://` or `/`-prefixed                                                                              | Fix the URL                                                                                                |
 | `invalid-path-param`                                                                | 1                       | A path placeholder could not be substituted                                                                                            | Fix the argument                                                                                           |
 | `validation`                                                                        | 1                       | Inputs failed a local check (`auth clear` without a selector; `xr schema <verb>` on a verb with no typed response, or an unknown name) | Read `message`; for `schema` it lists the valid names                                                      |
-| `serialization`                                                                     | 1                       | The response body did not deserialize into the verb's typed shape                                                                      | Re-run in text mode with `--verbose` to capture the wire body; diff against `xr schema <verb>`             |
+| `serialization`                                                                     | 1                       | A success body did not deserialize into the verb's typed shape                                                                         | A write most likely landed: do not retry it. A read: request its path (shown by `--verbose`) in raw mode   |
 | `io`                                                                                | 5 (`1` from `validate`) | Local file or pipe error (a missing `media upload` path)                                                                               | Check the path / pipe / permissions                                                                        |
 | `internal`                                                                          | 1                       | Unexpected runtime state                                                                                                               | File upstream with the text-mode `--verbose` output                                                        |
 | `confirmation-required`                                                             | 1                       | `delete` / `auth clear` / `auth apps remove` could not prompt and had no `--force`                                                     | Re-run with `--force` after the user confirms (also needed under `--dry-run`)                              |
@@ -325,8 +348,8 @@ esac
 ## Exit-code → envelope mapping
 
 `xr` always sets both `exit_code` in the envelope AND the process exit code. They agree. Use the envelope's `reason` for
-branching (closed set, easier to match) and the exit code for coarse retry policy: back off on `3`, give up on `2` (the
-cause is local), recover credentials on `77`.
+branching (finer-grained, easier to match; keep a default branch) and the exit code for coarse retry policy: back off on
+`3`, give up on `2` (the cause is local), recover credentials on `77`.
 
 | `exit_code` | `reason`(s)                                                                                                                                                                                                                                                                                            |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
