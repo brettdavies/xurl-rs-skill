@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-09-24
+
+### Added
+
+- Add the `broadcasts moderators list` / `add` / `remove` family to the guardrail, routing table, references, and
+  templates: `add` / `remove` go through `scripts/dry-run-gate.sh` like every write verb and return
+  `{"data":{"moderator_user_ids":[…]}}`; `list` is one unpaged GET run bare. by @brettdavies in
+  [#20](https://github.com/brettdavies/xurl-rs-skill/pull/20)
+- Add `evals/eval-07-broadcast-moderators.md`, a mutating-intent eval for the new family, and regression ids F9 / F10.
+- Add `xr block`, `xr unblock`, `xr blocked`, and `xr muted` to the documented surface: read-op and write-op lists, the
+  pagination verb list, the search-and-process list-verb table, the routing table, and the skill description. by
+  @brettdavies in [#17](https://github.com/brettdavies/xurl-rs-skill/pull/17)
+- Add `evals/eval-06-moderate-mentions.md`, which lists muted users through `scripts/paginate.sh` and preflights a
+  block through the gate.
+
+### Changed
+
+- Change `scripts/paginate.sh` to exit 1 when a page hands back the cursor it was fetched with, so a verb that ignores
+  `--cursor` no longer loops to `--max-pages`. by @brettdavies in
+  [#20](https://github.com/brettdavies/xurl-rs-skill/pull/20)
+- Change the reason catalog and exit-code matrix to the `xr 4.0.0` split: `forbidden` (403), `invalid-request` (400 /
+  422), `server-error` (5xx), and `api-error` at exit 1; `network-error` at exit 5 for a request that got no answer;
+  `enroll-app` only on a 403 that names enrollment.
+- Change `xr version` guidance: `--output json` prints `{"name","version","xdk_rs"}` with no `status` key, `--verbose`
+  names the linked `xdk-rs`; the bundle describes the 4.0.0 contract.
+- Change `xr auth status` and `xr auth apps list` guidance to `{"status":"ok","apps":[...]}`, read through `.apps[]`,
+  with an empty store answering `"apps": []`; every recipe and template that read the bare top-level array through
+  `.[]` reads `.apps[]`. by @brettdavies in [#17](https://github.com/brettdavies/xurl-rs-skill/pull/17)
+- Change `xr skill update --all` guidance to one aggregated envelope with `installations[]` that refreshes only hosts
+  with an existing installation and reports the rest as `status: "skipped"`, `reason: "not-installed"`, at exit 0.
+
+### Documentation
+
+- Document the `dm` send confirmation, the `dm-event` and `moderators` schema names, `xr schema <verb>` answering
+  `validation` on a verb with no typed response, tokens that predate the broadcast scopes, the `~/.xurl.lock` store
+  lock, and the upstream repository's `crates/xurl-cli/` layout. by @brettdavies in
+  [#20](https://github.com/brettdavies/xurl-rs-skill/pull/20)
+
+**Full Changelog**: [v0.2.0...v0.3.0](https://github.com/brettdavies/xurl-rs-skill/compare/v0.2.0...v0.3.0)
+
 ## [0.2.0] - 2026-09-16
 
 ### Added
