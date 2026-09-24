@@ -168,6 +168,10 @@ Use `--limit` as a default cap across a script; override per call with `-n`. The
 verb clamps the value to `1..=100`, except `search`, which the X API floors at 10: `xr search … -n 3` sends
 `max_results=10`. Ask for fewer than 10 search results by filtering the page, not by lowering `-n`.
 
+`--limit`, `-n`, and `--cursor` / `--after` apply to the typed list verbs only. Raw mode (`xr /2/...`) sends the URL as
+written and ignores all three, without an error; put `max_results` and `pagination_token` in the URL instead
+(`xr '/2/tweets/search/recent?query=rust&max_results=50&pagination_token=<token>'`).
+
 ## Multi-app override
 
 ```bash

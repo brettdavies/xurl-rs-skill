@@ -8,7 +8,7 @@
 #
 # xr writes error envelopes to stderr with a non-zero exit; the gate captures
 # that stream during the preflight so the refusal names the `reason`. The
-# live call is exec'd directly: its success document (raw X API JSON, no
+# live call is exec'd directly: its success document (the X API document, no
 # `status` key) goes to stdout and any failure envelope to stderr, exactly
 # as the bare verb would emit them.
 #

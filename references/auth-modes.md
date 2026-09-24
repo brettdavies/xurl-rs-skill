@@ -53,7 +53,8 @@ xr auth status --output json
 
 Per app: `name`, `client_id_hint` (first 8 characters of the client id, never the secret), `default`, `oauth2_users`
 (usernames with a stored OAuth2 token: names only, no expiry), `oauth1` and `bearer` (presence booleans),
-`bearer_source` (`env` or `store`; omitted when `bearer` is `false`), `redirect_uri` with `redirect_uri_source`
+`bearer_source` (`env` or `store`; omitted when `bearer` is `false`; `env` appears only on a registered app, so an
+`XURL_BEARER_TOKEN` with no app in the store is not listed at all, though read verbs still use it), `redirect_uri` with `redirect_uri_source`
 (`env-var` / `app-config` / `built-in-default`) and `redirect_uri_stored` when the env var overrides a stored value, and
 `oauth2_unnamed` only when a `/2/users/me`-failed salvage token exists. No secret or token value is ever rendered.
 

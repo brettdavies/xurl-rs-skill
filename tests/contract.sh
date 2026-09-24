@@ -279,7 +279,7 @@ check "auth status: per-app fields" 0 out '"client_id_hint": "abcdefgh"' -- "$X"
 check "auth status: oauth2_users" 0 out '"alice"' -- "$X" auth status --output json
 check "auth status: bearer_source" 0 out '"bearer_source": "store"' -- "$X" auth status --output json
 check "auth status: no token values" 0 out '!fakeaccess' -- "$X" auth status --output json
-check "whoami: raw API document" 0 out '"username": "alice"' -- "$X" whoami --output json
+check "whoami: the X API document" 0 out '"username": "alice"' -- "$X" whoami --output json
 check "whoami: NO status key on success" 0 out '!"status"' -- "$X" whoami --output json
 check "whoami --raw: compact" 0 out '{"data":{"id":"42"' -- "$X" whoami --output json --raw
 check "whoami text mode piped: JSON" 0 out '"username": "alice"' -- "$X" whoami
@@ -368,6 +368,11 @@ check "typed read: omitted counter prints 0" 0 out '"like_count": 0' -- "$X" rea
 check "typed read: omitted optional field stays absent" 0 out '!created_at' -- "$X" read 123 --output json
 check "raw mode: legacy keys as sent" 0 out '"edit_history_tweet_ids"' -- "$X" /2/tweets/123 --output json
 check "raw mode: omitted counter stays absent" 0 out '!like_count' -- "$X" /2/tweets/123 --output json
+check "typed search: sends post.fields" 0 log 'post.fields=' -- "$X" search x --output json
+check "raw mode: --cursor not threaded" 0 log '!pagination_token' -- "$X" '/2/tweets/search/recent?query=x' --cursor abc --output json
+check "raw mode: --limit not threaded" 0 log '!max_results' -- "$X" '/2/tweets/search/recent?query=x' --limit 5 --output json
+check "env bearer, empty store: auth status lists no app" 0 out '"apps": []' -- env XURL_TOKEN_STORE="$WORK/empty.yaml" XURL_BEARER_TOKEN=fakebearer "$X" auth status --output json
+check "env bearer, empty store: search uses it" 0 out '"next_token"' -- env XURL_TOKEN_STORE="$WORK/empty.yaml" XURL_BEARER_TOKEN=fakebearer "$X" search x --output json
 check "--verbose text: legacy-vocabulary note" 0 err 'info: X sent edit_history_tweet_ids; read as edit_history_post_ids' -- "$X" read 123 --verbose
 check "--verbose json: no vocabulary note" 0 err '!info: X sent' -- "$X" read 123 --verbose --output json
 check "--verbose --quiet: no vocabulary note" 0 err '!info: X sent' -- "$X" read 123 --verbose --quiet

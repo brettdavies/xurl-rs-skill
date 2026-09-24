@@ -135,7 +135,7 @@ Full agent-flag matrix and env-var precedence: [references/agent-flags.md](refer
 ## Verifying the install
 
 ```bash
-xr version                                   # prints "xr 4.1.0"; this bundle describes the 4.1.0 contract
+xr version                                   # "xr 4.1.0" or a later 4.x; this bundle describes the 4.1.0 contract
 xr version --output json | jaq -r '.version' # the same, machine-readable; .xdk_rs is the linked library version
 xr --help                                    # full surface
 xr whoam --output json 2>&1 | jaq -r '.next_step.action'   # "show-help" on 4.1.0 and later

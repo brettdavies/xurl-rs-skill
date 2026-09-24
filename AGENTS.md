@@ -10,7 +10,7 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 | xurl-rs commit      | `4da143c`, the `v4.1.0` tag (2026-09-24)                                                         |
 | Binary self-report  | `xr 4.1.0` (`xdk-rs 0.1.1`), the `x86_64-unknown-linux-gnu` asset of the `v4.1.0` GitHub release |
 | Contract documented | 4.1.0: `show-help` on `unknown-command`, post-vocabulary names in typed output, parse-error text |
-| Harness result      | `tests/contract.sh`: 230 checks passing against that binary                                      |
+| Harness result      | `tests/contract.sh`: 235 checks passing against that binary                                      |
 
 The bundle documents the contract of the `xr` release it ships beside: the upstream `dev` head when a release is
 being cut from it, or the released artifact once it is out. A release that changes nothing the bundle documents gets
