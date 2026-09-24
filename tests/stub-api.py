@@ -18,12 +18,23 @@ PORT = int(sys.argv[1])
 LOG = sys.argv[2]
 
 USER = {"id": "42", "username": "alice", "name": "Alice"}
-LIST_PAGE = {
-    "data": [{"id": "1", "text": "hi", "username": "u", "name": "U"}],
-    "meta": {"result_count": 1, "next_token": "T2"},
-}
+LIST_RECORDS = [{"id": "1", "text": "hi", "username": "u", "name": "U"}]
+MODERATORS = {"moderator_user_ids": ["7"]}
 SINGLE_POST = re.compile(r"^/2/tweets/(\d+)(\?|$)")
 BY_USERNAME = re.compile(r"^/2/users/by/username/([^/?]+)")
+PAGINATION_TOKEN = re.compile(r"pagination_token=T(\d+)")
+
+STATUS_BY_SEGMENT = {
+    "ratelimit": (429, "Too Many Requests"),
+    "missing": (404, "Not Found"),
+    "unauthorized": (401, "Unauthorized"),
+    "notenrolled": (403, "client-not-enrolled"),
+    "forbidden": (403, "Forbidden"),
+    "badrequest": (400, "Bad Request"),
+    "unprocessable": (422, "Unprocessable Entity"),
+    "servererror": (500, "Internal Server Error"),
+    "teapot": (418, "I'm a teapot"),
+}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -41,9 +52,18 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _refusal(self):
+        for segment, (status, title) in STATUS_BY_SEGMENT.items():
+            if segment in self.path:
+                self._reply({"title": title, "status": status, "detail": segment}, status)
+                return True
+        return False
+
     def do_GET(self):
         self._record(None)
         path = self.path
+        if self._refusal():
+            return None
         if path.startswith(("/2/tweets/search/stream", "/2/tweets/sample/stream")):
             body = b'{"data":{"id":"s1","text":"one"}}\n{"data":{"id":"s2","text":"two"}}\n'
             self.send_response(200)
@@ -60,16 +80,21 @@ class Handler(BaseHTTPRequestHandler):
         match = SINGLE_POST.match(path)
         if match:
             return self._reply({"data": {"id": match.group(1), "text": "hi"}})
-        if "ratelimit" in path:
-            return self._reply({"title": "Too Many Requests", "status": 429}, 429)
-        if "missing" in path:
-            return self._reply({"title": "Not Found", "status": 404}, 404)
-        return self._reply(LIST_PAGE)
+        return self._reply(self._list_page())
+
+    def _list_page(self):
+        # The token advances per page the way X's does, so a verb that
+        # ignores --cursor is the only one that sees the same token twice.
+        match = PAGINATION_TOKEN.search(self.path)
+        nxt = "T%d" % (int(match.group(1)) + 1) if match else "T2"
+        return {"data": LIST_RECORDS, "meta": {"result_count": 1, "next_token": nxt}}
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length).decode(errors="replace") if length else ""
         self._record(body)
+        if self._refusal():
+            return None
         if self.path.startswith("/2/media/upload"):
             return self._reply({"data": {"id": "m1", "media_key": "3_m1", "expires_after_secs": 3600}})
         if self.path.startswith("/2/tweets"):
@@ -85,12 +110,15 @@ class Handler(BaseHTTPRequestHandler):
                     "bookmarked": True,
                     "dm_conversation_id": "c1",
                     "dm_event_id": "e1",
+                    **MODERATORS,
                 }
             }
         )
 
     def do_DELETE(self):
         self._record(None)
+        if self._refusal():
+            return None
         return self._reply(
             {
                 "data": {
@@ -101,6 +129,7 @@ class Handler(BaseHTTPRequestHandler):
                     "liked": False,
                     "retweeted": False,
                     "bookmarked": False,
+                    **MODERATORS,
                 }
             }
         )
