@@ -1,0 +1,5 @@
+# Tests allowed to reset a core environment variable. One tab-separated entry
+# per line: path, enclosing @test or function name ("-" for top level), and
+# the reason. Read by tests/core-env-guard.sh; a sweep fails on an entry that
+# matches no finding.
+tests/contract.sh	-	xr expands skill-host destinations under HOME with no narrower override, so the skill cases need a scratch HOME to report not-installed on any machine; the token store is already on XURL_TOKEN_STORE
