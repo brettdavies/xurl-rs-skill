@@ -201,9 +201,18 @@ touched, and a direct push bypasses `dev`'s required checks.
 
 Beyond the two carriers, the script discovers every other path `main` and `dev` disagree about, bounded by the previous
 release tag (the last point the branches agreed). A path `dev` never touched since that tag is release-prep and is
-adopted from `main` automatically; a path both sides moved is contested and only reported. Pass `--only <path>` to
-adopt named contested paths, `--include-contested` to adopt them all, and `--dry-run` to see the plan without writing.
-Guarded paths (the `scripts/release/guarded-paths.sh` set) are never candidates, since they live on `dev` by design.
+adopted from `main` automatically; a path both sides moved is contested and only reported. Pass `--only <path>` to adopt
+named contested paths, `--include-contested` to adopt them all, and `--dry-run` to print the plan and stop. Guarded
+paths (the `scripts/release/guarded-paths.sh` set) are never candidates, since they live on `dev` by design.
+
+Any exit before the commit, a dry run included, ends on `dev` with the tree and index matching its `HEAD`: paths the run
+changed are restored, paths it created are removed, and only a branch it created is deleted. A dry run creates no
+branch, so an open `chore/sync-dev-after-v<version>` branch does not block one.
+
+After the commit, and only when the sync carried `CHANGELOG.md` and `git-cliff` is on `PATH`, the script re-runs
+`scripts/generate-changelog.py --dry-run --tag v<version>` against the current PR bodies. A mismatch prints a warning
+with the generator's own reason line (content drift from a PR body edited after the release, a wrap-only difference, or
+a generator error) and the PR still opens.
 
 The backport is idempotent: re-running on a `dev` already in sync with `main` exits 0 without creating a branch or PR.
 
@@ -297,8 +306,9 @@ gh api repos/<owner>/<repo>/commits/<sha>/check-runs --jq '.check_runs[].name'
   the install directory and clones again. No registry, no Homebrew, no binaries.
 - **Release scripts**: `scripts/release/_lib.sh`, `drift.sh`, and `guarded-paths.sh`, plus
   `scripts/generate-changelog.py` and `scripts/sync-dev-after-release.sh`, are verbatim copies from the
-  `github-repo-setup` skill. Edits land upstream and propagate by re-copy. The repo does not vendor a preflight or
-  postflight skeleton because the runbook above needs only the drift gate.
+  `github-repo-setup` skill. Edits land upstream and propagate by re-copy. `sync-dev-after-release.sh` sources `_lib.sh`
+  for its helpers, so the two are refreshed together. The repo does not vendor a preflight or postflight skeleton
+  because the runbook above needs only the drift gate.
 - **Required secrets**: none. `generate-changelog.py` and the sync script use the local `gh` auth token.
 
 ## Related docs
