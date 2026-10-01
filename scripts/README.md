@@ -13,8 +13,8 @@ shellcheck-clean, and meant to be invoked from any working directory.
 | `dry-run-gate.sh` | Enforce `--dry-run` → confirm → live for any `xr` write op.      | 0 live OK · 1 dry-run reject · 2 usage · 3 non-TTY w/o `--yes` · 4 declined · * passthrough                  |
 | `paginate.sh`     | Cursor-paginate any list-style verb; stream `.data[]?` as JSONL. | 0 done · 1 stdout error/dry_run document, or a cursor that did not advance · 2 usage · * xr's exit on a page |
 
-Both model the binary's streams: a success is the X API document on stdout (no `status` key), a failure is an
-error envelope on stderr with a non-zero exit. Each script captures stderr during its own calls so a refusal names the
+Both model the binary's streams: a success is the X API document on stdout (no `status` key), a failure is an error
+envelope on stderr with a non-zero exit. Each script captures stderr during its own calls so a refusal names the
 `reason`, and passes the verb's exit code through when the verb fails. See
 [references/output-envelope.md](../references/output-envelope.md) for the contract they encode.
 
@@ -33,20 +33,20 @@ What it does:
    `confirmation-required`, the message says to pass `--force`. A preflight that exits `0` with `would_succeed=false`
    (an input check failed) is refused at exit `1` with the check named as `reason=…` (`empty-body`, `alt-text-too-long`,
    `invalid-media-id`, …), followed by the envelope.
-3. Echoes the accepted `dry_run` envelope on **stderr** (stdout is reserved for the live response), so capture
-   `2>&1` when you want to keep it. On a TTY, prompts `[y/N]`. Off a TTY, requires `--yes` or refuses at exit `3`.
-4. `exec`s the verb again with `--output json` (no `--dry-run`): the API document lands on stdout, a failure envelope
-   on stderr, and the verb's exit code is the gate's.
+3. Echoes the accepted `dry_run` envelope on **stderr** (stdout is reserved for the live response), so capture `2>&1`
+   when you want to keep it. On a TTY, prompts `[y/N]`. Off a TTY, requires `--yes` or refuses at exit `3`.
+4. `exec`s the verb again with `--output json` (no `--dry-run`): the API document lands on stdout, a failure envelope on
+   stderr, and the verb's exit code is the gate's.
 
-Do NOT pass `--dry-run`, `--output`, `--json`, or `--jsonl` to the gated verb; the script controls them and refuses
-any of them that appears before the verb's own `--`. Text that starts with `-` goes after that `--` (`-- xr media
-alt-text <id> -- "-5°C at the start"`): the gate inserts its flags before the separator and does not inspect what
-follows it. DO pass `--force` for `delete`, `auth clear`, and `auth apps remove`: the binary's own confirmation gate
-runs before `--dry-run`, so without it the preflight itself is refused. The gate is the confirmation step.
+Do NOT pass `--dry-run`, `--output`, `--json`, or `--jsonl` to the gated verb; the script controls them and refuses any
+of them that appears before the verb's own `--`. Text that starts with `-` goes after that `--` (`-- xr media alt-text
+<id> -- "-5°C at the start"`): the gate inserts its flags before the separator and does not inspect what follows it. DO
+pass `--force` for `delete`, `auth clear`, and `auth apps remove`: the binary's own confirmation gate runs before
+`--dry-run`, so without it the preflight itself is refused. The gate is the confirmation step.
 
 The environment counts too. With `XURL_DRY_RUN` set to a true value, the live call would only dry-run, so the gate
-refuses at exit `2` before the preflight; unset it to go live. `XURL_JSON` and `XURL_JSONL` act as `--json` /
-`--jsonl`, which `xr` rejects beside `--output`, so both scripts unset them for their own calls.
+refuses at exit `2` before the preflight; unset it to go live. `XURL_JSON` and `XURL_JSONL` act as `--json` / `--jsonl`,
+which `xr` rejects beside `--output`, so both scripts unset them for their own calls.
 
 Examples:
 
@@ -73,8 +73,8 @@ What it does:
 1. Calls the verb with `--output json --quiet`, capturing stderr. A non-zero exit ends the loop with the envelope's
    `reason` on stderr and the verb's exit code (`3` for `rate-limited`, `77` for `auth-required`, …). A `status:
    "error"` or `status: "dry_run"` document on stdout ends it at exit `1`.
-2. Streams `.data[]?` to stdout as compact JSONL, one record per line. A page is the X API document; the script does
-   not expect a `status` key.
+2. Streams `.data[]?` to stdout as compact JSONL, one record per line. A page is the X API document; the script does not
+   expect a `status` key.
 3. Reads `meta.next_token`. If empty, exits 0. Otherwise re-runs with `--cursor <token>` until `--max-pages`. A page
    that hands back the very cursor it was fetched with ends the loop at exit `1`: the verb ignores `--cursor`
    (`broadcasts moderators list` does), so every further page would repeat the one already streamed.
@@ -86,8 +86,8 @@ controls them. The script refuses if they appear in args.
 Defaults:
 
 - `--max-pages 20`: safety cap to keep runaway queries from burning tweet caps. A user-scoped list verb resolves
-  `/2/users/me` before each page, so 20 pages of `timeline` or `muted` is up to 40 requests; `search` and `dms` cost
-  one per page.
+  `/2/users/me` before each page, so 20 pages of `timeline` or `muted` is up to 40 requests; `search` and `dms` cost one
+  per page.
 - `--sleep 0`: no delay between pages. Bump on rate-limit risk.
 
 Examples:
@@ -123,6 +123,6 @@ When the bundle is checked out for development (not installed via `xr skill inst
 - `bash`: `#!/usr/bin/env bash`, uses `[[ ]]` regex matching.
 - [`jaq`](https://github.com/01mf02/jaq) (preferred) OR `jq`. Each script picks `jaq` when both are installed, falls
   back to `jq` when only `jq` is present, and refuses to run when neither is on `PATH`. The jq expressions used
-  (`.status // ""`, `.reason // ""`, `.would_succeed`, `.exit_code`, `.data[]?`, `.meta.next_token // ""`) are
-  standard syntax that both binaries parse identically.
+  (`.status // ""`, `.reason // ""`, `.would_succeed`, `.exit_code`, `.data[]?`, `.meta.next_token // ""`) are standard
+  syntax that both binaries parse identically.
 - `xr`: the [xurl-rs](https://github.com/brettdavies/xurl-rs) binary.

@@ -38,9 +38,9 @@ Create a fresh workdir at `/tmp/xurl-rs-eval-04-$(date +%s)/` and treat it as CW
 
 1. **Discovery**: Same shape as eval-01 (0/5/10).
 2. **Envelope decode correctness**: `0` = misnamed a field; `5` = decoded `reason` correctly but didn't tie it to the
-   exit-code mapping; `10` = decoded all three fields against the bundle's documented schema (the reason catalog and
-   the exit-code mapping table) AND noted that no `next_step` is present: the binary attaches one only when a credential
-   or enrollment fix exists, and a rate limit has neither.
+   exit-code mapping; `10` = decoded all three fields against the bundle's documented schema (the reason catalog and the
+   exit-code mapping table) AND noted that no `next_step` is present: the binary attaches one only when a credential or
+   enrollment fix exists, and a rate limit has neither.
 3. **Triage commands correctness**: `0` = no triage; `5` = says "check rate limits" without naming the command; `10` =
    names the binary's `usage` subcommand (and its `credits` form for pay-per-use projects) with `--output json` for
    machine reading AND a command that reads the current auth state so the user knows which token bucket is exhausted,
@@ -57,8 +57,8 @@ Create a fresh workdir at `/tmp/xurl-rs-eval-04-$(date +%s)/` and treat it as CW
 The bundle landed the fixes below; verify each as you work and classify it in `## Regression check` as `worked` /
 `regressed` / `not-touched`. Any `regressed` is a blocking finding regardless of overall score.
 
-1. **F1**: the skill's output-contract reference decides the document kind by exit code and stream first (`3` on
-   stderr here), and states that a success would have been the platform's document with no `status` key.
+1. **F1**: the skill's output-contract reference decides the document kind by exit code and stream first (`3` on stderr
+   here), and states that a success would have been the platform's document with no `status` key.
 2. **F2**: the auth-state command in your `next-steps.sh` reads `.apps[]` from `{"status":"ok","apps":[...]}` and does
    not look for an `expires_at` field.
 3. **F3**: the reason catalog says `rate-limited` carries no `next_step`, and your envelope interpretation says so

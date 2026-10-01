@@ -18,8 +18,8 @@ the workflow patterns that the binary can't describe on its own.
 
 The `xr` binary on the user's machine is configured against **real X API credentials**, not a sandbox. Every write
 operation (post / reply / quote / delete / like / unlike / repost / unrepost / bookmark / unbookmark / follow / unfollow
-/ block / unblock / mute / unmute / dm / broadcasts moderators add / broadcasts moderators remove / media upload /
-media alt-text / media subtitles add / media subtitles remove) hits production state.
+/ block / unblock / mute / unmute / dm / broadcasts moderators add / broadcasts moderators remove / media upload / media
+alt-text / media subtitles add / media subtitles remove) hits production state.
 
 Before any write op:
 
@@ -27,10 +27,9 @@ Before any write op:
    "dry_run"` envelope when `--output json` and `--dry-run` are both set; check `would_succeed: true` and `exit_code:
    0`. A preflight whose inputs fail a check still exits `0`, with `would_succeed: false` and a `reason` naming the
    check (`empty-body`, `alt-text-too-long`, …). Dry-run validates inputs only: not credentials, not the filesystem, and
-   not the verb's own confirmation gate.
-   Only three verbs gate themselves (`delete`, `auth clear`, `auth apps remove`) and need `--force` even for the
-   preflight when there is no TTY; every other write verb, `block`, `mute`, and the media verbs included, takes no
-   `--force` (passing it is `invalid-args`).
+   not the verb's own confirmation gate. Only three verbs gate themselves (`delete`, `auth clear`, `auth apps remove`)
+   and need `--force` even for the preflight when there is no TTY; every other write verb, `block`, `mute`, and the
+   media verbs included, takes no `--force` (passing it is `invalid-args`).
 2. Confirm scope with the user before issuing the live call when the action is destructive (`delete`, `block`,
    `unfollow`, `dm`, `post` to anything besides a test thread the user already named).
 3. Prefer `--output json` with `--no-interactive` so failures arrive as structured envelopes you can act on.
@@ -148,19 +147,19 @@ xr whoam --output json 2>&1 | jaq -r '.next_step.action'   # "show-help" on 4.1.
 xr auth status --output json | jaq -r '.apps[].name'       # which apps are registered
 ```
 
-`xr` versions its contract by SemVer: a patch release only fixes, a minor release only adds, and a major release is
-the only one that removes, renames, or retypes a command, exit code, or structured-output field (text-mode output is not
+`xr` versions its contract by SemVer: a patch release only fixes, a minor release only adds, and a major release is the
+only one that removes, renames, or retypes a command, exit code, or structured-output field (text-mode output is not
 part of the contract). A newer `4.x` therefore keeps everything this bundle documents; what it adds reaches you as an
 unrecognized `reason`, `action`, or key, which the default branches above absorb.
 
-An older binary does not. On `xr 4.1.x`, `media alt-text` and `media subtitles` do not exist (`unknown-command`),
-`xr validate` knows neither the `alt-text` nor the `subtitles` schema, `xr skill install codex` clones into
-`~/.codex/skills/xurl-rs`, and the skill verbs ignore `XURL_SKILL_HOME` and the host config-directory variables. On
-`xr 4.0.x`, additionally, an `unknown-command` envelope carries `suggestion` but no `next_step`, and
-typed output prints X's legacy post field names (`edit_history_tweet_ids`, `retweet_count`) where X sends them. On
-`xr 3.x`, `auth status` / `auth apps list` answer a bare top-level array (read `.[]` instead of `.apps[]`), `block` /
-`unblock` / `blocked` / `muted` and the `broadcasts` family do not exist (`unknown-command`), every non-401/404/429 HTTP
-failure is `network-error` at exit `1`, and `xr version` has no structured form. Upgrade (`brew upgrade xurl-rs`, or
+An older binary does not. On `xr 4.1.x`, `media alt-text` and `media subtitles` do not exist (`unknown-command`), `xr
+validate` knows neither the `alt-text` nor the `subtitles` schema, `xr skill install codex` clones into
+`~/.codex/skills/xurl-rs`, and the skill verbs ignore `XURL_SKILL_HOME` and the host config-directory variables. On `xr
+4.0.x`, additionally, an `unknown-command` envelope carries `suggestion` but no `next_step`, and typed output prints X's
+legacy post field names (`edit_history_tweet_ids`, `retweet_count`) where X sends them. On `xr 3.x`, `auth status` /
+`auth apps list` answer a bare top-level array (read `.[]` instead of `.apps[]`), `block` / `unblock` / `blocked` /
+`muted` and the `broadcasts` family do not exist (`unknown-command`), every non-401/404/429 HTTP failure is
+`network-error` at exit `1`, and `xr version` has no structured form. Upgrade (`brew upgrade xurl-rs`, or
 <https://github.com/brettdavies/xurl-rs/releases>) rather than adapting the calls.
 
 If `xr` is not on `$PATH`, install it from <https://github.com/brettdavies/xurl-rs/releases>, or refresh this bundle

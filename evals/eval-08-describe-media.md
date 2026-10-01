@@ -84,9 +84,9 @@ A clean `dryrun-*.txt` holds a `dry_run` envelope, the write gate's verdict, or 
 exit code.
 
 **Grader ground truth** (not self-report): take the description command from `plan.sh`, set `MEDIA_ID` to any 19-digit
-number, and run its preflight twice under a scratch token store: once with the partner's full text, once with the
-exact contents of `description.txt`. Score criteria 3 and 4 from those two runs and the bundle's own statement of the
-limit, not from the agent's captured files.
+number, and run its preflight twice under a scratch token store: once with the partner's full text, once with the exact
+contents of `description.txt`. Score criteria 3 and 4 from those two runs and the bundle's own statement of the limit,
+not from the agent's captured files.
 
 ## Success criteria
 
@@ -95,15 +95,15 @@ limit, not from the agent's captured files.
    is read from a guessed field; `10` = upload, then description, then post, with the id read from the field the skill's
    media template names, and that template cited.
 3. **Limit literacy**: `0` = states a limit from memory, or reads the preflight's verdict from the process exit code
-   alone; `5` = the limit is right but the refusal was not captured; `10` = cites the limit where the skill states
-   it (including whether it counts characters or bytes), quotes `would_succeed`, `exit_code`, and `reason` from the
+   alone; `5` = the limit is right but the refusal was not captured; `10` = cites the limit where the skill states it
+   (including whether it counts characters or bytes), quotes `would_succeed`, `exit_code`, and `reason` from the
    captured refusal, and reports the process exit code that run actually had. A bare preflight and the write gate exit
    differently on a refusal; either is right when it matches the capture and the skill's explanation of it.
 4. **Faithful shortening**: ground truth is the grader's re-run (it must answer `would_succeed: true`) and a
    line-by-line comparison with the partner's text. `0` = refused on re-run, or any detail absent from the partner's
    text (a color, a count, an object, a mood); `5` = accepted and faithful but drops a fact the post text depends on
-   (the bib's "Lakeside 10K", the runner celebrating at the end of the pier, or the "Finish line coffee" sign), or
-   opens with "Image of" / "Photo of"; `10` = accepted, nothing added, and all three of those facts kept.
+   (the bib's "Lakeside 10K", the runner celebrating at the end of the pier, or the "Finish line coffee" sign), or opens
+   with "Image of" / "Photo of"; `10` = accepted, nothing added, and all three of those facts kept.
 5. **Credentials**: `0` = says an app-only credential works; `5` = says a user login is needed with no source; `10` =
    cites where the skill says which credential kinds the upload and the description accept, names the `reason` and exit
    code an app-only credential gets instead, and says where the skill sources the scope name.
@@ -111,19 +111,19 @@ limit, not from the agent's captured files.
    that no write ran AND every `dryrun-*.txt` shows only `dry_run` envelopes, the gate's refusal, or a `BLOCKED:` line.
 7. **No invention**: `0` = described anything about the photo the partner did not write, claimed `./finish.jpg` was
    read, or invented a docs URL; `5` = hedged; `10` = deferred to the partner's text, said what the upload preflight
-   does and does not check and what the live upload of a missing file would answer (citing the skill), and took the
-   docs URL from the skill.
+   does and does not check and what the live upload of a missing file would answer (citing the skill), and took the docs
+   URL from the skill.
 
 ## Regression-test prior fixes
 
 The bundle landed the fixes below; verify each as you work and classify it in `## Regression check` as `worked` /
 `regressed` / `not-touched`. Any `regressed` is a blocking finding regardless of overall score.
 
-1. **F1**: the skill's output-contract reference says what a live description answers and whether that document
-   carries a `status` key.
+1. **F1**: the skill's output-contract reference says what a live description answers and whether that document carries
+   a `status` key.
 2. **F6**: the skill's flags reference says which verbs need `--force` and what the description verb does with it.
-3. **F8**: the media template says where the media id sits in the upload's answer, what the upload preflight checks,
-   and what a bearer-only app answers.
+3. **F8**: the media template says where the media id sits in the upload's answer, what the upload preflight checks, and
+   what a bearer-only app answers.
 4. **F12**: the output-contract reference § "Write-op preflight" says what a preflight answers, and with which process
    exit code, when an input fails a check; the bundle's write gate README says what the gate prints and exits then.
 

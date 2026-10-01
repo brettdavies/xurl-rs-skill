@@ -49,19 +49,19 @@ The bundle landed the fixes below; verify each as you work and classify it in `#
 exercised the path and the documented behavior held), `regressed` (you exercised it and it did not hold), or
 `not-touched` (this run did not exercise it). Any `regressed` is a blocking finding regardless of overall score.
 
-1. **F1**: the skill's output-contract reference states that a successful list call returns the platform's document
-   with **no `status` key**, and the bundled pagination helper streams such pages instead of demanding `status: "ok"`.
-   Your `pipeline.sh` must not branch on a `status` field to detect success.
+1. **F1**: the skill's output-contract reference states that a successful list call returns the platform's document with
+   **no `status` key**, and the bundled pagination helper streams such pages instead of demanding `status: "ok"`. Your
+   `pipeline.sh` must not branch on a `status` field to detect success.
 2. **F2**: the skill's auth reference shows `auth status` answering `{"status":"ok","apps":[...]}` and every jq path
    starting at `.apps[]`.
-3. **F4**: the skill's flags reference states that the `jsonl` output mode prints the whole document, not one record
-   per line, and that per-record lines come from a `jaq -c '.data[]?'` filter. A pipeline that pipes `--output jsonl`
+3. **F4**: the skill's flags reference states that the `jsonl` output mode prints the whole document, not one record per
+   line, and that per-record lines come from a `jaq -c '.data[]?'` filter. A pipeline that pipes `--output jsonl`
    straight into a per-record filter is a `regressed` finding.
 4. **F5**: the skill's flags reference states the page-size clamp (`1..=100`, search floors at 10, default 10) and that
    the per-command `-n` wins over the global `--limit`.
 5. **F11**: the skill's output-contract reference states that typed output reads engagement counters under the post
-   vocabulary (`public_metrics.repost_count`, never `retweet_count`) and prints a counter the platform omitted as `0`.
-   A pipeline that reads `retweet_count` from typed output, or treats a typed `0` as proof of zero engagement without
+   vocabulary (`public_metrics.repost_count`, never `retweet_count`) and prints a counter the platform omitted as `0`. A
+   pipeline that reads `retweet_count` from typed output, or treats a typed `0` as proof of zero engagement without
    saying so, is a `regressed` finding.
 
 ## When to escalate

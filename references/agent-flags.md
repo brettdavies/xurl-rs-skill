@@ -18,15 +18,15 @@ XURL_JSON=1 xr <cmd>                    # env var equivalent to --json
 bundled scripts unset the two variables for their own calls. `XURL_DRY_RUN` set to a true value turns every write into
 its preflight, the live form included.
 
-| Format   | What it emits                                                                                    |
-| -------- | ------------------------------------------------------------------------------------------------ |
-| `text`   | Human-readable, colored, default; the pretty JSON document when stdout is a pipe                 |
-| `json`   | The document, pretty-printed (compact with `--raw`)                                              |
-| `jsonl`  | The same document as `json`, pretty-printed; compact with `--raw`                                |
-| `ndjson` | The same document, compact on one line                                                           |
-| `yaml`   | YAML serialization of the JSON shape                                                             |
-| `csv`    | Comma-separated, best-effort flattening of the top level; nested values are JSON-stringified     |
-| `tsv`    | Tab-separated, same flattening                                                                   |
+| Format   | What it emits                                                                                |
+| -------- | -------------------------------------------------------------------------------------------- |
+| `text`   | Human-readable, colored, default; the pretty JSON document when stdout is a pipe             |
+| `json`   | The document, pretty-printed (compact with `--raw`)                                          |
+| `jsonl`  | The same document as `json`, pretty-printed; compact with `--raw`                            |
+| `ndjson` | The same document, compact on one line                                                       |
+| `yaml`   | YAML serialization of the JSON shape                                                         |
+| `csv`    | Comma-separated, best-effort flattening of the top level; nested values are JSON-stringified |
+| `tsv`    | Tab-separated, same flattening                                                               |
 
 **No format splits a list response into one record per line.** `xr search … --output jsonl` prints the whole
 `{"data":[…],"meta":{…}}` document exactly as `--output json` does, so `--output jsonl | jaq '.id'` answers `null`.
@@ -37,10 +37,10 @@ xr search "rustlang" -n 100 --output json | jaq -c '.data[]?'
 ```
 
 Where `jsonl` / `ndjson` do matter is a streaming endpoint (`xr /2/tweets/search/stream --auth app`): every chunk the
-stream delivers is printed as its own line under any structured format, and text mode adds `Connecting…` /
-`End of stream` banners around them. `xr` streams every path the X API spec it vendors marks as streaming (the search
-and sample streams, `/2/likes/firehose/stream`, the compliance streams, `/2/activity/stream`, …) without `-s`; `-s` /
-`--stream` forces streaming on any other path.
+stream delivers is printed as its own line under any structured format, and text mode adds `Connecting…` / `End of
+stream` banners around them. `xr` streams every path the X API spec it vendors marks as streaming (the search and sample
+streams, `/2/likes/firehose/stream`, the compliance streams, `/2/activity/stream`, …) without `-s`; `-s` / `--stream`
+forces streaming on any other path.
 
 Formats outside this enum (e.g. `toml`, `xml`) are rejected at flag parsing: a clap usage error on stderr listing the
 possible values, exit `2`, no envelope.
@@ -138,9 +138,9 @@ Output shape:
   1000 characters, a media id that is not digits, a language code that is not two letters), the preflight still exits
   `0` and answers `would_succeed: false` with a `reason` naming the check.
 
-Dry-run validates inputs only: no credential check, no filesystem check (`media upload` of a missing file still
-answers `would_succeed: true`), and no bypass of a verb's own confirmation gate (`delete` needs `--force` even here).
-See [output-envelope.md § Write-op preflight](output-envelope.md#write-op-preflight-status-dry_run).
+Dry-run validates inputs only: no credential check, no filesystem check (`media upload` of a missing file still answers
+`would_succeed: true`), and no bypass of a verb's own confirmation gate (`delete` needs `--force` even here). See
+[output-envelope.md § Write-op preflight](output-envelope.md#write-op-preflight-status-dry_run).
 
 ## Pagination
 
@@ -156,9 +156,9 @@ xr <list-cmd> --page <n>                # NOT supported by X; returns reason: "u
 Commands that thread `--cursor` through as `pagination_token`: `search`, `timeline`, `mentions`, `bookmarks`, `likes`,
 `following`, `followers`, `muted`, `blocked`, `dms`. Every other command ignores `--cursor` and `--limit`.
 
-Every user-scoped list verb (`timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`, `muted`,
-`blocked`) resolves `/2/users/me` before each page to learn the caller's id, so one page costs **two** requests;
-`search` and `dms` cost one. Budget `--max-pages` against a rate-limit window accordingly.
+Every user-scoped list verb (`timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`, `muted`, `blocked`)
+resolves `/2/users/me` before each page to learn the caller's id, so one page costs **two** requests; `search` and `dms`
+cost one. Budget `--max-pages` against a rate-limit window accordingly.
 
 `broadcasts moderators list` is not a paged verb: it sends one `GET /2/broadcasts/chat/moderators` with no `max_results`
 and no `pagination_token`, whatever `--limit` or `--cursor` say (its `--help` lists the global flags, whose text names
@@ -178,8 +178,8 @@ verb clamps the value to `1..=100`, except `search`, which the X API floors at 1
 `max_results=10`. Ask for fewer than 10 search results by filtering the page, not by lowering `-n`.
 
 `--limit`, `-n`, and `--cursor` / `--after` apply to the typed list verbs only. Raw mode (`xr /2/...`) sends the URL as
-written and ignores all three, without an error; put `max_results` and `pagination_token` in the URL instead
-(`xr '/2/tweets/search/recent?query=rust&max_results=50&pagination_token=<token>'`).
+written and ignores all three, without an error; put `max_results` and `pagination_token` in the URL instead (`xr
+'/2/tweets/search/recent?query=rust&max_results=50&pagination_token=<token>'`).
 
 ## Multi-app override
 
@@ -225,13 +225,13 @@ behaviors that list does not spell out are under [Output format](#output-format)
 | 5    | `network-error` (the request never got an answer) and file-access `io` (a missing `media upload` path)           |
 | 77   | authentication required (`auth-required`, `token-store`; an HTTP 401 lands here too)                             |
 
-The API refusals on exit `1` are `forbidden` (403), `invalid-request` (400 / 422), `server-error` (5xx), and
-`api-error` (any other status); only `auth-required` carries a `next_step`, and only when a credential fix exists.
+The API refusals on exit `1` are `forbidden` (403), `invalid-request` (400 / 422), `server-error` (5xx), and `api-error`
+(any other status); only `auth-required` carries a `next_step`, and only when a credential fix exists.
 
 When `--output json` is set, the same information is carried in the error envelope's `reason` field. Prefer the
 envelope's `reason` over the exit code for branching in scripts, since it is finer-grained; keep a default branch for a
-reason a newer `xr` adds.
-The reason → exit-code matrix and the exit-77 recipe are in [output-envelope.md](output-envelope.md).
+reason a newer `xr` adds. The reason → exit-code matrix and the exit-77 recipe are in
+[output-envelope.md](output-envelope.md).
 
 ## Canonical agent invocation
 

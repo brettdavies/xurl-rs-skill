@@ -13,9 +13,9 @@ xr media upload --help                       # confirm flags for your installed 
 ```
 
 Every media verb requires OAuth1 OR OAuth2 (user-scoped; the spec `xr` vendors names `media.write` as the OAuth2 scope
-for upload, alt text, and subtitles). Bearer (app-only) cannot upload or
-describe media: an app whose only credential is a bearer answers `reason: "auth-method-mismatch"`, exit `2`, with
-`available_in_app: ["app"]` and `supported: ["oauth2","oauth1"]`.
+for upload, alt text, and subtitles). Bearer (app-only) cannot upload or describe media: an app whose only credential is
+a bearer answers `reason: "auth-method-mismatch"`, exit `2`, with `available_in_app: ["app"]` and `supported:
+["oauth2","oauth1"]`.
 
 `xr media upload <FILE> --dry-run --output json` validates the flags only: it does not read the file, so a missing path
 still answers `would_succeed: true`, and the live call answers `reason: "io"`, exit `5`, instead. Check the path
@@ -125,12 +125,11 @@ a wrong description is worse than none.
 
 The preflight checks the inputs and nothing else: a media id of 1 to 19 digits, and text that is not blank and at most
 1000 characters. A refusal arrives as `would_succeed: false` with `reason: "invalid-media-id"`, `"empty-alt-text"`, or
-`"alt-text-too-long"`, and the gate prints that reason. The live answer is the X API document,
-`{"data":{"id":"<media id>","associated_metadata":{…}}}`, which `xr validate --schema alt-text` checks.
+`"alt-text-too-long"`, and the gate prints that reason. The live answer is the X API document, `{"data":{"id":"<media
+id>","associated_metadata":{…}}}`, which `xr validate --schema alt-text` checks.
 
 Text that starts with `-` (`-5°C at the start`) is read as a flag and answers `invalid-args`; put it after `--`: `xr
-media alt-text "$MEDIA_ID" -- "-5°C at the start"`. The gate takes the same form and adds its own flags before the
-`--`.
+media alt-text "$MEDIA_ID" -- "-5°C at the start"`. The gate takes the same form and adds its own flags before the `--`.
 
 Endpoint reference: <https://docs.x.com/x-api/media/create-media-metadata.md>.
 
@@ -231,5 +230,5 @@ xr media upload <FILE> --media-type <MIME> --category <CATEGORY> --output json \
   | jaq -e '.data.id | strings' >/dev/null || { echo "upload answered no media id" >&2; exit 1; }
 ```
 
-If the field is missing on a `0` exit, the typed response may be drifting from the live API; file `[skill]`-prefixed
-at <https://github.com/brettdavies/xurl-rs/issues>.
+If the field is missing on a `0` exit, the typed response may be drifting from the live API; file `[skill]`-prefixed at
+<https://github.com/brettdavies/xurl-rs/issues>.
