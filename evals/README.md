@@ -19,6 +19,7 @@ skill from the prompt, that's a finding; re-tune the description's trigger keywo
 | [eval-05-tier-numbers-forced-escalation.md](eval-05-tier-numbers-forced-escalation.md) | Discovery; forced escalation to authoritative external docs                                                | No        | F2 F3            | `escalation.md`, `x-api-essentials.md` change                                                        |
 | [eval-06-moderate-mentions.md](eval-06-moderate-mentions.md)                           | Discovery; `muted` list via `paginate.sh`; `block` via the gate; no `--force` on block                     | Yes       | F1 F4 F5 F6 F8   | any change to the social-graph surface, either script, or the envelope reference                     |
 | [eval-07-broadcast-moderators.md](eval-07-broadcast-moderators.md)                     | Discovery; unpaged list run bare (not via `paginate.sh`); `add` via the gate; scope re-enrollment deferred | Yes       | F1 F6 F9 F10     | the `broadcasts` surface, `paginate.sh`, `agent-flags.md` § Pagination, or the reason catalog change |
+| [eval-08-describe-media.md](eval-08-describe-media.md)                                 | Discovery; upload → alt text → post; a refused preflight read from the envelope; faithful shortening       | Yes       | F1 F6 F8 F12     | `media-upload.md`, `dry-run-gate.sh`, or `output-envelope.md` § Write-op preflight change            |
 
 ## Fixes under regression test
 
@@ -40,6 +41,7 @@ surface it guards is gone.
 | F9  | `references/output-envelope.md` § "Reason catalog" and § "Exit-code → envelope mapping"                             | An HTTP refusal is `rate-limited` (3), `not-found` (4), `auth-required` (77), or `forbidden` / `invalid-request` / `server-error` / `api-error` (all 1); `network-error` is exit 5 and means no answer; only enrollment 403s carry `enroll-app`                                                                                                  |
 | F10 | `references/agent-flags.md` § "Pagination"; `scripts/paginate.sh`                                                   | `broadcasts moderators list` threads neither `--cursor` nor `--limit` and is run bare; the paginator exits 1 when a page hands back the cursor it was fetched with instead of looping to `--max-pages`                                                                                                                                           |
 | F11 | `references/output-envelope.md` § "API-backed success"; `references/agent-flags.md` § "Quiet, verbose, and tracing" | Typed output names post fields in the post vocabulary (`edit_history_post_ids`, `repost_count`) and prints a counter X omitted as `0`; raw mode prints X's fields as sent; `--verbose` prints no response body                                                                                                                                   |
+| F12 | `references/output-envelope.md` § "Write-op preflight"; `scripts/dry-run-gate.sh`                                   | A preflight whose input fails a check exits `0` with `would_succeed: false` and a `reason` naming the check (`alt-text-too-long`, `empty-body`, …); the live call answers `validation`, exit `1`, with the check as `message`; the gate refuses at exit `1` and prints `reason=<check>`                                                          |
 
 ## Workdir convention
 
@@ -54,8 +56,8 @@ decimal. Three categories of artifacts are inspected:
 1. **Required files in workdir** (named in the eval's `## Required artifacts` section). Missing one is an automatic 0 on
    that criterion.
 2. **`FINAL-REPORT.md` content**: the agent's reflective summary. Required sections vary per eval.
-3. **Side effects**: for mutating evals (eval-03, eval-06), evidence that no live mutation was attempted. See each
-   eval's `## Dry-run execution gate` section.
+3. **Side effects**: for mutating evals (eval-03, eval-06, eval-07, eval-08), evidence that no live mutation was
+   attempted. See each eval's `## Dry-run execution gate` section.
 
 ## Running an eval
 

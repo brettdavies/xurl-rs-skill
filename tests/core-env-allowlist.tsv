@@ -2,4 +2,4 @@
 # per line: path, enclosing @test or function name ("-" for top level), and
 # the reason. Read by tests/core-env-guard.sh; a sweep fails on an entry that
 # matches no finding.
-tests/contract.sh	-	xr expands skill-host destinations under HOME with no narrower override, so the skill cases need a scratch HOME to report not-installed on any machine; the token store is already on XURL_TOKEN_STORE
+tests/contract.sh	xdg_config_home_rows	XDG_CONFIG_HOME is the variable under test: each row sets it for one `xr skill install opencode --dry-run` subprocess to check where xr resolves the OpenCode destination, and a dry run writes nothing

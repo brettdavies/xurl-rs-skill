@@ -15,7 +15,7 @@ Preferred: let `xr` install the bundle into the right path for your host:
 
 ```bash
 xr skill install claude_code      # ~/.claude/skills/xurl-rs
-xr skill install codex            # ~/.codex/skills/xurl-rs
+xr skill install codex            # ~/.agents/skills/xurl-rs
 xr skill install --all            # all known hosts at once
 xr skill install claude_code --dry-run  # preview without cloning
 ```

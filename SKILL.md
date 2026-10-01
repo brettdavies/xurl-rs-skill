@@ -1,14 +1,15 @@
 ---
 name: xurl-rs
-description: Drive the X (Twitter) API from the command line via `xr`, the xurl-rs CLI. Use when the user wants to post or thread, reply, quote, delete, like, repost, bookmark, follow, mute, block, list who they have muted or blocked, send DMs, search recent posts, read a timeline or mentions, look up a user, upload media, stream filtered tweets, list, add, or remove the moderators of their broadcast chat, hit a raw `/2/...` endpoint, manage OAuth2 / OAuth1 / Bearer auth, register multiple X apps, inspect token state, check API usage or credits, or validate a tweet/user JSON payload against the typed response schema. Triggers on "post to X", "post to Twitter", "tweet from CLI", "X API call", "X CLI", "OAuth2 X", "xurl", "xr command", "search tweets", "send DM", "follow on X", "block on X", "mute on X", "broadcast moderators".
+description: Drive the X (Twitter) API from the command line via `xr`, the xurl-rs CLI. Use when the user wants to post or thread, reply, quote, delete, like, repost, bookmark, follow, mute, block, list who they have muted or blocked, send DMs, search recent posts, read a timeline or mentions, look up a user, upload media, add alt text or subtitles to uploaded media, stream filtered tweets, list, add, or remove the moderators of their broadcast chat, hit a raw `/2/...` endpoint, manage OAuth2 / OAuth1 / Bearer auth, register multiple X apps, inspect token state, check API usage or credits, or validate a tweet/user JSON payload against the typed response schema. Triggers on "post to X", "post to Twitter", "tweet from CLI", "X API call", "X CLI", "OAuth2 X", "xurl", "xr command", "search tweets", "send DM", "follow on X", "block on X", "mute on X", "broadcast moderators", "alt text on X", "image description", "video subtitles", "captions on X".
 ---
 
 # xurl-rs (`xr`)
 
-`xr` is a Rust CLI for the X (Twitter) API. It ships 34 high-level shortcut verbs, a raw curl-style mode for any
-`/2/...` endpoint, OAuth1 / OAuth2-PKCE / Bearer auth with a multi-app token store at `~/.xurl`, chunked media upload,
-streaming, typed JSON-schema responses, and typed error envelopes with a `next_step` an agent can act on. This bundle
-describes the `xr 4.1.0` contract.
+`xr` is a Rust CLI for the X (Twitter) API. It ships high-level shortcut verbs (posts, reads, the social graph, DMs,
+broadcast moderators, media upload with alt text and subtitles), a raw curl-style mode for any `/2/...` endpoint, OAuth1
+/ OAuth2-PKCE / Bearer auth with a multi-app token store at `~/.xurl`, chunked media upload, streaming, typed
+JSON-schema responses, and typed error envelopes with a `next_step` an agent can act on. This bundle describes the `xr
+4.2.0` contract.
 
 The binary self-introspects. Treat it as the source of truth: this skill routes you to the binary's helpers and provides
 the workflow patterns that the binary can't describe on its own.
@@ -17,17 +18,19 @@ the workflow patterns that the binary can't describe on its own.
 
 The `xr` binary on the user's machine is configured against **real X API credentials**, not a sandbox. Every write
 operation (post / reply / quote / delete / like / unlike / repost / unrepost / bookmark / unbookmark / follow / unfollow
-/ block / unblock / mute / unmute / dm / broadcasts moderators add / broadcasts moderators remove / media upload) hits
-production state.
+/ block / unblock / mute / unmute / dm / broadcasts moderators add / broadcasts moderators remove / media upload /
+media alt-text / media subtitles add / media subtitles remove) hits production state.
 
 Before any write op:
 
 1. Use `--dry-run` first to surface input validation errors and confirm intent. Every write verb emits a typed `status:
    "dry_run"` envelope when `--output json` and `--dry-run` are both set; check `would_succeed: true` and `exit_code:
-   0`. Dry-run validates inputs only: not credentials, not the filesystem, and not the verb's own confirmation gate.
-   Only the three verbs with no inverse (`delete`, `auth clear`, `auth apps remove`) gate themselves and need
-   `--force` even for the preflight when there is no TTY; every other write verb, `block` and `mute` included, takes
-   no `--force` (passing it is `invalid-args`).
+   0`. A preflight whose inputs fail a check still exits `0`, with `would_succeed: false` and a `reason` naming the
+   check (`empty-body`, `alt-text-too-long`, …). Dry-run validates inputs only: not credentials, not the filesystem, and
+   not the verb's own confirmation gate.
+   Only three verbs gate themselves (`delete`, `auth clear`, `auth apps remove`) and need `--force` even for the
+   preflight when there is no TTY; every other write verb, `block`, `mute`, and the media verbs included, takes no
+   `--force` (passing it is `invalid-args`).
 2. Confirm scope with the user before issuing the live call when the action is destructive (`delete`, `block`,
    `unfollow`, `dm`, `post` to anything besides a test thread the user already named).
 3. Prefer `--output json` with `--no-interactive` so failures arrive as structured envelopes you can act on.
@@ -41,9 +44,9 @@ Read ops (`read`, `search`, `whoami`, `user`, `timeline`, `mentions`, `bookmarks
 The binary ships five self-introspection commands. Reach for them before reading anything in `references/`:
 
 ```bash
-xr examples                          # curated invocation gallery, ~160 lines, every major workflow
+xr examples                          # curated invocation gallery, every major workflow
 xr <command> --help                  # 3-5 examples per command + full flag matrix
-xr schema --list                     # 42 typed response shapes, one per command
+xr schema --list                     # every typed response shape, one per command
 xr schema post --output json         # JSON Schema for a single response type
 xr schema --envelope --output json   # the ok / dry_run / error envelope variants and every error key
 xr auth status --output json         # {"status":"ok","apps":[...]}; read it through .apps[]
@@ -87,8 +90,10 @@ they enforce mechanically what the prose only requests.
 | `scripts/paginate.sh [--max-pages N] -- xr <list-verb>`     | Every cursor-paginated read (`search`, `timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`, `muted`, `blocked`, `dms`). Streams `.data[]?` as JSONL, follows `meta.next_token`. |
 
 Both auto-detect `jaq` (preferred) or `jq`. When neither is installed, they emit a PM-aware install advice ranked by
-what's already on the system. Install path after `xr skill install claude_code` (or the host equivalent) is
-`~/.claude/skills/xurl-rs/scripts/`. Full contract: [scripts/README.md](scripts/README.md).
+what's already on the system. They sit in `scripts/` beside this `SKILL.md`: `~/.claude/skills/xurl-rs/scripts/` after
+`xr skill install claude_code`, the path every example in this bundle writes. When this file loaded from somewhere else
+(another host, a `CLAUDE_CONFIG_DIR` install, a Codex copy under `~/.codex/skills/xurl-rs`), use that directory's
+`scripts/` instead. Full contract: [scripts/README.md](scripts/README.md).
 
 ## Routing table
 
@@ -100,6 +105,7 @@ what's already on the system. Install path after `xr skill install claude_code` 
 | User wants to attach media                 | [templates/media-upload.md](templates/media-upload.md)                                        |
 | Block / mute someone, or list who is       | `scripts/dry-run-gate.sh -- xr block @user`; `scripts/paginate.sh -- xr muted` (or `blocked`) |
 | Manage broadcast chat moderators           | `scripts/dry-run-gate.sh -- xr broadcasts moderators add @user`; `list` is unpaged, run bare  |
+| Describe media (alt text) or add subtitles | `scripts/dry-run-gate.sh` + [templates/media-upload.md](templates/media-upload.md)            |
 | Pick an auth mode for a one-off            | [references/auth-modes.md](references/auth-modes.md)                                          |
 | Pick output format / pagination / dry-run  | [references/agent-flags.md](references/agent-flags.md)                                        |
 | Parse a response or an error               | [references/output-envelope.md](references/output-envelope.md)                                |
@@ -135,7 +141,7 @@ Full agent-flag matrix and env-var precedence: [references/agent-flags.md](refer
 ## Verifying the install
 
 ```bash
-xr version                                   # "xr 4.1.0" or a later 4.x; this bundle describes the 4.1.0 contract
+xr version                                   # "xr 4.2.0" or a later 4.x; this bundle describes the 4.2.0 contract
 xr version --output json | jaq -r '.version' # the same, machine-readable; .xdk_rs is the linked library version
 xr --help                                    # full surface
 xr whoam --output json 2>&1 | jaq -r '.next_step.action'   # "show-help" on 4.1.0 and later
@@ -147,7 +153,10 @@ the only one that removes, renames, or retypes a command, exit code, or structur
 part of the contract). A newer `4.x` therefore keeps everything this bundle documents; what it adds reaches you as an
 unrecognized `reason`, `action`, or key, which the default branches above absorb.
 
-An older binary does not. On `xr 4.0.x`, an `unknown-command` envelope carries `suggestion` but no `next_step`, and
+An older binary does not. On `xr 4.1.x`, `media alt-text` and `media subtitles` do not exist (`unknown-command`),
+`xr validate` knows neither the `alt-text` nor the `subtitles` schema, `xr skill install codex` clones into
+`~/.codex/skills/xurl-rs`, and the skill verbs ignore `XURL_SKILL_HOME` and the host config-directory variables. On
+`xr 4.0.x`, additionally, an `unknown-command` envelope carries `suggestion` but no `next_step`, and
 typed output prints X's legacy post field names (`edit_history_tweet_ids`, `retweet_count`) where X sends them. On
 `xr 3.x`, `auth status` / `auth apps list` answer a bare top-level array (read `.[]` instead of `.apps[]`), `block` /
 `unblock` / `blocked` / `muted` and the `broadcasts` family do not exist (`unknown-command`), every non-401/404/429 HTTP
@@ -183,7 +192,8 @@ installation and skips the rest).
   `scripts/dry-run-gate.sh`.
 - [templates/search-and-process.md](templates/search-and-process.md): `xr search --output json | jaq -c '.data[]'`;
   leads with `scripts/paginate.sh`.
-- [templates/media-upload.md](templates/media-upload.md): chunked upload, attach `--media-id` via the gate.
+- [templates/media-upload.md](templates/media-upload.md): chunked upload, alt text, subtitles, attach `--media-id` via
+  the gate.
 
 ## Scripts
 

@@ -6,12 +6,12 @@ got is decided by the **exit code and the stream first**, and by the `status` ke
 | Exit     | Stream | `status` key | What it is                                                                                                    |
 | -------- | ------ | ------------ | ------------------------------------------------------------------------------------------------------------- |
 | 0        | stdout | **absent**   | An API-backed success: the X API document (`data`, plus `includes` / `meta` / `errors` when sent)             |
-| 0        | stdout | **absent**   | `xr version`: `{"name":"xr","version":"4.1.0","xdk_rs":"0.1.1"}`, the one local verb with no `status`         |
+| 0        | stdout | **absent**   | `xr version`: `{"name":"xr","version":"<semver>","xdk_rs":"<semver>"}`, the one local verb with no `status`   |
 | 0        | stdout | `"ok"`       | A local verb's success (`auth …`, `validate`, `skill …`): verb-specific keys beside `status`                  |
-| 0        | stdout | `"dry_run"`  | A write verb's preflight under `--dry-run`: `would_succeed`, `exit_code`, and the inputs it validated         |
+| 0        | stdout | `"dry_run"`  | A write verb's preflight under `--dry-run`: `would_succeed`, `exit_code`, the inputs, a `reason` on a refusal |
 | non-zero | stderr | `"error"`    | A failure: kebab-case `reason`, `exit_code`, `message`, and `next_step` when a recovery exists                |
 
-Two exceptions to the stream rule, both verified on `xr 4.1.0`:
+Two exceptions to the stream rule, both verified on `xr 4.2.0`:
 
 - The `skill install` / `skill update` verbs write their error envelope to **stdout** with the non-zero exit
   (`missing-host` and `destination-not-empty` verified). Feature-detect on `status == "error"` there.
@@ -47,10 +47,11 @@ the verb's own schema instead (`xr validate --schema posts`, `--schema user`, �
 Every verb that calls the X API (`post`, `reply`, `quote`, `delete`, `read`, `search`, `whoami`, `user`, `timeline`,
 `mentions`, `like` … `unbookmark`, `bookmarks`, `likes`, `follow` … `followers`, `mute` / `unmute` / `muted`, `block` /
 `unblock` / `blocked`, `dm`, `dms`, `broadcasts moderators list` / `add` / `remove`, `usage`, `usage credits`, `media
-upload`, `media status`, and raw mode) prints the X API document: `data` (an object for lookups and writes, an array
-for list verbs), and `includes`, `meta` (`next_token`, `result_count`), `errors` (partial failures beside valid data)
-when present. Typed verbs deserialize the body into the shape `xr schema <verb>` declares before printing, so a body the
-type cannot hold is a `serialization` error, not a partial document.
+upload`, `media status`, `media alt-text`, `media subtitles add` / `remove`, and raw mode) prints the X API document:
+`data` (an object for lookups and writes, an array for list verbs), and `includes`, `meta` (`next_token`,
+`result_count`), `errors` (partial failures beside valid data) when present. Typed verbs deserialize the body into the
+shape `xr schema <verb>` declares before printing, so a body the type cannot hold is a `serialization` error, not a
+partial document.
 
 Typed output is that shape, not the bytes X sent, in two ways that matter when reading fields:
 
@@ -65,10 +66,13 @@ Typed output is that shape, not the bytes X sent, in two ways that matter when r
   send reads as `0`; optional fields X omitted elsewhere (`created_at`, `author_id`, …) stay absent. When "absent" and
   "zero" must differ for a counter, fetch the resource in raw mode (`xr /2/tweets/<id>`).
 
-Three write verbs answer a confirmation object rather than the resource: `dm` prints `{"data":{"dm_conversation_id":
-"…","dm_event_id":"…"}}` (the schema `dm` validates exactly that), and `broadcasts moderators add` / `remove` print
-`{"data":{"moderator_user_ids":["…"]}}`, the moderator set after the change (schema `moderators`). `broadcasts
-moderators list` is a plain user list (`{"data":[{id, username, name, …}]}`, schema `users`).
+Six write verbs answer a confirmation object rather than the resource: `dm` prints `{"data":{"dm_conversation_id":
+"…","dm_event_id":"…"}}` (the schema `dm` validates exactly that); `broadcasts moderators add` / `remove` print
+`{"data":{"moderator_user_ids":["…"]}}`, the moderator set after the change (schema `moderators`); `media alt-text`
+prints `{"data":{"id":"…","associated_metadata":{…}}}`, the metadata X now holds for the media (schema `alt-text`);
+`media subtitles add` prints `{"data":{"id":"…","media_category":"AmplifyVideo","associated_subtitles":{…}}}` (schema
+`subtitles`); and `media subtitles remove` prints `{"data":{"deleted":true}}` (schema `delete`). `broadcasts moderators
+list` is a plain user list (`{"data":[{id, username, name, …}]}`, schema `users`).
 
 The record shapes are the API's; read the per-verb schema rather than hand-coding field paths:
 
@@ -92,16 +96,16 @@ Verbs that never touch the API answer `status: "ok"` with their own keys beside 
 | `auth oauth2 --no-browser --step 1`                                                             | `auth_url`, `instructions`                                                 |
 | `auth apps redirect-uri get`                                                                    | `app`, `effective_redirect_uri`, `effective_source`, `stored_redirect_uri` |
 | `validate`                                                                                      | `schema`, `valid`                                                          |
-| `skill install <host>`, `skill update <host>`                                                   | the per-host install record                                                |
+| `skill install <host>`, `skill update <host>`                                                   | the per-host install record (`legacy_install_dir` when an old copy exists) |
 | `skill install --all`, `skill update --all`                                                     | `action`, `installations`, `exit_code`                                     |
 
 `auth default <app> <user>` prints two documents (the app message with `status`, then the user message without); parse
 the first or run the two forms separately.
 
-`xr version` is local but carries no `status`: under `--output json` it prints `{"name":"xr","version":"4.1.0",
-"xdk_rs":"0.1.1"}` (the CLI version beside the `xdk-rs` library it links), `--output yaml` the same keys, and text mode
-the line `xr 4.1.0`, or `xr 4.1.0 (xdk-rs 0.1.1)` with `--verbose`. `xr --version` is the plain clap line. Read
-`.version`; `xr validate --schema envelope` rejects the document for the missing `status`.
+`xr version` is local but carries no `status`: under `--output json` it prints `{"name":"xr","version":"<semver>",
+"xdk_rs":"<semver>"}` (the CLI version beside the `xdk-rs` library it links), `--output yaml` the same keys, and text
+mode the line `xr <semver>`, or `xr <semver> (xdk-rs <semver>)` with `--verbose`. `xr --version` is the plain clap
+line. Read `.version`; `xr validate --schema envelope` rejects the document for the missing `status`.
 
 **`auth status` and `auth apps list` wrap the array**: the shape is `{"status":"ok","apps":[...]}`, never a bare
 top-level array. Every jq path into it starts at `.apps[]`:
@@ -132,10 +136,26 @@ Mandatory fields:
 - `would_succeed` (boolean): true iff the inputs validated.
 - `exit_code` (integer): the exit code the verb would have returned on actual execution.
 
-The inputs the verb validated sit beside them: `command` (the verb name; `media-upload` for the upload,
-`broadcasts-moderators-add` / `broadcasts-moderators-remove` for the moderator verbs), `body`, `media_ids`, `post_id`,
-`target_username`, `file`, `media_type`, `category`. Check `would_succeed: true` AND `exit_code: 0` before re-running
-without `--dry-run`.
+The inputs the verb validated sit beside them: `command` (the verb name; `media-upload`, `media-alt-text`,
+`media-subtitles-add`, `media-subtitles-remove` for the media verbs, `broadcasts-moderators-add` /
+`broadcasts-moderators-remove` for the moderator verbs), `body`, `media_ids`, `post_id`, `target_username`, `file`,
+`media_type`, `category`, `media_id`, `text`, `video_id`, `subtitles_id`, `language`, `name`. Check `would_succeed:
+true` AND `exit_code: 0` before re-running without `--dry-run`.
+
+A preflight whose inputs fail a check is still a `dry_run` envelope on stdout at **exit `0`**: `would_succeed: false`,
+the `exit_code` the live call would return (`1`), and a `reason` naming the check:
+
+| `reason`                | Verbs                                 | Check                                                          |
+| ----------------------- | ------------------------------------- | -------------------------------------------------------------- |
+| `empty-body`            | `post`, `reply`, `quote`, `dm`        | The text is empty (whitespace alone passes)                    |
+| `alt-text-too-long`     | `media alt-text`                      | More than 1000 characters (characters, not bytes)              |
+| `empty-alt-text`        | `media alt-text`                      | The text is empty or only whitespace                           |
+| `invalid-media-id`      | `media alt-text`, `media subtitles …` | A media, video, or subtitles id that is not 1 to 19 digits     |
+| `invalid-language-code` | `media subtitles add` / `remove`      | `--language` is not two letters, either case (`en`, not `eng`) |
+
+The live call refuses the same input before any request as an error envelope: `reason: "validation"`, exit `1`, with the
+check's name as the `message` (`"message": "alt-text-too-long"`). A refused preflight exits `0`, so read `would_succeed`
+and `exit_code` in the envelope, never the process exit code, to learn whether the live call would pass.
 
 Dry-run validates **inputs** and nothing else:
 
@@ -154,7 +174,8 @@ Dry-run validates **inputs** and nothing else:
 
 Emitted by every write op when `--dry-run` is set. Read ops ignore `--dry-run` and run for real. The `dry_run` variant's
 description in `xr schema --envelope` says the extra context "lives in `payload`"; the envelope is flat, as shown above,
-and there is no `payload` key.
+and there is no `payload` key. That variant also declares only `status`, `would_succeed`, and `exit_code`, so the
+refusal `reason` values in the table above come from the binary's answers, not from the schema.
 
 ### Failure: `status: "error"`
 
@@ -204,7 +225,7 @@ An error that knows how to recover carries a `next_step` object:
 A step carries **either** `command` (runnable verbatim by a non-TTY caller) **or** `template` (angle-bracket
 placeholders only the caller can fill), never both; `enroll-app` carries only `docs`.
 
-The six actions below are every one `xr 4.1.0` emits, and `xr schema --envelope` lists the same six. A newer `xr` can
+The six actions below are every one `xr 4.2.0` emits, and `xr schema --envelope` lists the same six. A newer `xr` can
 add one without a major version bump, so give every branch on `action` a default: an action you do not recognize means
 "read `message` and show the user the step", never "ignore it" and never "run its `command` unread". The same holds for
 `reason` (see [Reason catalog](#reason-catalog)).
@@ -270,7 +291,7 @@ names the file. Back it up, then `xr auth clear --all --force` or move it aside,
 
 ## Reason catalog
 
-Every reason `xr 4.1.0` emits, with the exit code it emits it at. A newer `xr` can add a reason without a major version
+Every reason `xr 4.2.0` emits, with the exit code it emits it at. A newer `xr` can add a reason without a major version
 bump, so a script that branches on `reason` needs a default branch; the exit code still classifies an unknown reason
 coarsely (`2` local usage, `3` back off, `77` credentials, `1` / `5` read `message`).
 
@@ -293,7 +314,7 @@ coarsely (`2` local usage, `3` back off, `77` credentials, `1` / `5` read `messa
 | `invalid-method`                                                                    | 1                       | Wrong HTTP verb for an endpoint (raw mode)                                                                                             | Check the endpoint docs                                                                                    |
 | `invalid-url`                                                                       | 1                       | Raw-mode URL is not absolute `http(s)://` or `/`-prefixed                                                                              | Fix the URL                                                                                                |
 | `invalid-path-param`                                                                | 1                       | A path placeholder could not be substituted                                                                                            | Fix the argument                                                                                           |
-| `validation`                                                                        | 1                       | Inputs failed a local check (`auth clear` without a selector; `xr schema <verb>` on a verb with no typed response, or an unknown name) | Read `message`; for `schema` it lists the valid names                                                      |
+| `validation`                                                                        | 1                       | A local check failed: `auth clear` without a selector, `xr schema` on an untyped or unknown name, a write verb's input check           | Read `message`: for `schema` it lists the valid names; for a write verb it names the check                 |
 | `serialization`                                                                     | 1                       | A success body did not deserialize into the verb's typed shape                                                                         | A write most likely landed: do not retry it. A read: request its path (shown by `--verbose`) in raw mode   |
 | `io`                                                                                | 5 (`1` from `validate`) | Local file or pipe error (a missing `media upload` path)                                                                               | Check the path / pipe / permissions                                                                        |
 | `internal`                                                                          | 1                       | Unexpected runtime state                                                                                                               | File upstream with the text-mode `--verbose` output                                                        |
@@ -303,7 +324,7 @@ coarsely (`2` local usage, `3` back off, `77` credentials, `1` / `5` read `messa
 | `invalid-json`                                                                      | 1                       | `validate` input is not JSON                                                                                                           | Fix the input                                                                                              |
 | `unknown-schema`                                                                    | 1                       | `validate --schema` names nothing bundled                                                                                              | Pick from `known_schemas`                                                                                  |
 | `validation-failed`                                                                 | 1                       | `validate` input does not match the schema                                                                                             | Read `message` for the field-level error                                                                   |
-| `home-not-set`                                                                      | 1                       | `skill` verb could not expand `~`                                                                                                      | Set `$HOME`                                                                                                |
+| `home-not-set`                                                                      | 1                       | `skill` verb could not expand `~`: neither `XURL_SKILL_HOME` nor `HOME` is set                                                         | Set `XURL_SKILL_HOME` (or `HOME`), or the host's config-directory variable                                 |
 | `remove-failed`                                                                     | 1                       | `skill update` could not clear the install dir                                                                                         | Check permissions on `install_dir`; remove it by hand                                                      |
 | `destination-not-empty`, `destination-is-file`, `git-not-found`, `git-clone-failed` | 1                       | `skill install` preconditions (on stdout)                                                                                              | Read `install_dir` / `command_preview`; fix the destination or install `git`                               |
 
@@ -378,15 +399,14 @@ xr /2/missing --output json 2>&1 | xr validate --schema envelope --output json  
 
 Each answers `{"status":"ok","schema":"<name>","valid":true}` on a match. `--schema envelope` accepts the `error`,
 `dry_run`, and local `ok` variants and rejects an API-backed success (no `status`), so a pipeline that validates
-"whatever came back" needs the exit code first: non-zero → `envelope`, zero → the verb's schema. The accepted names are
-`post`, `posts`, `user`, `users`, `dm`, `dms`, `dm-event`, `usage`, `credits`, `envelope`, `like`, `follow`, `delete`,
-`repost`, `bookmark`, `mute`, `block`, `moderators`; anything else answers `unknown-schema` with the list in
-`known_schemas`, and `xr validate --help` prints the same eighteen.
+"whatever came back" needs the exit code first: non-zero → `envelope`, zero → the verb's schema. `xr validate --help`
+lists the accepted names; anything else answers `unknown-schema` with the list in `known_schemas`.
 
-Three names do not map one-to-one onto a verb: `dm` validates the send confirmation `xr dm` prints, with its
-`dm_conversation_id` and `dm_event_id`; `dm-event` a single event from a `dms` page; and `moderators` the
-`moderator_user_ids` document that `broadcasts moderators add` / `remove` return. The `broadcasts moderators list` page
-validates as `users`.
+Several names do not map one-to-one onto a verb: `dm` validates the send confirmation `xr dm` prints, with its
+`dm_conversation_id` and `dm_event_id`; `dm-event` a single event from a `dms` page; `moderators` the
+`moderator_user_ids` document that `broadcasts moderators add` / `remove` return; `alt-text` the `media alt-text`
+answer; and `subtitles` the `media subtitles add` answer. The `broadcasts moderators list` page validates as `users`,
+and the `media subtitles remove` answer as `delete`. `media upload` and `media status` have no schema.
 
 Useful in CI when capturing live responses for regression fixtures, since it confirms the bundled schema still describes
 the wire shape after an `xr` upgrade.

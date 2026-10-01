@@ -4,7 +4,7 @@
 file describes each path, when to use it, how to verify it, and how to recover when a verb exits `77`.
 
 > **Verify, don't guess.** Run `xr auth status --output json` to see what's actually configured before reaching for a
-> flow. The answer is `{"status":"ok","apps":[...]}`; read it through `.apps[]`. Verified on `xr 4.1.0`.
+> flow. The answer is `{"status":"ok","apps":[...]}`; read it through `.apps[]`. Verified on `xr 4.2.0`.
 
 ## The four paths
 

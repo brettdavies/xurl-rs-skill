@@ -7,15 +7,15 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 
 | Field               | Value                                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------------------ |
-| xurl-rs commit      | `4da143c`, the `v4.1.0` tag (2026-09-24)                                                         |
-| Binary self-report  | `xr 4.1.0` (`xdk-rs 0.1.1`), the `x86_64-unknown-linux-gnu` asset of the `v4.1.0` GitHub release |
-| Contract documented | 4.1.0: `show-help` on `unknown-command`, post-vocabulary names in typed output, parse-error text |
-| Harness result      | `tests/contract.sh`: 235 checks passing against that binary                                      |
+| xurl-rs commit      | `e2c7e8a`, the `v4.2.0` tag (2026-09-30)                                                         |
+| Binary self-report  | `xr 4.2.0` (`xdk-rs 0.1.3`), the `x86_64-unknown-linux-gnu` asset of the `v4.2.0` GitHub release |
+| Contract documented | 4.2.0: `media alt-text` / `media subtitles`, skill destination variables, `legacy_install_dir`   |
+| Harness result      | `tests/contract.sh`: 212 checks (280 assertions) passing against that binary                     |
 
 The bundle documents the contract of the `xr` release it ships beside: the upstream `dev` head when a release is
-being cut from it, or the released artifact once it is out. A release that changes nothing the bundle documents gets
-no bundle pass: `v4.1.1` changes only the vendored X API spec (`crates/xdk/vendor`) and version metadata, so the
-contract above holds for it. When any row above moves, re-run the harness and update the row in the same PR. Consumers
+being cut from it, or the released artifact once it is out. A release that changes nothing the bundle documents (only
+the vendored X API spec in `crates/xdk/vendor`, say, or version metadata) gets no bundle pass, and the contract above
+holds for it. When any row above moves, re-run the harness and update the row in the same PR. Consumers
 install from the head of `main` with the bundle's own `VERSION`; nothing pins the bundle to a binary version on either
 side.
 
@@ -71,8 +71,10 @@ the invocation.
 2. Run the harness with the full path, never a bare `xr` (a Homebrew install and a dev build both answer to the name):
    `XR_BIN=$(brew --prefix)/bin/xr bash tests/contract.sh` or `XR_BIN=$HOME/dev/xurl-rs/target/debug/xr …`. Every
    failing row is either a bundle claim that is now wrong (fix the doc and the row) or an upstream regression (report
-   it upstream, keep the row failing). The harness runs under a scratch `HOME` and `XURL_TOKEN_STORE`; keep every
-   ad-hoc probe under the same two overrides, because a `cargo test` run in `xurl-rs` once overwrote a real `~/.xurl`
+   it upstream, keep the row failing). The harness runs under a scratch `XURL_SKILL_HOME` and `XURL_TOKEN_STORE`
+   and unsets `CLAUDE_CONFIG_DIR`, `KIRO_HOME`, and `OPENCODE_CONFIG_DIR`, which outrank `XURL_SKILL_HOME`; keep every
+   ad-hoc probe under the same overrides, because a probe outside them reads and writes the real `~/.xurl` and skill
+   directories
    (`docs/solutions/conventions/hermetic-cli-spawn-seam-with-unwritable-default-store-and-escape-hatch-guard.md`).
 3. Read the upstream delta (`git log --stat <last-verified>..HEAD`) for surface the harness has no row for: a new
    command, a new flag, a new reason. Probe it, document it, add a row.
@@ -81,6 +83,12 @@ the invocation.
    fixtures/bin/xr`, and `markdownlint-cli2 '**/*.md' '#node_modules'` (the globs CI lints; a bare `.` checks only the
    root-level files); then re-run the evals in `evals/` that touch the changed surface.
 5. Update the **Verified against** table above and `SKILL.md`'s contract-version sentence.
+
+The docs state only what the binary cannot tell an agent itself: which stream a document lands on, exit codes, success
+shapes, the scripts' behavior, and the gotchas. For counts, name lists, help text, and the environment-variable index
+they point at `xr schema --list`, `xr validate --help`, `xr examples`, and `xr --help`, so those facts carry no harness
+row and no per-release edit. A row runs its command once and asserts every needle for it (`check LABEL EXIT STREAM
+NEEDLE [STREAM NEEDLE]... -- cmd`); add a needle to an existing row before adding a row for the same command.
 
 Two groups in the harness matter equally. Group 1 runs against an empty store and a closed port and sees every failure
 envelope; group 2 runs against `tests/stub-api.py` with a fake user token and sees every **success** document. A

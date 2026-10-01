@@ -7,14 +7,14 @@
 Walk these in order. Stop at the first one that answers the question.
 
 1. **`xr <command> --help`**: the binary's own docs, always current with the installed version. The root `xr --help`
-   ends with `ENVIRONMENT VARIABLES`, `INPUT FROM STDIN`, `EXIT CODES`, and `TTY behavior` sections. Most "how do I pass
+   also carries the environment-variable index and the exit codes. Most "how do I pass
    X?" questions resolve here. A mistyped command answers `unknown-command` with a `show-help` `next_step`: its
    `command` is the right help page to read.
-2. **`xr examples`**: curated invocation gallery, ~160 lines, every major workflow with two-or-three lines per case.
+2. **`xr examples`**: curated invocation gallery, every major workflow with two-or-three lines per case.
    When the question is "what does the canonical pattern look like?", this is the answer.
-3. **`xr schema --list`**: 42 typed response shapes, one row per verb (`<name> <Rust type>`). When the question is "what
-   does this response look like?" or "which fields can I rely on?", this is the answer. A verb with no typed response
-   (`validate`, `skill`, `examples`, `version`, `auth`, `media`) answers `schema not available`.
+3. **`xr schema --list`**: every typed response shape, one row per verb (`<name> <Rust type>`). When the question is
+   "what does this response look like?" or "which fields can I rely on?", this is the answer. A verb the list omits
+   answers `schema not available`.
 4. **`xr schema <name> --output json`**: JSON Schema for one response type. Drop it into a generator or feed it back
    through `xr validate`.
 5. **`xr schema --envelope --output json`**: the canonical agent-native envelope (`ok` / `dry_run` / `error`). When
