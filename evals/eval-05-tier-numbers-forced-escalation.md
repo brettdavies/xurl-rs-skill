@@ -25,8 +25,8 @@ Create a fresh workdir at `/tmp/xurl-rs-eval-05-$(date +%s)/` and treat it as CW
 1. `## Discovery`: Same shape as eval-01.
 2. `## Why I'm not answering from memory`: Explicit statement of WHY a specific number from memory would be wrong.
    Reference the skill's drift-resistance position on tier-specific values.
-3. `## Where the answer lives`: Name the canonical external source (the URL goes in `escalation-source.txt`) and
-   explain how to read it (markdown variant, agent-friendly).
+3. `## Where the answer lives`: Name the canonical external source (the URL goes in `escalation-source.txt`) and explain
+   how to read it (markdown variant, agent-friendly).
 4. `## How to verify`: Walk the user through fetching the source and confirming the current value, so they own the
    answer instead of trusting your recollection.
 5. `## What I might be wrong about`: One line acknowledging that even the URL might have moved; if so, what's the

@@ -20,8 +20,18 @@
 #         XR_STUB_DRYRUN_EXIT    Exit code for the dry-run call (default 0).
 #         XR_STUB_LIVE_BODY      Body when called without `--dry-run`.
 #         XR_STUB_LIVE_EXIT      Exit code for the live call (default 0).
+#
+# Like the binary, a truthy XURL_DRY_RUN acts as --dry-run, and a truthy
+# XURL_JSON or XURL_JSONL beside an explicit --output is a usage error.
 
 set -u
+
+truthy() {
+  case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
+    "" | 0 | false | no | off) return 1 ;;
+  esac
+  return 0
+}
 
 emit() {
   local body=$1 code=$2
@@ -32,6 +42,17 @@ emit() {
   fi
   exit "$code"
 }
+
+if truthy "${XURL_JSON:-}" || truthy "${XURL_JSONL:-}"; then
+  for arg in "$@"; do
+    [ "$arg" = "--" ] && break
+    case "$arg" in
+      --output | --output=*)
+        emit '{"status":"error","reason":"invalid-args","exit_code":2,"message":"the argument --output cannot be used with --json"}' 2
+        ;;
+    esac
+  done
+fi
 
 if [ -n "${XR_STUB_PAGES_BODIES:-}" ]; then
   counter=${XR_STUB_PAGE_COUNTER:?counter required for multi-page mode}
@@ -51,9 +72,15 @@ if [ -n "${XR_STUB_PAGES_BODIES:-}" ]; then
 fi
 
 for arg in "$@"; do
+  # After `--` every argument is a positional, as clap parses it.
+  [ "$arg" = "--" ] && break
   if [ "$arg" = "--dry-run" ] || [ "$arg" = "--dry-run=true" ]; then
     emit "${XR_STUB_DRYRUN_BODY:-}" "${XR_STUB_DRYRUN_EXIT:-0}"
   fi
 done
+
+if truthy "${XURL_DRY_RUN:-}"; then
+  emit "${XR_STUB_DRYRUN_BODY:-}" "${XR_STUB_DRYRUN_EXIT:-0}"
+fi
 
 emit "${XR_STUB_LIVE_BODY:-}" "${XR_STUB_LIVE_EXIT:-0}"

@@ -7,14 +7,14 @@
 Walk these in order. Stop at the first one that answers the question.
 
 1. **`xr <command> --help`**: the binary's own docs, always current with the installed version. The root `xr --help`
-   ends with `ENVIRONMENT VARIABLES`, `INPUT FROM STDIN`, `EXIT CODES`, and `TTY behavior` sections. Most "how do I pass
-   X?" questions resolve here. A mistyped command answers `unknown-command` with a `show-help` `next_step`: its
-   `command` is the right help page to read.
-2. **`xr examples`**: curated invocation gallery, ~160 lines, every major workflow with two-or-three lines per case.
-   When the question is "what does the canonical pattern look like?", this is the answer.
-3. **`xr schema --list`**: 42 typed response shapes, one row per verb (`<name> <Rust type>`). When the question is "what
-   does this response look like?" or "which fields can I rely on?", this is the answer. A verb with no typed response
-   (`validate`, `skill`, `examples`, `version`, `auth`, `media`) answers `schema not available`.
+   also carries the environment-variable index and the exit codes. Most "how do I pass X?" questions resolve here. A
+   mistyped command answers `unknown-command` with a `show-help` `next_step`: its `command` is the right help page to
+   read.
+2. **`xr examples`**: curated invocation gallery, every major workflow with two-or-three lines per case. When the
+   question is "what does the canonical pattern look like?", this is the answer.
+3. **`xr schema --list`**: every typed response shape, one row per verb (`<name> <Rust type>`). When the question is
+   "what does this response look like?" or "which fields can I rely on?", this is the answer. A verb the list omits
+   answers `schema not available`.
 4. **`xr schema <name> --output json`**: JSON Schema for one response type. Drop it into a generator or feed it back
    through `xr validate`.
 5. **`xr schema --envelope --output json`**: the canonical agent-native envelope (`ok` / `dry_run` / `error`). When
@@ -33,8 +33,8 @@ Walk these in order. Stop at the first one that answers the question.
    <https://docs.x.com/AGENTS.md> carries X's own instructions for agents reading the docs. Use `defuddle` (or the
    agent's `fetch-web` skill) to clean MDX.
 10. **Upstream repository**: the CLI reference is `crates/xurl-cli/README.md` and its changelog
-    `crates/xurl-cli/CHANGELOG.md` in <https://github.com/brettdavies/xurl-rs> (the root README routes between the
-    `xr` CLI and the `xdk-rs` Rust library; a Rust program that wants the X API embeds `xdk-rs`, not the CLI). Issues:
+    `crates/xurl-cli/CHANGELOG.md` in <https://github.com/brettdavies/xurl-rs> (the root README routes between the `xr`
+    CLI and the `xdk-rs` Rust library; a Rust program that wants the X API embeds `xdk-rs`, not the CLI). Issues:
     <https://github.com/brettdavies/xurl-rs/issues>. Skill-bundle issues (stale references, wrong invocations, missing
     templates) **also** file here with a `[skill]` title prefix; this bundle's own issue tracker is disabled by design.
 11. **Ask the user**: last resort, only when the answer requires user-side context (which thread to post in, which app
@@ -98,8 +98,8 @@ Done at step 1; the lookup short-circuits.
 ### "The JSON from `xr timeline --output json` has no `status` field. Did it fail?"
 
 1. Check the exit code and the stream: exit `0` with the document on stdout is a success.
-2. API-backed verbs print the X API document (`data`, `meta`, `includes`, `errors`); only local verbs (`auth
-   …`, `validate`, `skill …`) add `status: "ok"`. [output-envelope.md](output-envelope.md) tabulates the four document
+2. API-backed verbs print the X API document (`data`, `meta`, `includes`, `errors`); only local verbs (`auth …`,
+   `validate`, `skill …`) add `status: "ok"`. [output-envelope.md](output-envelope.md) tabulates the four document
    kinds.
 3. Read `.data[]` and `.meta.next_token`; `scripts/paginate.sh` already does, across pages.
 
@@ -120,9 +120,9 @@ Full recipe: [output-envelope.md § Exit 77 recipe](output-envelope.md#exit-77-r
 
 1. Check for `next_step`. `action: "enroll-app"` means the 403 body named enrollment (`client-not-enrolled` /
    `client-forbidden`): open `next_step.docs`; the fix is in the developer portal.
-2. No `next_step`: read `message`, which carries X's problem document. A permission refusal on one endpoint is usually
-   a scope the token does not carry (re-run `xr auth oauth2` after the portal grants it) or a tier that does not
-   include the endpoint; both are answered by the per-endpoint page on docs.x.com, not by retrying.
+2. No `next_step`: read `message`, which carries X's problem document. A permission refusal on one endpoint is usually a
+   scope the token does not carry (re-run `xr auth oauth2` after the portal grants it) or a tier that does not include
+   the endpoint; both are answered by the per-endpoint page on docs.x.com, not by retrying.
 3. Neither `forbidden` nor `invalid-request` (400 / 422) is transient. Only `server-error` (5xx) and `network-error`
    (exit `5`, no answer at all) earn one retry.
 

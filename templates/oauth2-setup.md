@@ -35,8 +35,8 @@ The answer is a success envelope that already names the next command (the Branch
 ```
 
 A read verb run before any of this exits `77` with `reason: "auth-required"` and a `next_step` whose `action` is
-`register-app` and whose `template` is the `apps add` invocation above with angle-bracket placeholders. Ask the user
-for the values; never invent a client id or secret.
+`register-app` and whose `template` is the `apps add` invocation above with angle-bracket placeholders. Ask the user for
+the values; never invent a client id or secret.
 
 > **Never paste `--client-secret` inline on a shared host.** Pull it from a secrets manager:
 > `--client-secret "$(op read op://<vault>/<item>/client_secret)"`
@@ -74,8 +74,8 @@ xr auth oauth2 --no-browser --step 1 --output json
 
 Under `--output text` this prints the URL to open. Under `--output json` it answers `{"status":"ok","auth_url":"…",
 "instructions":"…"}`; read `.auth_url`. Against an app with no client id it answers `reason:
-"client-credentials-missing"`, exit `2`, with a `select-app` `next_step` when another registered app does have one and
-a `register-app` `next_step` (a `template` to fill with the user's values) when none does.
+"client-credentials-missing"`, exit `2`, with a `select-app` `next_step` when another registered app does have one and a
+`register-app` `next_step` (a `template` to fill with the user's values) when none does.
 
 User opens the URL in any browser, completes the grant, and captures the redirect URL from the address bar.
 
@@ -102,8 +102,8 @@ Expect, in the `.apps[]` entry for `<APP_NAME>`:
 - `oauth2_users` containing the username the flow resolved (or the one passed positionally).
 - `default: true` if it is the app subsequent commands should use.
 
-`auth status` reports presence only: no token values, no expiry. `xr` refreshes an expired access token transparently
-on the next call.
+`auth status` reports presence only: no token values, no expiry. `xr` refreshes an expired access token transparently on
+the next call.
 
 Round-trip with a real read call to confirm scopes:
 
@@ -111,9 +111,9 @@ Round-trip with a real read call to confirm scopes:
 xr whoami --output json
 ```
 
-If `whoami` exits `0` and prints the API document (`{"data":{"id":"…","username":"…","name":"…"}}`; API-backed
-successes carry no `status` key), you're authenticated and the basic user-read scope is granted. If it exits `77`, the
-envelope on stderr carries a `next_step` naming the fix; see the troubleshooting table.
+If `whoami` exits `0` and prints the API document (`{"data":{"id":"…","username":"…","name":"…"}}`; API-backed successes
+carry no `status` key), you're authenticated and the basic user-read scope is granted. If it exits `77`, the envelope on
+stderr carries a `next_step` naming the fix; see the troubleshooting table.
 
 ## Troubleshooting
 

@@ -32,7 +32,7 @@ reset_stub() {
   unset XR_STUB_DRYRUN_BODY XR_STUB_DRYRUN_EXIT \
     XR_STUB_LIVE_BODY XR_STUB_LIVE_EXIT \
     XR_STUB_PAGES_BODIES XR_STUB_PAGES_EXITS \
-    XR_STUB_ERROR_ON_STDOUT
+    XR_STUB_ERROR_ON_STDOUT XURL_DRY_RUN XURL_JSON XURL_JSONL
   XR_STUB_PAGE_COUNTER=$(mktemp)
   export XR_STUB_PAGE_COUNTER
 }
@@ -95,6 +95,58 @@ run_test() {
   cleanup_stub
 }
 
+# --- surface-diff tests -----------------------------------------------------
+
+test_surface_diff__folds_to_the_release_scope() {
+  # Global flags under a new command, `help` subcommands, and the leaves of a
+  # schema file that is new in full fold away; a changed leaf and a removed
+  # flag stay.
+  local old new
+  old=$(mktemp)
+  new=$(mktemp)
+  printf '%s\n' \
+    $'cli\txr\t--output' \
+    $'cli\txr media\tupload' \
+    $'cli\txr media upload\t--wait' \
+    $'schema\tschema/responses/skill-install.schema.json\tproperties.host.type="string"' >"$old"
+  printf '%s\n' \
+    $'cli\txr\t--output' \
+    $'cli\txr media\tupload' \
+    $'cli\txr media\talt-text' \
+    $'cli\txr media alt-text\t--output' \
+    $'cli\txr media alt-text\t--output=json' \
+    $'cli\txr media help\talt-text' \
+    $'schema\tschema/responses/media-alt-text.schema.json\tproperties.data.type="object"' \
+    $'schema\tschema/responses/media-alt-text.schema.json\tproperties.data.required.[]="id"' \
+    $'schema\tschema/responses/skill-install.schema.json\tproperties.host.type="string"' \
+    $'schema\tschema/responses/skill-install.schema.json\tproperties.legacy_install_dir.type="string"' >"$new"
+
+  run_script bash "$ROOT/tests/surface-diff.sh" --lists "$old" "$new"
+  rm -f "$old" "$new"
+
+  assert_exit 0 || return 1
+  assert_stdout_contains '+ xr media alt-text' || return 1
+  assert_stdout_contains '+ schema file schema/responses/media-alt-text.schema.json' || return 1
+  assert_stdout_contains '+ schema/responses/skill-install.schema.json properties.legacy_install_dir' || return 1
+  assert_stdout_contains '- xr media upload --wait' || return 1
+  if grep -qF -- '--output' <<<"$_stdout" || grep -qF 'help' <<<"$_stdout" || grep -qF 'required' <<<"$_stdout"; then
+    printf '    stdout kept a line it should fold:\n%s\n' "$_stdout" >&2
+    return 1
+  fi
+}
+
+test_surface_diff__reports_no_change() {
+  local same
+  same=$(mktemp)
+  printf '%s\n' $'cli\txr\t--output' >"$same"
+
+  run_script bash "$ROOT/tests/surface-diff.sh" --lists "$same" "$same"
+  rm -f "$same"
+
+  assert_exit 0 || return 1
+  assert_stdout_contains 'no surface change' || return 1
+}
+
 # --- dry-run-gate tests ----------------------------------------------------
 
 test_gate__accept_clean() {
@@ -119,6 +171,72 @@ test_gate__reject_would_not_succeed() {
   assert_exit 1 || return 1
   assert_stderr_contains "would NOT succeed" || return 1
   assert_stderr_not_contains "running live" || return 1
+}
+
+test_gate__reject_would_not_succeed_names_reason() {
+  # A preflight that fails an input check answers exit 0 with the check's name
+  # in `reason`; the live call would answer reason "validation" instead.
+  XR_STUB_DRYRUN_BODY='{"status":"dry_run","would_succeed":false,"exit_code":1,"command":"media-alt-text","reason":"alt-text-too-long"}'
+  export XR_STUB_DRYRUN_BODY
+
+  run_script "$ROOT/scripts/dry-run-gate.sh" --yes -- xr media alt-text 1 "too long"
+
+  assert_exit 1 || return 1
+  assert_stderr_contains "reason=alt-text-too-long" || return 1
+  assert_stderr_not_contains "running live" || return 1
+}
+
+test_gate__positional_after_double_dash() {
+  # Text that starts with `-` reaches the verb only after `--`; the gate's own
+  # flags must land before that separator or the verb reads them as text.
+  XR_STUB_DRYRUN_BODY='{"status":"dry_run","would_succeed":true,"exit_code":0,"command":"media-alt-text","text":"-5C"}'
+  XR_STUB_LIVE_BODY='{"data":{"id":"1","associated_metadata":{}}}'
+  export XR_STUB_DRYRUN_BODY XR_STUB_LIVE_BODY
+
+  run_script "$ROOT/scripts/dry-run-gate.sh" --yes -- xr media alt-text 1 -- "-5C on the dial"
+
+  assert_exit 0 || return 1
+  assert_stderr_contains "dry-run OK" || return 1
+  assert_stdout_contains '"associated_metadata"' || return 1
+}
+
+test_gate__forbidden_flag_after_double_dash_is_text() {
+  # `--output` after `--` is the verb's positional text, not a flag to refuse.
+  XR_STUB_DRYRUN_BODY='{"status":"dry_run","would_succeed":true,"exit_code":0,"command":"media-alt-text"}'
+  XR_STUB_LIVE_BODY='{"data":{"id":"1","associated_metadata":{}}}'
+  export XR_STUB_DRYRUN_BODY XR_STUB_LIVE_BODY
+
+  run_script "$ROOT/scripts/dry-run-gate.sh" --yes -- xr media alt-text 1 -- "--output is a word here"
+
+  assert_exit 0 || return 1
+  assert_stderr_not_contains "do not pass --output" || return 1
+}
+
+test_gate__refuses_when_dry_run_env_set() {
+  # With XURL_DRY_RUN exported the live call would only dry-run, so a gate that
+  # went ahead would report a write that never happened.
+  XURL_DRY_RUN=1
+  XR_STUB_DRYRUN_BODY='{"status":"dry_run","would_succeed":true,"exit_code":0,"command":"post"}'
+  XR_STUB_LIVE_BODY='{"data":{"id":"1","text":"x"}}'
+  export XURL_DRY_RUN XR_STUB_DRYRUN_BODY XR_STUB_LIVE_BODY
+
+  run_script "$ROOT/scripts/dry-run-gate.sh" --yes -- xr post "x"
+
+  assert_exit 2 || return 1
+  assert_stderr_contains "XURL_DRY_RUN" || return 1
+  assert_stderr_not_contains "running live" || return 1
+}
+
+test_gate__json_env_does_not_conflict() {
+  XURL_JSON=1
+  XR_STUB_DRYRUN_BODY='{"status":"dry_run","would_succeed":true,"exit_code":0,"command":"post"}'
+  XR_STUB_LIVE_BODY='{"data":{"id":"1","text":"x"}}'
+  export XURL_JSON XR_STUB_DRYRUN_BODY XR_STUB_LIVE_BODY
+
+  run_script "$ROOT/scripts/dry-run-gate.sh" --yes -- xr post "x"
+
+  assert_exit 0 || return 1
+  assert_stdout_contains '"id":"1"' || return 1
 }
 
 test_gate__reject_read_op_api_document() {
@@ -264,6 +382,17 @@ test_paginate__single_page() {
   assert_stderr_contains "last (no next_token)" || return 1
 }
 
+test_paginate__jsonl_env_does_not_conflict() {
+  XURL_JSONL=1
+  XR_STUB_PAGES_BODIES='{"data":[{"id":"a"}],"meta":{"result_count":1}}'
+  export XURL_JSONL XR_STUB_PAGES_BODIES
+
+  run_script "$ROOT/scripts/paginate.sh" -- xr search "rust"
+
+  assert_exit 0 || return 1
+  assert_stdout_contains '"id":"a"' || return 1
+}
+
 test_paginate__multi_page_follows_cursor() {
   # Three pages; first two carry next_token, last doesn't.
   XR_STUB_PAGES_BODIES=$'{"data":[{"id":"p1"}],"meta":{"next_token":"t1"}}\n{"data":[{"id":"p2"}],"meta":{"next_token":"t2"}}\n{"data":[{"id":"p3"}]}'
@@ -379,8 +508,15 @@ test_paginate__reject_bad_max_pages() {
 
 # --- Run ------------------------------------------------------------------
 
+run_test test_surface_diff__folds_to_the_release_scope
+run_test test_surface_diff__reports_no_change
 run_test test_gate__accept_clean
 run_test test_gate__reject_would_not_succeed
+run_test test_gate__reject_would_not_succeed_names_reason
+run_test test_gate__positional_after_double_dash
+run_test test_gate__forbidden_flag_after_double_dash_is_text
+run_test test_gate__refuses_when_dry_run_env_set
+run_test test_gate__json_env_does_not_conflict
 run_test test_gate__reject_read_op_api_document
 run_test test_gate__reject_read_op_local_verb
 run_test test_gate__reject_error_envelope_on_stderr
@@ -395,6 +531,7 @@ run_test test_gate__refuse_non_tty_without_yes
 run_test test_gate__missing_args
 
 run_test test_paginate__single_page
+run_test test_paginate__jsonl_env_does_not_conflict
 run_test test_paginate__multi_page_follows_cursor
 run_test test_paginate__empty_page_streams_nothing
 run_test test_paginate__error_envelope_on_stderr_passes_exit_through
