@@ -11,7 +11,7 @@ got is decided by the **exit code and the stream first**, and by the `status` ke
 | 0        | stdout | `"dry_run"`  | A write verb's preflight under `--dry-run`: `would_succeed`, `exit_code`, the inputs, a `reason` on a refusal |
 | non-zero | stderr | `"error"`    | A failure: kebab-case `reason`, `exit_code`, `message`, and `next_step` when a recovery exists                |
 
-Two exceptions to the stream rule, both verified on `xr 4.2.0`:
+Two exceptions to the stream rule:
 
 - The `skill install` / `skill update` verbs write their error envelope to **stdout** with the non-zero exit
   (`missing-host` and `destination-not-empty` verified). Feature-detect on `status == "error"` there.
@@ -225,10 +225,10 @@ An error that knows how to recover carries a `next_step` object:
 A step carries **either** `command` (runnable verbatim by a non-TTY caller) **or** `template` (angle-bracket
 placeholders only the caller can fill), never both; `enroll-app` carries only `docs`.
 
-The six actions below are every one `xr 4.2.0` emits, and `xr schema --envelope` lists the same six. A newer `xr` can
-add one without a major version bump, so give every branch on `action` a default: an action you do not recognize means
-"read `message` and show the user the step", never "ignore it" and never "run its `command` unread". The same holds for
-`reason` (see [Reason catalog](#reason-catalog)).
+The six actions below are every one the documented contract emits, and `xr schema --envelope` lists the same six. A
+newer `xr` can add one without a major version bump, so give every branch on `action` a default: an action you do not
+recognize means "read `message` and show the user the step", never "ignore it" and never "run its `command` unread". The
+same holds for `reason` (see [Reason catalog](#reason-catalog)).
 
 | `action`        | Meaning                                          | Do                                                           |
 | --------------- | ------------------------------------------------ | ------------------------------------------------------------ |
@@ -291,9 +291,9 @@ names the file. Back it up, then `xr auth clear --all --force` or move it aside,
 
 ## Reason catalog
 
-Every reason `xr 4.2.0` emits, with the exit code it emits it at. A newer `xr` can add a reason without a major version
-bump, so a script that branches on `reason` needs a default branch; the exit code still classifies an unknown reason
-coarsely (`2` local usage, `3` back off, `77` credentials, `1` / `5` read `message`).
+Every reason the documented contract emits, with the exit code it emits it at. A newer `xr` can add a reason without a
+major version bump, so a script that branches on `reason` needs a default branch; the exit code still classifies an
+unknown reason coarsely (`2` local usage, `3` back off, `77` credentials, `1` / `5` read `message`).
 
 | `reason`                                                                            | `exit_code`             | What it means                                                                                                                          | First response                                                                                             |
 | ----------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |

@@ -5,11 +5,11 @@ working on this bundle are in [`AGENTS.md`](AGENTS.md).
 
 ## What this bundle is
 
-A consumer-side skill bundle for `xr` (the `xr 4.2.0` contract), the Rust port of the Go xurl. The CLI lives at
-<https://github.com/brettdavies/xurl-rs> (its reference is `crates/xurl-cli/README.md`; the Rust library beside it is
-`xdk-rs`); this bundle teaches your coding agent how to drive it without inventing flags or trampling production
-state. Every invocation the bundle documents is checked against a real `xr` build by
-`tests/contract.sh` before a bundle pass ships (see [`AGENTS.md`](AGENTS.md)).
+A consumer-side skill bundle for `xr` (the contract version is in `SKILL.md`), the Rust port of the Go xurl. The CLI
+lives at <https://github.com/brettdavies/xurl-rs> (its reference is `crates/xurl-cli/README.md`; the Rust library beside
+it is `xdk-rs`); this bundle teaches your coding agent how to drive it without inventing flags or trampling production
+state. Every invocation the bundle documents is checked against a real `xr` build by `tests/contract.sh` before a bundle
+pass ships (see [`AGENTS.md`](AGENTS.md)).
 
 When the bundle is installed at `~/.claude/skills/xurl-rs/` (or the equivalent path on Codex / Cursor / Factory / Kiro /
 OpenCode), Claude Code automatically reads the description in `SKILL.md` and pulls the rest of the files in on demand.

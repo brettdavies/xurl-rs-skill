@@ -95,6 +95,58 @@ run_test() {
   cleanup_stub
 }
 
+# --- surface-diff tests -----------------------------------------------------
+
+test_surface_diff__folds_to_the_release_scope() {
+  # Global flags under a new command, `help` subcommands, and the leaves of a
+  # schema file that is new in full fold away; a changed leaf and a removed
+  # flag stay.
+  local old new
+  old=$(mktemp)
+  new=$(mktemp)
+  printf '%s\n' \
+    $'cli\txr\t--output' \
+    $'cli\txr media\tupload' \
+    $'cli\txr media upload\t--wait' \
+    $'schema\tschema/responses/skill-install.schema.json\tproperties.host.type="string"' >"$old"
+  printf '%s\n' \
+    $'cli\txr\t--output' \
+    $'cli\txr media\tupload' \
+    $'cli\txr media\talt-text' \
+    $'cli\txr media alt-text\t--output' \
+    $'cli\txr media alt-text\t--output=json' \
+    $'cli\txr media help\talt-text' \
+    $'schema\tschema/responses/media-alt-text.schema.json\tproperties.data.type="object"' \
+    $'schema\tschema/responses/media-alt-text.schema.json\tproperties.data.required.[]="id"' \
+    $'schema\tschema/responses/skill-install.schema.json\tproperties.host.type="string"' \
+    $'schema\tschema/responses/skill-install.schema.json\tproperties.legacy_install_dir.type="string"' >"$new"
+
+  run_script bash "$ROOT/tests/surface-diff.sh" --lists "$old" "$new"
+  rm -f "$old" "$new"
+
+  assert_exit 0 || return 1
+  assert_stdout_contains '+ xr media alt-text' || return 1
+  assert_stdout_contains '+ schema file schema/responses/media-alt-text.schema.json' || return 1
+  assert_stdout_contains '+ schema/responses/skill-install.schema.json properties.legacy_install_dir' || return 1
+  assert_stdout_contains '- xr media upload --wait' || return 1
+  if grep -qF -- '--output' <<<"$_stdout" || grep -qF 'help' <<<"$_stdout" || grep -qF 'required' <<<"$_stdout"; then
+    printf '    stdout kept a line it should fold:\n%s\n' "$_stdout" >&2
+    return 1
+  fi
+}
+
+test_surface_diff__reports_no_change() {
+  local same
+  same=$(mktemp)
+  printf '%s\n' $'cli\txr\t--output' >"$same"
+
+  run_script bash "$ROOT/tests/surface-diff.sh" --lists "$same" "$same"
+  rm -f "$same"
+
+  assert_exit 0 || return 1
+  assert_stdout_contains 'no surface change' || return 1
+}
+
 # --- dry-run-gate tests ----------------------------------------------------
 
 test_gate__accept_clean() {
@@ -456,6 +508,8 @@ test_paginate__reject_bad_max_pages() {
 
 # --- Run ------------------------------------------------------------------
 
+run_test test_surface_diff__folds_to_the_release_scope
+run_test test_surface_diff__reports_no_change
 run_test test_gate__accept_clean
 run_test test_gate__reject_would_not_succeed
 run_test test_gate__reject_would_not_succeed_names_reason
