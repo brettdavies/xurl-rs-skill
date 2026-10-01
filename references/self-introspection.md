@@ -59,8 +59,8 @@ The command name is a positional (`xr schema <name>`), matching the names `--lis
 2020-12 document. Feed it into a typed-codegen tool, drop it into a planning artifact, or diff it against an expected
 shape.
 
-`--list` is a two-column text table. Under `--output json` each row becomes a `{"message":"<name>  <type>"}` object
-rather than structured fields, so the reliable way to read the names is the text form:
+`--list` is a two-column text table. Under `--output json` each row becomes a `{"message":"<row>"}` object holding the
+row's text rather than structured fields, so the reliable way to read the names is the text form:
 
 ```bash
 xr schema --list | awk '{print $1}'         # auth-apps-list auth-status block blocked … whoami envelope
