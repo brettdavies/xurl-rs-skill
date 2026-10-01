@@ -2,7 +2,8 @@
 
 Consumer-side helper scripts that ride along on every `xr skill install <host>`. They live next to the bundled
 `SKILL.md` at `~/.claude/skills/xurl-rs/scripts/` (and the equivalent path on Codex / Cursor / Factory / Kiro /
-OpenCode) once installed.
+OpenCode) once installed. A config-directory variable such as `CLAUDE_CONFIG_DIR` moves the bundle; the scripts are
+always in `scripts/` beside the `SKILL.md` that loaded.
 
 Both scripts auto-detect [`jaq`](https://github.com/01mf02/jaq) (preferred) or `jq`. They are `#!/usr/bin/env bash`,
 shellcheck-clean, and meant to be invoked from any working directory.
@@ -27,18 +28,25 @@ What it does:
 
 1. Runs the verb with `--dry-run --output json --quiet`, capturing stderr, and parses the envelope.
 2. Refuses unless `status=dry_run`, `would_succeed=true`, `exit_code=0`. A read op (which ignores `--dry-run` and
-   answers its document with no `status`, or `status=ok` for a local verb) is rejected with a "run it directly" note
-   at exit `2`. A non-zero preflight exit is reported with the envelope's `reason` at exit `1`; when that reason is
-   `confirmation-required`, the message says to pass `--force`.
+   answers its document with no `status`, or `status=ok` for a local verb) is rejected with a "run it directly" note at
+   exit `2`. A non-zero preflight exit is reported with the envelope's `reason` at exit `1`; when that reason is
+   `confirmation-required`, the message says to pass `--force`. A preflight that exits `0` with `would_succeed=false`
+   (an input check failed) is refused at exit `1` with the check named as `reason=…` (`empty-body`, `alt-text-too-long`,
+   `invalid-media-id`, …), followed by the envelope.
 3. Echoes the accepted `dry_run` envelope on **stderr** (stdout is reserved for the live response), so capture
    `2>&1` when you want to keep it. On a TTY, prompts `[y/N]`. Off a TTY, requires `--yes` or refuses at exit `3`.
 4. `exec`s the verb again with `--output json` (no `--dry-run`): the API document lands on stdout, a failure envelope
    on stderr, and the verb's exit code is the gate's.
 
-Do NOT pass `--dry-run`, `--output`, `--json`, or `--jsonl` to the gated verb; the script controls them. The gate
-refuses if they appear in args. DO pass `--force` for `delete`, `auth clear`, and `auth apps remove`: the binary's own
-confirmation gate runs before `--dry-run`, so without it the preflight itself is refused. The gate is the
-confirmation step.
+Do NOT pass `--dry-run`, `--output`, `--json`, or `--jsonl` to the gated verb; the script controls them and refuses
+any of them that appears before the verb's own `--`. Text that starts with `-` goes after that `--` (`-- xr media
+alt-text <id> -- "-5°C at the start"`): the gate inserts its flags before the separator and does not inspect what
+follows it. DO pass `--force` for `delete`, `auth clear`, and `auth apps remove`: the binary's own confirmation gate
+runs before `--dry-run`, so without it the preflight itself is refused. The gate is the confirmation step.
+
+The environment counts too. With `XURL_DRY_RUN` set to a true value, the live call would only dry-run, so the gate
+refuses at exit `2` before the preflight; unset it to go live. `XURL_JSON` and `XURL_JSONL` act as `--json` /
+`--jsonl`, which `xr` rejects beside `--output`, so both scripts unset them for their own calls.
 
 Examples:
 
