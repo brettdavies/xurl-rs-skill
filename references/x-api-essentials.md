@@ -134,10 +134,10 @@ because `xr` turns an HTTP error into a `status: "error"` envelope on stderr (se
 [output-envelope.md](output-envelope.md)). The API's own problem document (`{title, type, status, detail}`) survives as
 that envelope's `message` string.
 
-X names post fields in a post vocabulary (`edit_history_post_ids`, `public_metrics.repost_count`) that the spec and
-the docs use, but some endpoints still answer with the tweet-era spellings (`edit_history_tweet_ids`,
-`retweet_count`). Typed `xr` verbs print the spec's names; raw mode prints whichever spelling X sent, so a raw-mode
-pipeline reads both. See [output-envelope.md](output-envelope.md#api-backed-success-the-x-api-document-no-status).
+X names post fields in a post vocabulary (`edit_history_post_ids`, `public_metrics.repost_count`) that the spec and the
+docs use, but some endpoints still answer with the tweet-era spellings (`edit_history_tweet_ids`, `retweet_count`).
+Typed `xr` verbs print the spec's names; raw mode prints whichever spelling X sent, so a raw-mode pipeline reads both.
+See [output-envelope.md](output-envelope.md#api-backed-success-the-x-api-document-no-status).
 
 Per-resource shapes (Tweet, User, DM, etc.) are documented per endpoint. For the shapes `xr` types, see `xr schema
 <name> --output json`; those mirror the API as of the bundled `xr` version.

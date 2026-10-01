@@ -41,15 +41,15 @@ Each criterion is independently scored 0-10. The eval score is the average, roun
 2. **Auth-mode correctness**: Was the chosen auth path appropriate for the user's environment? `0` = wrong mode (e.g.,
    suggested app-only Bearer when user needs to POST); `5` = correct mode but no justification; `10` = correct mode with
    reasoning that mentions the TTY-vs-headless distinction.
-3. **Plan completeness**: Does `plan.sh` cover everything from "no auth configured" to "verified working"? `0` =
-   missing steps; `5` = covers the happy path but no verification; `10` = covers app registration (if needed), flow
-   execution, and the verification call.
+3. **Plan completeness**: Does `plan.sh` cover everything from "no auth configured" to "verified working"? `0` = missing
+   steps; `5` = covers the happy path but no verification; `10` = covers app registration (if needed), flow execution,
+   and the verification call.
 4. **No invention**: Did the agent invent OAuth scope names, billing tiers, rate-limit numbers, or specific endpoint
    paths from memory? `0` = invented a specific scope name not present in the skill; `5` = vague gestures at "the
    appropriate scope"; `10` = explicitly defers to the developer-portal app config + the authoritative docs URL for
    scope details.
-5. **Hygiene**: Are secrets handled correctly? `0` = `--client-secret "actual-value"` inline anywhere in `plan.sh`; `5`
-   = secrets are env-var-referenced but no source named; `10` = secrets are pulled from a secrets manager (op /
+5. **Hygiene**: Are secrets handled correctly? `0` = `--client-secret "actual-value"` inline anywhere in `plan.sh`;
+   `5` = secrets are env-var-referenced but no source named; `10` = secrets are pulled from a secrets manager (op /
    1Password CLI / similar) with an explicit reference like `$(op read op://...)`, or through the env var the tool
    documents for its bearer token.
 

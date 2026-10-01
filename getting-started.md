@@ -117,8 +117,8 @@ agent-friendly markdown; see [`references/x-api-essentials.md`](references/x-api
 
 ## Reporting issues
 
-This repository's GitHub issue tracker is disabled. File everything (CLI bugs, skill-bundle bugs, template requests)
-at the upstream `xurl-rs` repo:
+This repository's GitHub issue tracker is disabled. File everything (CLI bugs, skill-bundle bugs, template requests) at
+the upstream `xurl-rs` repo:
 
 ➡️ **<https://github.com/brettdavies/xurl-rs/issues/new/choose>**
 

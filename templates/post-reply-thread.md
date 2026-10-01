@@ -55,8 +55,8 @@ credentials, which is why the pre-flight `whoami` above matters. Fix and re-run 
 xr post "<TEXT>" --output json
 ```
 
-Capture the response. The live answer is the API document (`{"data":{"id":"…","text":"…"}}`, no `status` key); the
-new post ID is at `data.id`:
+Capture the response. The live answer is the API document (`{"data":{"id":"…","text":"…"}}`, no `status` key); the new
+post ID is at `data.id`:
 
 ```bash
 POST_ID=$(xr post "<TEXT>" --output json | jaq -r '.data.id')
@@ -185,8 +185,8 @@ If a live call returns `status: "error"`:
   `docs`; without one, the token lacks a scope or the tier lacks the endpoint, and re-running does not help.
 - `reason: "server-error"` (exit `1`) → HTTP 5xx; one retry after a pause is reasonable.
 - `reason: "network-error"` (exit `5`) → the request never got an answer; retry once, then check `--timeout`.
-- `reason: "serialization"` (exit `1`) → X answered with a success body the typed shape could not hold, so the post
-  most likely exists. Do not re-run the write; tell the user, and read the post back in raw mode once its id is known
-  (`xr /2/tweets/<id> --output json` prints the body as sent) to compare against `xr schema post --output json`.
+- `reason: "serialization"` (exit `1`) → X answered with a success body the typed shape could not hold, so the post most
+  likely exists. Do not re-run the write; tell the user, and read the post back in raw mode once its id is known (`xr
+  /2/tweets/<id> --output json` prints the body as sent) to compare against `xr schema post --output json`.
 
 Full reason → action map: [references/output-envelope.md](../references/output-envelope.md).

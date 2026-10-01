@@ -3,8 +3,8 @@
 Thanks for your interest. This repo is the agent-facing skill bundle that teaches Claude Code, Cursor, Codex, and
 OpenCode how to drive [`xurl-rs`](https://github.com/brettdavies/xurl-rs), the X (Twitter) CLI.
 
-The core rules are below; the producer-side workflow (repository shape, the contract harness, the refresh loop) lives
-in [`AGENTS.md`](AGENTS.md) and the branch/release model in [`RELEASES.md`](RELEASES.md).
+The core rules are below; the producer-side workflow (repository shape, the contract harness, the refresh loop) lives in
+[`AGENTS.md`](AGENTS.md) and the branch/release model in [`RELEASES.md`](RELEASES.md).
 
 ## Issues
 
@@ -19,8 +19,8 @@ maintainer.
 
 ## Pull requests
 
-PRs against this repo are welcome: branch from `dev`, follow the workflow below. The closed issue tracker doesn't
-affect PRs.
+PRs against this repo are welcome: branch from `dev`, follow the workflow below. The closed issue tracker doesn't affect
+PRs.
 
 ## Workflow
 

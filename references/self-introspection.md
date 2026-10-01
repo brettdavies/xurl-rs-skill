@@ -12,10 +12,9 @@ for any except `auth status` (which only inspects the local token store).
 xr examples
 ```
 
-Plain-text gallery organized by use case, from authentication through media, schemas, and tooling. Each command
-appears with two or three canonical
-invocations (text mode, then `--output json`, sometimes piped to `jaq`). This is the fastest way to learn the shape of
-any workflow.
+Plain-text gallery organized by use case, from authentication through media, schemas, and tooling. Each command appears
+with two or three canonical invocations (text mode, then `--output json`, sometimes piped to `jaq`). This is the fastest
+way to learn the shape of any workflow.
 
 One caveat: every `--output jsonl` line in the gallery and in the per-command `--help` examples (`bookmarks`, `likes`,
 `muted`, `blocked`, …) prints the whole document rather than one record per line, so the gallery's `| jaq '.id'` answers
@@ -41,8 +40,8 @@ When in doubt about whether a flag exists, run `--help` rather than guessing.
 
 `--help` on a word that names no command does not fall back to the root help: `xr whoam --help` (and `-h`, `--version`,
 `-V`) exits `2` with `reason: "unknown-command"`, a `suggestion` when a real command is close, and a `show-help`
-`next_step` whose `command` is the help to run instead (`xr whoami --help`; the family's help, such as `xr auth
---help`, when nothing is close). `xr help --help` prints the `help` command's own page.
+`next_step` whose `command` is the help to run instead (`xr whoami --help`; the family's help, such as `xr auth --help`,
+when nothing is close). `xr help --help` prints the `help` command's own page.
 
 ### 3. `xr schema`: typed response shapes
 
@@ -59,22 +58,22 @@ The command name is a positional (`xr schema <name>`), matching the names `--lis
 2020-12 document. Feed it into a typed-codegen tool, drop it into a planning artifact, or diff it against an expected
 shape.
 
-`--list` is a two-column text table. Under `--output json` each row becomes a `{"message":"<name>  <type>"}` object
-rather than structured fields, so the reliable way to read the names is the text form:
+`--list` is a two-column text table. Under `--output json` each row becomes a `{"message":"<row>"}` object holding the
+row's text rather than structured fields, so the reliable way to read the names is the text form:
 
 ```bash
 xr schema --list | awk '{print $1}'         # auth-apps-list auth-status block blocked … whoami envelope
 ```
 
-Not every command has a typed response. `xr schema validate` (and any other command `--list` omits, `media-upload`
-among them) answers `reason: "validation"`, exit `1`, with the message `schema not available for '<name>' (no typed
-response)`; a name that is not a command at all answers the same `reason` with the
-valid names listed in `message`. Neither is `unknown-command`; that reason belongs to the top-level parser.
+Not every command has a typed response. `xr schema validate` (and any other command `--list` omits, `media-upload` among
+them) answers `reason: "validation"`, exit `1`, with the message `schema not available for '<name>' (no typed
+response)`; a name that is not a command at all answers the same `reason` with the valid names listed in `message`.
+Neither is `unknown-command`; that reason belongs to the top-level parser.
 
 The `--envelope` document is the one to read for the error contract: its `error` variant declares every key the runtime
-can emit, including `next_step`, and its `reason` and `action` descriptions list every value the release emits and
-say a newer release can add one. Its `ok` variant describes the local
-verbs only; API-backed successes carry no `status` key. See [output-envelope.md](output-envelope.md).
+can emit, including `next_step`, and its `reason` and `action` descriptions list every value the release emits and say a
+newer release can add one. Its `ok` variant describes the local verbs only; API-backed successes carry no `status` key.
+See [output-envelope.md](output-envelope.md).
 
 ### 4. `xr validate`: schema check arbitrary JSON
 
@@ -120,8 +119,8 @@ exit-77 recovery recipe: [auth-modes.md](auth-modes.md).
 
 ### `xr usage --output json` and `xr usage credits --output json`
 
-Both call the X API. `usage` returns the project's post-cap usage with the daily breakdown; `usage credits` returns
-the credits-based usage for pay-per-use projects. Useful when chasing a `reason: "rate-limited"` envelope. Each counts
+Both call the X API. `usage` returns the project's post-cap usage with the daily breakdown; `usage credits` returns the
+credits-based usage for pay-per-use projects. Useful when chasing a `reason: "rate-limited"` envelope. Each counts
 against the app-level cap, so don't poll them from a tight loop.
 
 ### `xr version`
@@ -209,8 +208,8 @@ printf '%s' "$RESPONSE" | xr validate --schema "$SCHEMA" --output json --quiet >
 ```
 
 The `2>&1` matters: error envelopes go to stderr, so capturing stdout alone leaves `RESPONSE` empty on the exact path
-you want to branch on. Two reads, one validate, one parse, at the cost of one extra round trip through the binary.
-Worth it for any automation that branches on the response.
+you want to branch on. Two reads, one validate, one parse, at the cost of one extra round trip through the binary. Worth
+it for any automation that branches on the response.
 
 ## What NOT to do
 

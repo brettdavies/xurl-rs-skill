@@ -22,9 +22,9 @@ The CLI picks per request:
 - Otherwise the user-scoped tokens for the active app drive the call.
 - Multi-app: `--app <name>` (or `XURL_APP=<name>`) overrides which app's credentials run the call.
 - `--auth <oauth1|oauth2|app>` forces a specific path when the default would pick wrong. Forcing a scheme the endpoint
-  rejects answers `reason: "auth-method-mismatch"`, exit `2`, with the accepted schemes in `supported`. Forcing
-  `--auth oauth2` on an app that has client credentials but no stored token answers `reason: "auth-required"`, exit
-  `77`, with a `sign-in` `next_step`; it never opens a browser mid-request.
+  rejects answers `reason: "auth-method-mismatch"`, exit `2`, with the accepted schemes in `supported`. Forcing `--auth
+  oauth2` on an app that has client credentials but no stored token answers `reason: "auth-required"`, exit `77`, with a
+  `sign-in` `next_step`; it never opens a browser mid-request.
 
 ## What `auth status` returns
 
@@ -134,8 +134,8 @@ a multi-user host, because the URL contains the authorization code, which shell 
 Override the default with `XURL_NO_BROWSER=1` on hosts that should never attempt to open a browser.
 
 Step 1 against an app with no client id answers `reason: "client-credentials-missing"`, exit `2`, with a `select-app`
-`next_step` when another registered app has credentials, or a `register-app` `next_step` (a `template`, values from
-the user) when none does.
+`next_step` when another registered app has credentials, or a `register-app` `next_step` (a `template`, values from the
+user) when none does.
 
 ## OAuth1
 
@@ -155,9 +155,9 @@ xr auth app --bearer-token "$XURL_BEARER_TOKEN"
 XURL_BEARER_TOKEN="$(op read op://...)" xr search "rustlang" --auth app
 ```
 
-For read-only v2 endpoints and search. Cannot post, like, follow, etc. A write verb against an app whose only
-credential is a Bearer answers `reason: "auth-method-mismatch"`, exit `2`, with `available_in_app: ["app"]` and the
-schemes the endpoint accepts in `supported`. Forcing `--auth app` on a read when no bearer is staged answers `reason:
+For read-only v2 endpoints and search. Cannot post, like, follow, etc. A write verb against an app whose only credential
+is a Bearer answers `reason: "auth-method-mismatch"`, exit `2`, with `available_in_app: ["app"]` and the schemes the
+endpoint accepts in `supported`. Forcing `--auth app` on a read when no bearer is staged answers `reason:
 "auth-required"`, exit `77`, with no `next_step`: stage one with `xr auth app --bearer-token` or drop the flag.
 
 ## Multi-app management
@@ -210,9 +210,8 @@ Use this before re-running a flow when `xr auth status` shows an entry you no lo
 YAML at `~/.xurl` (override the path with `XURL_TOKEN_STORE`). Multi-app, with transparent format migration on every
 load. Every write is atomic, created `0600`, and serialized across concurrent `xr` processes by an OS file lock at
 `~/.xurl.lock`, so two agents refreshing a token at once cannot truncate the store or drop a rotated refresh token.
-Don't hand-edit it; use `xr auth ...` commands. If the file is corrupt, `xr auth status` answers `reason:
-"token-store"` (exit `77`) naming the path; back it up, move it aside, and run a fresh `xr auth apps add` + `xr auth
-oauth2`.
+Don't hand-edit it; use `xr auth ...` commands. If the file is corrupt, `xr auth status` answers `reason: "token-store"`
+(exit `77`) naming the path; back it up, move it aside, and run a fresh `xr auth apps add` + `xr auth oauth2`.
 
 ## Where to find scope and grant details
 
@@ -227,7 +226,7 @@ the OAuth2 flow, and re-try. When X refuses the app itself (a 403 whose body nam
 `client-forbidden`), the envelope is `reason: "forbidden"` with an `enroll-app` `next_step` whose `docs` URL is the
 enrollment recipe; a bare `forbidden` (no `next_step`) is an ordinary permission refusal, read `message`.
 
-`xr auth oauth2` on `xr 4.x` requests the scopes the `broadcasts` verbs need (the release notes name
-`broadcast.read` and `broadcast.write`; the vendored X API spec agrees). A token enrolled before those scopes were
-requested does not carry them: `xr broadcasts moderators …` answers `auth-required` (or a bare `forbidden`) until the
-user re-runs `xr auth oauth2` for that app, after the app's developer-portal configuration allows the scopes.
+`xr auth oauth2` on `xr 4.x` requests the scopes the `broadcasts` verbs need (the release notes name `broadcast.read`
+and `broadcast.write`; the vendored X API spec agrees). A token enrolled before those scopes were requested does not
+carry them: `xr broadcasts moderators …` answers `auth-required` (or a bare `forbidden`) until the user re-runs `xr auth
+oauth2` for that app, after the app's developer-portal configuration allows the scopes.
