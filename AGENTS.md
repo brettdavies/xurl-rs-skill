@@ -30,7 +30,7 @@ side.
 | `scripts/`           | Consumer-side helpers shipped to install dirs (`dry-run-gate.sh`, `paginate.sh`) plus producer-side release tooling (`generate-changelog.py`, `sync-dev-after-release.sh`).                                                                                                                       |
 | `scripts/release/`   | Vendored release gates (`drift.sh`, `guarded-paths.sh`, `_lib.sh`). Refreshed as verbatim copies from the `github-repo-setup` skill; never edited in place.                                                                                                                                       |
 | `CODEOWNERS`         | Required reviewers for governance, release-integrity, legal-hygiene, and workflow-doc paths; pairs with the rulesets' code-owner-review rule. Lives at the repo root so a local-tree audit sees it.                                                                                               |
-| `tests/`             | Producer-side: `run.sh` (stub-driven script tests, run by CI) and `contract.sh` + `stub-api.py` (the documented invocations against a real `xr`; local, needs `XR_BIN`), and `core-env-guard.sh` + `core-env-allowlist.tsv` (fails a test that resets `HOME` or another core env var; run by CI). |
+| `tests/`             | Producer-side: `run.sh` (script tests, CI); `contract.sh` + `stub-api.py` (the documented invocations against a real `xr`; needs `XR_BIN`); `refresh.sh` (a bundle pass in one command) with `fetch-xr.sh`, `surface-diff.sh`, `xr-sandbox.sh`; `core-env-guard.sh` + allowlist (CI).             |
 | `fixtures/`          | Producer-side stub `xr` binary used by `tests/run.sh`; models the real streams (success on stdout, error envelope on stderr with the exit code).                                                                                                                                                  |
 | `evals/`             | Self-contained eval prompts dispatched against a fresh agent session. Producer.                                                                                                                                                                                                                   |
 | `docs/`              | Planning artifacts (brainstorms, plans, solutions, reviews). Blocked from `main`.                                                                                                                                                                                                                 |
@@ -62,27 +62,24 @@ The documented contract is only as true as the last binary it was run against. A
 none of them, and never trust `xr --help`, the bundled schema files, or a previous pass's prose in place of running
 the invocation.
 
-1. Pick the target. When a release is out and `git diff --stat <tag> origin/dev -- crates/*/src` is empty, the
-   Homebrew bottle is the contract (`brew upgrade xurl-rs`, then `xr --version`). When the bottle has moved past the
-   target release, use that release's asset: `gh release download v<x.y.z> -R brettdavies/xurl-rs -p
-   'xurl-rs-x86_64-unknown-linux-gnu.tar.gz' -p sha256sum.txt`, check it with `sha256sum -c`, and unpack it outside
-   the repo. Otherwise build the head: `cd ~/dev/xurl-rs && git checkout dev && git pull && cargo build`. Note the
-   commit either way.
-2. Run the harness with the full path, never a bare `xr` (a Homebrew install and a dev build both answer to the name):
-   `XR_BIN=$(brew --prefix)/bin/xr bash tests/contract.sh` or `XR_BIN=$HOME/dev/xurl-rs/target/debug/xr …`. Every
-   failing row is either a bundle claim that is now wrong (fix the doc and the row) or an upstream regression (report
-   it upstream, keep the row failing). The harness runs under a scratch `XURL_SKILL_HOME` and `XURL_TOKEN_STORE`
-   and unsets `CLAUDE_CONFIG_DIR`, `KIRO_HOME`, and `OPENCODE_CONFIG_DIR`, which outrank `XURL_SKILL_HOME`; keep every
-   ad-hoc probe under the same overrides, because a probe outside them reads and writes the real `~/.xurl` and skill
-   directories
+1. Run `bash tests/refresh.sh v<x.y.z>`. It fetches that release's asset for this machine (`tests/fetch-xr.sh`,
+   checksum-checked, cached outside the repo), prints the surface the release adds or removes since the tag in the
+   table above (`tests/surface-diff.sh`, from upstream's `scripts/check-surface-bump.sh`), runs the contract harness,
+   the fixture tests, the core-env guard, shellcheck, and markdownlint with CI's globs, and ends with one line per
+   step. For an unreleased `dev` head, build it (`cargo build` in a xurl-rs checkout) and run `XR_BIN=<path> bash
+   tests/contract.sh` and the other checks by hand; note the commit either way.
+2. Scope the pass to that surface diff plus the release notes' env vars, exit codes, and behavior fixes, which the diff
+   has no artifact for. A failing harness check is either a bundle claim that is now wrong (fix the doc and the check)
+   or an upstream regression (report it upstream, keep the check failing).
+3. Probe new surface with `XR_BIN=<path> bash tests/xr-sandbox.sh <args>`, never a bare `xr`: a Homebrew install and a
+   dev build both answer to the name, and the sandbox runs under the harness's isolation (a scratch `XURL_SKILL_HOME`
+   and `XURL_TOKEN_STORE`, the host config-directory variables that outrank `XURL_SKILL_HOME` unset, the API at a
+   closed port), so a probe reads and writes nothing under the real `~/.xurl` or skill directories
    (`docs/solutions/conventions/hermetic-cli-spawn-seam-with-unwritable-default-store-and-escape-hatch-guard.md`).
-3. Read the upstream delta (`git log --stat <last-verified>..HEAD`) for surface the harness has no row for: a new
-   command, a new flag, a new reason. Probe it, document it, add a row.
-4. Re-run `bash tests/run.sh` (the stub tests), `tests/core-env-guard.sh` (no test resets `HOME` or another core
-   environment variable outside `tests/core-env-allowlist.tsv`), `shellcheck --severity=style scripts/*.sh tests/*.sh
-   fixtures/bin/xr`, and `markdownlint-cli2 '**/*.md' '#node_modules'` (the globs CI lints; a bare `.` checks only the
-   root-level files); then re-run the evals in `evals/` that touch the changed surface.
-5. Update the **Verified against** table above and `SKILL.md`'s contract-version sentence.
+   Document what it shows and add the needles or checks.
+4. Re-run `tests/refresh.sh` until every step passes, then re-run the evals in `evals/` that touch the changed surface.
+5. Update the **Verified against** table above and `SKILL.md`'s contract-version sentence; no other file names the
+   version.
 
 The docs state only what the binary cannot tell an agent itself: which stream a document lands on, exit codes, success
 shapes, the scripts' behavior, and the gotchas. For counts, name lists, help text, and the environment-variable index
