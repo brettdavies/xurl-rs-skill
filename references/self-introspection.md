@@ -12,9 +12,8 @@ for any except `auth status` (which only inspects the local token store).
 xr examples
 ```
 
-Plain-text gallery organized by use case: AUTHENTICATE, POST AND READ, MANAGE SOCIAL GRAPH, INSPECT YOUR ACCOUNT, DIRECT
-MESSAGES, BROADCASTS, MEDIA UPLOAD, INSPECT SCHEMAS, TOOLING (the skill installer, shell completions, `version`),
-ENVIRONMENT VARIABLE PRECEDENCE. About 165 lines on `xr 4.2.0`. Each command appears with two or three canonical
+Plain-text gallery organized by use case, from authentication through media, schemas, and tooling. Each command
+appears with two or three canonical
 invocations (text mode, then `--output json`, sometimes piped to `jaq`). This is the fastest way to learn the shape of
 any workflow.
 
@@ -48,7 +47,7 @@ When in doubt about whether a flag exists, run `--help` rather than guessing.
 ### 3. `xr schema`: typed response shapes
 
 ```bash
-xr schema --list                            # 45 rows: <name>  <Rust type>, one per response shape
+xr schema --list                            # one row per response shape: <name>  <Rust type>
 xr schema post --output json                # JSON Schema for the `post` response
 xr schema whoami --output json              # JSON Schema for the `whoami` response
 xr schema blocked --output json             # JSON Schema for the `blocked` list
@@ -67,9 +66,9 @@ rather than structured fields, so the reliable way to read the names is the text
 xr schema --list | awk '{print $1}'         # auth-apps-list auth-status block blocked … whoami envelope
 ```
 
-Not every command has a typed response. `xr schema validate` (also `skill`, `examples`, `version`, `completions`,
-`auth`, `media`, `media-upload`, `media-status`) answers `reason: "validation"`, exit `1`, with the message `schema not
-available for '<name>' (no typed response)`; a name that is not a command at all answers the same `reason` with the
+Not every command has a typed response. `xr schema validate` (and any other command `--list` omits, `media-upload`
+among them) answers `reason: "validation"`, exit `1`, with the message `schema not available for '<name>' (no typed
+response)`; a name that is not a command at all answers the same `reason` with the
 valid names listed in `message`. Neither is `unknown-command`; that reason belongs to the top-level parser.
 
 The `--envelope` document is the one to read for the error contract: its `error` variant declares every key the runtime
@@ -92,13 +91,12 @@ Reads JSON from a file argument or stdin (`-` or omitted argument both mean stdi
 with the field-level error. Use this to confirm a response shape after parsing it through a pipeline, or to gate a
 script that expects a specific schema.
 
-`--schema` accepts `post`, `posts`, `user`, `users`, `dm`, `dms`, `dm-event`, `usage`, `credits`, `envelope`, `like`,
-`follow`, `delete`, `repost`, `bookmark`, `mute`, `block`, `moderators`, `alt-text`, `subtitles`; anything else answers
-`reason: "unknown-schema"` with the same twenty in `known_schemas`. Without `--schema`, it auto-detects from the
-top-level shape. `dm` is the send confirmation (`dm_conversation_id`, `dm_event_id`), `dm-event` one event from a `dms`
-page, and `moderators` the `moderator_user_ids` document from `broadcasts moderators add` / `remove`; the moderators
-list page validates as `users`. `alt-text` is the `media alt-text` answer (`id`, `associated_metadata`), `subtitles` the
-`media subtitles add` answer (`id`, `media_category`, `associated_subtitles`), and `media subtitles remove` answers
+`--schema` takes the names `xr validate --help` lists; anything else answers `reason: "unknown-schema"` with the
+accepted names in `known_schemas`. Without `--schema`, it auto-detects from the top-level shape. `dm` is the send
+confirmation (`dm_conversation_id`, `dm_event_id`), `dm-event` one event from a `dms` page, and `moderators` the
+`moderator_user_ids` document from `broadcasts moderators add` / `remove`; the moderators list page validates as
+`users`. `alt-text` is the `media alt-text` answer (`id`, `associated_metadata`), `subtitles` the `media subtitles add`
+answer (`id`, `media_category`, `associated_subtitles`), and `media subtitles remove` answers
 `{"data":{"deleted":true}}`, which validates as `delete`.
 
 Pick the schema by what came back: an API-backed success (`whoami`, `search`, `post`, …) validates against the verb's
@@ -128,13 +126,13 @@ against the app-level cap, so don't poll them from a tight loop.
 
 ### `xr version`
 
-Text mode prints `xr <semver>` (`xr 4.2.0`), or `xr 4.2.0 (xdk-rs 0.1.3)` with `--verbose`, naming the `xdk-rs` library
-the binary links. Under `--output json` it prints `{"name":"xr","version":"4.2.0","xdk_rs":"0.1.3"}` (YAML under
-`--output yaml`), with no `status` key. `xr --version` is the plain clap line. No API calls. Use it to confirm the
-bundle matches the binary; this bundle describes the `xr 4.2.0` contract.
+Text mode prints `xr <semver>`, or `xr <semver> (xdk-rs <semver>)` with `--verbose`, naming the `xdk-rs` library the
+binary links. Under `--output json` it prints `{"name":"xr","version":"<semver>","xdk_rs":"<semver>"}` (YAML under
+`--output yaml`), with no `status` key. `xr --version` is the plain clap line. No API calls. Use it to compare the
+binary with the contract version `SKILL.md` names.
 
 ```bash
-xr version --output json | jaq -r '.version'     # 4.2.0
+xr version --output json | jaq -r '.version'
 ```
 
 ### `xr completions <shell>`

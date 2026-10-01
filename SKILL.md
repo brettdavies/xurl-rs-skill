@@ -44,9 +44,9 @@ Read ops (`read`, `search`, `whoami`, `user`, `timeline`, `mentions`, `bookmarks
 The binary ships five self-introspection commands. Reach for them before reading anything in `references/`:
 
 ```bash
-xr examples                          # curated invocation gallery, ~165 lines, every major workflow
+xr examples                          # curated invocation gallery, every major workflow
 xr <command> --help                  # 3-5 examples per command + full flag matrix
-xr schema --list                     # 45 typed response shapes, one per command
+xr schema --list                     # every typed response shape, one per command
 xr schema post --output json         # JSON Schema for a single response type
 xr schema --envelope --output json   # the ok / dry_run / error envelope variants and every error key
 xr auth status --output json         # {"status":"ok","apps":[...]}; read it through .apps[]

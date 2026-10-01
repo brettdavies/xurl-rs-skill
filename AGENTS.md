@@ -10,7 +10,7 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 | xurl-rs commit      | `e2c7e8a`, the `v4.2.0` tag (2026-09-30)                                                         |
 | Binary self-report  | `xr 4.2.0` (`xdk-rs 0.1.3`), the `x86_64-unknown-linux-gnu` asset of the `v4.2.0` GitHub release |
 | Contract documented | 4.2.0: `media alt-text` / `media subtitles`, skill destination variables, `legacy_install_dir`   |
-| Harness result      | `tests/contract.sh`: 315 checks passing against that binary                                      |
+| Harness result      | `tests/contract.sh`: 212 checks (280 assertions) passing against that binary                     |
 
 The bundle documents the contract of the `xr` release it ships beside: the upstream `dev` head when a release is
 being cut from it, or the released artifact once it is out. A release that changes nothing the bundle documents (only
@@ -83,6 +83,12 @@ the invocation.
    fixtures/bin/xr`, and `markdownlint-cli2 '**/*.md' '#node_modules'` (the globs CI lints; a bare `.` checks only the
    root-level files); then re-run the evals in `evals/` that touch the changed surface.
 5. Update the **Verified against** table above and `SKILL.md`'s contract-version sentence.
+
+The docs state only what the binary cannot tell an agent itself: which stream a document lands on, exit codes, success
+shapes, the scripts' behavior, and the gotchas. For counts, name lists, help text, and the environment-variable index
+they point at `xr schema --list`, `xr validate --help`, `xr examples`, and `xr --help`, so those facts carry no harness
+row and no per-release edit. A row runs its command once and asserts every needle for it (`check LABEL EXIT STREAM
+NEEDLE [STREAM NEEDLE]... -- cmd`); add a needle to an existing row before adding a row for the same command.
 
 Two groups in the harness matter equally. Group 1 runs against an empty store and a closed port and sees every failure
 envelope; group 2 runs against `tests/stub-api.py` with a fake user token and sees every **success** document. A

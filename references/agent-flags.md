@@ -153,9 +153,8 @@ xr <list-cmd> --after <next_token>      # alias for --cursor (familiar from gh /
 xr <list-cmd> --page <n>                # NOT supported by X; returns reason: "unsupported-pagination"
 ```
 
-Commands that thread `--cursor` through as `pagination_token`, as the `--cursor` and `--limit` help text names them:
-`search`, `timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`, `muted`, `blocked`, `dms`. Every other
-command ignores both flags.
+Commands that thread `--cursor` through as `pagination_token`: `search`, `timeline`, `mentions`, `bookmarks`, `likes`,
+`following`, `followers`, `muted`, `blocked`, `dms`. Every other command ignores `--cursor` and `--limit`.
 
 Every user-scoped list verb (`timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`, `muted`,
 `blocked`) resolves `/2/users/me` before each page to learn the caller's id, so one page costs **two** requests;
@@ -209,36 +208,10 @@ Flags override env vars when both are set. The precedence rules `xr` documents e
 - For every other flag, the explicit CLI flag wins; the env var is the fallback.
 - Booleans accept `1`, `true`, `yes`, `on` as truthy and `0`, `false`, `no`, `off`, empty as falsey.
 
-The full env-var index is at the bottom of `xr --help`:
-
-| Env var                                             | Equivalent flag                                                    |
-| --------------------------------------------------- | ------------------------------------------------------------------ |
-| `XURL_OUTPUT`                                       | `--output`                                                         |
-| `XURL_JSON`                                         | `--json`                                                           |
-| `XURL_JSONL`                                        | `--jsonl`                                                          |
-| `XURL_RAW`                                          | `--raw`                                                            |
-| `XURL_CURSOR`                                       | `--cursor`                                                         |
-| `XURL_AFTER`                                        | `--after`                                                          |
-| `XURL_PAGE`                                         | `--page`                                                           |
-| `XURL_LIMIT`                                        | `--limit`                                                          |
-| `XURL_DRY_RUN`                                      | `--dry-run`                                                        |
-| `XURL_NO_INTERACTIVE`                               | `--no-interactive`                                                 |
-| `XURL_NO_PAGER`                                     | `--no-pager`                                                       |
-| `XURL_QUIET`                                        | `--quiet`                                                          |
-| `XURL_VERBOSE`                                      | `--verbose`                                                        |
-| `XURL_TIMEOUT`                                      | `--timeout`                                                        |
-| `XURL_COLOR`                                        | `--color`                                                          |
-| `XURL_APP`                                          | `--app`                                                            |
-| `XURL_NO_BROWSER`                                   | `--no-browser` (auth only)                                         |
-| `XURL_TOKEN_STORE`                                  | token-store file instead of `~/.xurl`                              |
-| `XURL_SKILL_HOME`                                   | stands in for `~` in `skill install` / `skill update` destinations |
-| `CLAUDE_CONFIG_DIR`, `KIRO_HOME`                    | stand in for `~/.claude`, `~/.kiro` in that host's skill path      |
-| `OPENCODE_CONFIG_DIR`                               | stands in for `~/.config/opencode` in the `opencode` skill path    |
-| `XDG_CONFIG_HOME`                                   | stands in for `~/.config` in the `opencode` skill path             |
-| `XURL_BEARER_TOKEN`                                 | app-only bearer; wins over the stored bearer for the active app    |
-| `CLIENT_ID`, `CLIENT_SECRET`                        | OAuth2 client credentials; win over the active app's stored values |
-| `REDIRECT_URI`                                      | OAuth2 redirect URI override                                       |
-| `AUTH_URL`, `TOKEN_URL`, `API_BASE_URL`, `INFO_URL` | endpoint overrides (test doubles, proxies)                         |
+Every env var and the flag it stands for is listed under `ENVIRONMENT VARIABLES` at the bottom of `xr --help`. Two
+behaviors that list does not spell out are under [Output format](#output-format) (`XURL_JSON` / `XURL_JSONL` beside
+`--output`) and [Dry-run](#dry-run); the skill-destination variables are in
+[self-introspection.md](self-introspection.md#xr-skill-install-host-and-xr-skill-update-host).
 
 ## Exit codes
 

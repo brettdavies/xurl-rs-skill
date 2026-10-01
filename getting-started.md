@@ -74,8 +74,8 @@ To explore manually:
 xr --help                    # full surface
 xr examples                  # curated invocation gallery
 xr <cmd> --help              # per-command flags + examples
-xr schema --list             # 45 typed response shapes
-xr version --output json     # {"name":"xr","version":"4.2.0","xdk_rs":"0.1.3"}
+xr schema --list             # every typed response shape
+xr version --output json     # {"name":"xr","version":"<semver>","xdk_rs":"<semver>"}
 xr auth status               # who's authenticated
 ```
 

@@ -6,7 +6,7 @@ got is decided by the **exit code and the stream first**, and by the `status` ke
 | Exit     | Stream | `status` key | What it is                                                                                                    |
 | -------- | ------ | ------------ | ------------------------------------------------------------------------------------------------------------- |
 | 0        | stdout | **absent**   | An API-backed success: the X API document (`data`, plus `includes` / `meta` / `errors` when sent)             |
-| 0        | stdout | **absent**   | `xr version`: `{"name":"xr","version":"4.2.0","xdk_rs":"0.1.3"}`, the one local verb with no `status`         |
+| 0        | stdout | **absent**   | `xr version`: `{"name":"xr","version":"<semver>","xdk_rs":"<semver>"}`, the one local verb with no `status`   |
 | 0        | stdout | `"ok"`       | A local verb's success (`auth …`, `validate`, `skill …`): verb-specific keys beside `status`                  |
 | 0        | stdout | `"dry_run"`  | A write verb's preflight under `--dry-run`: `would_succeed`, `exit_code`, the inputs, a `reason` on a refusal |
 | non-zero | stderr | `"error"`    | A failure: kebab-case `reason`, `exit_code`, `message`, and `next_step` when a recovery exists                |
@@ -102,10 +102,10 @@ Verbs that never touch the API answer `status: "ok"` with their own keys beside 
 `auth default <app> <user>` prints two documents (the app message with `status`, then the user message without); parse
 the first or run the two forms separately.
 
-`xr version` is local but carries no `status`: under `--output json` it prints `{"name":"xr","version":"4.2.0",
-"xdk_rs":"0.1.3"}` (the CLI version beside the `xdk-rs` library it links), `--output yaml` the same keys, and text mode
-the line `xr 4.2.0`, or `xr 4.2.0 (xdk-rs 0.1.3)` with `--verbose`. `xr --version` is the plain clap line. Read
-`.version`; `xr validate --schema envelope` rejects the document for the missing `status`.
+`xr version` is local but carries no `status`: under `--output json` it prints `{"name":"xr","version":"<semver>",
+"xdk_rs":"<semver>"}` (the CLI version beside the `xdk-rs` library it links), `--output yaml` the same keys, and text
+mode the line `xr <semver>`, or `xr <semver> (xdk-rs <semver>)` with `--verbose`. `xr --version` is the plain clap
+line. Read `.version`; `xr validate --schema envelope` rejects the document for the missing `status`.
 
 **`auth status` and `auth apps list` wrap the array**: the shape is `{"status":"ok","apps":[...]}`, never a bare
 top-level array. Every jq path into it starts at `.apps[]`:
@@ -399,10 +399,8 @@ xr /2/missing --output json 2>&1 | xr validate --schema envelope --output json  
 
 Each answers `{"status":"ok","schema":"<name>","valid":true}` on a match. `--schema envelope` accepts the `error`,
 `dry_run`, and local `ok` variants and rejects an API-backed success (no `status`), so a pipeline that validates
-"whatever came back" needs the exit code first: non-zero → `envelope`, zero → the verb's schema. The accepted names are
-`post`, `posts`, `user`, `users`, `dm`, `dms`, `dm-event`, `usage`, `credits`, `envelope`, `like`, `follow`, `delete`,
-`repost`, `bookmark`, `mute`, `block`, `moderators`, `alt-text`, `subtitles`; anything else answers `unknown-schema`
-with the list in `known_schemas`, and `xr validate --help` prints the same twenty.
+"whatever came back" needs the exit code first: non-zero → `envelope`, zero → the verb's schema. `xr validate --help`
+lists the accepted names; anything else answers `unknown-schema` with the list in `known_schemas`.
 
 Several names do not map one-to-one onto a verb: `dm` validates the send confirmation `xr dm` prints, with its
 `dm_conversation_id` and `dm_event_id`; `dm-event` a single event from a `dms` page; `moderators` the
