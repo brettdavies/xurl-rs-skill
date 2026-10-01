@@ -1,7 +1,7 @@
 # Agent flags: output, pagination, dry-run, env-var precedence
 
 This file enumerates the global flags every `xr` command honors. The per-command flags are documented by `xr <cmd>
---help`. Verified on `xr 4.2.0`.
+--help`.
 
 ## Output format
 

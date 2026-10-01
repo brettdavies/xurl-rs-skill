@@ -69,7 +69,7 @@ OAuth 2.0 scopes are granted at two layers: at app configuration time in the dev
 request) and at consent time by the user (which of those scopes they grant). The scope catalog is a **closed set**
 defined by X; do not invent names. Scope groups historically include reads on tweets and users, writes on tweets,
 follows, likes, bookmarks, DMs, mutes/blocks, media upload, alt text, and subtitles (`media.write`), broadcast chat
-moderation (`broadcast.read` / `broadcast.write`; both as named in the spec revision `xr 4.2.0` vendors), and
+moderation (`broadcast.read` / `broadcast.write`; both as named in the spec revision the documented `xr` vendors), and
 offline-access (refresh-token).
 
 Authoritative catalog: <https://docs.x.com/fundamentals/authentication/oauth-2-0/authorization-code.md>.
@@ -198,9 +198,10 @@ subtitles). For everything else, drop to raw mode and consult the docs category 
 When a page moves, <https://docs.x.com/x-api/llms.txt> lists the current path under the same category heading.
 
 The broadcast chat moderator endpoints (`/2/broadcasts/chat/moderators`, which `xr broadcasts moderators` wraps) are in
-the X API spec `xr 4.2.0` vendors, tagged `Broadcasts`, but no docs page for them was indexed in `x-api/llms.txt` on
-the verified date. Look for a `Broadcasts` heading there before citing a URL; until one exists, `xr broadcasts
-moderators <verb> --help` and `xr schema broadcasts-moderators-list --output json` are the only shape references.
+the X API spec the documented `xr` vendors, tagged `Broadcasts`, but no docs page for them was indexed in
+`x-api/llms.txt` on the verified date. Look for a `Broadcasts` heading there before citing a URL; until one exists, `xr
+broadcasts moderators <verb> --help` and `xr schema broadcasts-moderators-list --output json` are the only shape
+references.
 
 When `xr` does not ship a shortcut for an endpoint, the raw-mode pattern is:
 
