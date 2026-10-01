@@ -5,7 +5,7 @@ working on this bundle are in [`AGENTS.md`](AGENTS.md).
 
 ## What this bundle is
 
-A consumer-side skill bundle for `xr` (the `xr 4.1.0` contract), the Rust port of the Go xurl. The CLI lives at
+A consumer-side skill bundle for `xr` (the `xr 4.2.0` contract), the Rust port of the Go xurl. The CLI lives at
 <https://github.com/brettdavies/xurl-rs> (its reference is `crates/xurl-cli/README.md`; the Rust library beside it is
 `xdk-rs`); this bundle teaches your coding agent how to drive it without inventing flags or trampling production
 state. Every invocation the bundle documents is checked against a real `xr` build by
@@ -30,17 +30,26 @@ Hosts and install paths:
 | Host          | Install path                        |
 | ------------- | ----------------------------------- |
 | `claude_code` | `~/.claude/skills/xurl-rs`          |
-| `codex`       | `~/.codex/skills/xurl-rs`           |
+| `codex`       | `~/.agents/skills/xurl-rs`          |
 | `cursor`      | `~/.cursor/skills/xurl-rs`          |
 | `factory`     | `~/.factory/skills/xurl-rs`         |
 | `kiro`        | `~/.kiro/skills/xurl-rs`            |
 | `opencode`    | `~/.config/opencode/skills/xurl-rs` |
 
+A host's own config-directory variable moves its row: `CLAUDE_CONFIG_DIR` stands in for `~/.claude`, `KIRO_HOME` for
+`~/.kiro`, and `OPENCODE_CONFIG_DIR` for `~/.config/opencode`. Otherwise `XURL_SKILL_HOME`, when set, stands in for `~`
+in every row (useful for a sandbox or a test that must not touch your real home). Below that, `XDG_CONFIG_HOME` stands
+in for `~/.config` in the `opencode` row. `--dry-run` prints the resolved path, so check it before the first install.
+
+Codex also reads the older `~/.codex/skills/xurl-rs`. When a copy sits there, `xr skill install codex` leaves it and
+says so (`legacy_install_dir` under `--output json`), so Codex sees two copies; `xr skill update codex` removes it and
+installs at `~/.agents/skills/xurl-rs`.
+
 Update in place:
 
 ```bash
 xr skill update claude_code              # remove the install dir and clone fresh
-xr skill update --all                    # refresh only hosts that already have an install; the rest report skipped
+xr skill update --all                    # refresh hosts with an install (an old ~/.codex copy counts)
 ```
 
 Uninstall:
@@ -65,8 +74,8 @@ To explore manually:
 xr --help                    # full surface
 xr examples                  # curated invocation gallery
 xr <cmd> --help              # per-command flags + examples
-xr schema --list             # 42 typed response shapes
-xr version --output json     # {"name":"xr","version":"4.1.0","xdk_rs":"0.1.1"}
+xr schema --list             # 45 typed response shapes
+xr version --output json     # {"name":"xr","version":"4.2.0","xdk_rs":"0.1.3"}
 xr auth status               # who's authenticated
 ```
 
@@ -88,7 +97,7 @@ xurl-rs-skill/
 │   ├── oauth2-setup.md                   # first-time auth (browser + headless)
 │   ├── post-reply-thread.md              # compose / capture id / thread
 │   ├── search-and-process.md             # `xr search --output json | jaq -c '.data[]'`
-│   └── media-upload.md                   # chunked upload + attach to post
+│   └── media-upload.md                   # chunked upload, alt text, subtitles, attach to post
 └── scripts/
     ├── dry-run-gate.sh                   # --dry-run → confirm → live, for every write op
     ├── paginate.sh                       # cursor loop for every list verb

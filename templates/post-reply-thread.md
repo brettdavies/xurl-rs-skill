@@ -139,7 +139,9 @@ xr post "<TEXT>" --media-id "$MEDIA_ID_A" --media-id "$MEDIA_ID_B" --dry-run --o
 xr post "<TEXT>" --media-id "$MEDIA_ID_A" --media-id "$MEDIA_ID_B" --output json
 ```
 
-See [media-upload.md](media-upload.md) for the full upload state machine.
+Describe each image or video for screen readers between the upload and the post (`xr media alt-text <id>
+"<description>"`, through the gate). See [media-upload.md](media-upload.md) for the full upload state machine and the
+alt-text rules.
 
 ## Delete (when you must)
 

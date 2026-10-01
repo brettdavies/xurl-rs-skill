@@ -5,11 +5,13 @@
 # the binary emits has a row here; a refresh of the bundle starts by running
 # this against the target build.
 #
-# Hermetic: HOME and XURL_TOKEN_STORE point at a scratch directory, the
-# failure group talks to a closed port, and the success group talks to
-# tests/stub-api.py (standard-library Python) whose request log the harness
-# reads back. No live X API call is made and nothing under the real ~/.xurl
-# or ~/.claude is touched.
+# Hermetic: XURL_SKILL_HOME and XURL_TOKEN_STORE point at a scratch
+# directory, and the host config-directory variables that outrank
+# XURL_SKILL_HOME in skill destinations are unset (XDG_CONFIG_HOME ranks
+# below it and stays). The failure group talks to a closed port, and the
+# success group talks to tests/stub-api.py (standard-library Python) whose
+# request log the harness reads back. No live X API call is made and nothing
+# under the real ~/.xurl or any skill host's directory is touched.
 #
 # Usage:
 #     XR_BIN=/abs/path/to/xr bash tests/contract.sh
@@ -42,9 +44,10 @@ FAILED=0
 WORK=$(mktemp -d)
 trap 'kill "${STUB_PID:-}" 2>/dev/null; rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/home"
-export HOME="$WORK/home"
+export XURL_SKILL_HOME="$WORK/home"
 export NO_COLOR=1
-unset XURL_OUTPUT XURL_JSON XURL_JSONL XURL_DRY_RUN XURL_APP XURL_LIMIT XURL_CURSOR XURL_BEARER_TOKEN 2>/dev/null || true
+unset XURL_OUTPUT XURL_JSON XURL_JSONL XURL_RAW XURL_DRY_RUN XURL_APP XURL_LIMIT XURL_CURSOR XURL_BEARER_TOKEN \
+  CLAUDE_CONFIG_DIR KIRO_HOME OPENCODE_CONFIG_DIR 2>/dev/null || true
 
 CLOSED_PORT=9
 STUB_PORT=${STUB_PORT:-18099}
@@ -242,7 +245,68 @@ check "--auth oauth2 with creds, no token: 77" 77 err '"reason": "auth-required"
 check "--auth oauth2 with creds, no token: sign-in" 77 err '"action": "sign-in"' -- env XURL_TOKEN_STORE="$WORK/creds.yaml" "$X" --auth oauth2 whoami --output json
 check "block --help: USERNAME positional" 0 out '<USERNAME>' -- "$X" block --help
 check "usage --help: credits subcommand" 0 out 'credits' -- "$X" usage --help
-check "schema count is 42" 0 out '42' -- bash -c "'$X' schema --list | wc -l"
+check "schema count is 45" 0 out '45' -- bash -c "'$X' schema --list | wc -l"
+check "--help: media family" 0 out 'media        Media upload, alt text, and subtitles' -- "$X" --help
+# shellcheck disable=SC2016
+check "--help: --cursor names muted and blocked" 0 out '`muted`, `blocked`, and `dms` invocation' -- "$X" --help
+check "examples: delete passes --force" 0 out 'xr delete 1585341984679469056 --force --no-interactive' -- "$X" examples
+check "examples: media alt-text" 0 out 'xr media alt-text 1585341984679469056' -- "$X" examples
+check "examples: subtitle upload" 0 out '--media-type text/srt --category subtitles' -- "$X" examples
+check "post --dry-run empty body: reason, exit 0" 0 out '"reason": "empty-body"' -- "$X" post "" --dry-run --output json
+check "post empty body live: validation exit 1" 1 err '"message": "empty-body"' -- "$X" post "" --output json
+
+LONG_ALT=$(printf 'a%.0s' $(seq 1001))
+check "media alt-text --dry-run" 0 out '"command": "media-alt-text"' -- "$X" media alt-text 1585341984679469056 "A dog" --dry-run --output json
+check "media alt-text --dry-run: echoes text" 0 out '"text": "A dog"' -- "$X" media alt-text 1585341984679469056 "A dog" --dry-run --output json
+check "media alt-text --dry-run: 1000 chars pass" 0 out '"would_succeed": true' -- "$X" media alt-text 1 "${LONG_ALT:1}" --dry-run --output json
+check "media alt-text --dry-run: 1001 chars refused, exit 0" 0 out '"reason": "alt-text-too-long"' -- "$X" media alt-text 1 "$LONG_ALT" --dry-run --output json
+check "media alt-text --dry-run: refusal is would_succeed false" 0 out '"would_succeed": false' -- "$X" media alt-text 1 "$LONG_ALT" --dry-run --output json
+check "media alt-text --dry-run: invalid-media-id" 0 out '"reason": "invalid-media-id"' -- "$X" media alt-text abc "A dog" --dry-run --output json
+check "media alt-text --dry-run: empty-alt-text" 0 out '"reason": "empty-alt-text"' -- "$X" media alt-text 1 "  " --dry-run --output json
+check "media alt-text live bad id: validation before auth" 1 err '"message": "invalid-media-id"' -- "$X" media alt-text abc "A dog" --output json
+check "media alt-text --force: invalid-args" 2 err '"reason": "invalid-args"' -- "$X" media alt-text 1 "A dog" --force --dry-run --output json
+check "media alt-text --auth app: auth-method-mismatch" 2 err '"reason": "auth-method-mismatch"' -- "$X" media alt-text 1 "A dog" --auth app --output json
+check "media alt-text no creds: 77" 77 err '"reason": "auth-required"' -- "$X" media alt-text 1 "A dog" --output json
+check "media subtitles add --dry-run" 0 out '"command": "media-subtitles-add"' -- "$X" media subtitles add 1 2 --language en --name English --dry-run --output json
+check "media subtitles add --dry-run: default category" 0 out '"category": "amplify_video"' -- "$X" media subtitles add 1 2 --language en --dry-run --output json
+check "media subtitles add --dry-run: invalid-language-code" 0 out '"reason": "invalid-language-code"' -- "$X" media subtitles add 1 2 --language eng --dry-run --output json
+check "media subtitles add --dry-run: subtitles id checked" 0 out '"reason": "invalid-media-id"' -- "$X" media subtitles add 1 subs --language en --dry-run --output json
+check "media subtitles add without --language: invalid-args" 2 err '"reason": "invalid-args"' -- "$X" media subtitles add 1 2 --dry-run --output json
+check "media subtitles add --category tweet_image: invalid-args" 2 err '"reason": "invalid-args"' -- "$X" media subtitles add 1 2 --language en --category tweet_image --dry-run --output json
+check "media subtitles remove --dry-run" 0 out '"command": "media-subtitles-remove"' -- "$X" media subtitles remove 1 --language en --dry-run --output json
+check "media subtitles remove --force: invalid-args" 2 err '"reason": "invalid-args"' -- "$X" media subtitles remove 1 --language en --force --dry-run --output json
+check "media upload --category subtitles --dry-run" 0 out '"category": "subtitles"' -- "$X" media upload ./captions.srt --media-type text/srt --category subtitles --dry-run --output json
+check "schema --list: media-alt-text" 0 out 'media-alt-text ApiResponse<MediaMetadataResult>' -- bash -c "'$X' schema --list | awk '{print \$1, \$2}'"
+check "schema --list: media-subtitles-add" 0 out 'media-subtitles-add ApiResponse<MediaSubtitlesResult>' -- bash -c "'$X' schema --list | awk '{print \$1, \$2}'"
+check "schema --list: media-subtitles-remove" 0 out 'media-subtitles-remove ApiResponse<DeletedResult>' -- bash -c "'$X' schema --list | awk '{print \$1, \$2}'"
+check "schema media-upload: schema not available" 1 err 'schema not available' -- "$X" schema media-upload --output json
+check "schema media-status: schema not available" 1 err 'schema not available' -- "$X" schema media-status --output json
+check "schema skill-install: legacy_install_dir declared" 0 out 'legacy_install_dir' -- "$X" schema skill-install --output json
+check "validate known_schemas lists alt-text" 1 err '"alt-text"' -- bash -c "printf '{}' | '$X' validate --schema tweet --output json"
+check "validate known_schemas lists subtitles" 1 err '"subtitles"' -- bash -c "printf '{}' | '$X' validate --schema tweet --output json"
+check "validate --help names alt-text" 0 out 'alt-text' -- "$X" validate --help
+check "validate auto-detects alt-text" 0 out '"schema": "alt-text"' -- bash -c "printf '%s' '{\"data\":{\"id\":\"1\",\"associated_metadata\":{}}}' | '$X' validate --output json"
+check "validate auto-detects subtitles" 0 out '"schema": "subtitles"' -- bash -c "printf '%s' '{\"data\":{\"id\":\"1\",\"associated_subtitles\":{}}}' | '$X' validate --output json"
+check "--raw on a subcommand usage error: compact" 2 err '{"exit_code":2,"message":"the following required' -- "$X" post --output json --raw
+check "XURL_RAW on a subcommand usage error: compact" 2 err '{"exit_code":2,"message":"the following required' -- env XURL_RAW=true "$X" post --output json
+check "XURL_JSON on a subcommand usage error: envelope" 2 err '"reason": "unknown-command"' -- env XURL_JSON=true "$X" auth zzz
+
+check "skill install: XURL_SKILL_HOME stands in for ~" 0 out "\"install_dir\": \"$WORK/home/.claude/skills/xurl-rs\"" -- "$X" skill install claude_code --dry-run --output json
+check "skill install codex: ~/.agents/skills" 0 out "\"install_dir\": \"$WORK/home/.agents/skills/xurl-rs\"" -- "$X" skill install codex --dry-run --output json
+check "skill install codex, no old copy: no legacy_install_dir" 0 out '!legacy_install_dir' -- "$X" skill install codex --dry-run --output json
+check "skill install: CLAUDE_CONFIG_DIR wins over XURL_SKILL_HOME" 0 out "\"install_dir\": \"$WORK/cc/skills/xurl-rs\"" -- env CLAUDE_CONFIG_DIR="$WORK/cc" "$X" skill install claude_code --dry-run --output json
+check "skill install: KIRO_HOME" 0 out "\"install_dir\": \"$WORK/kh/skills/xurl-rs\"" -- env KIRO_HOME="$WORK/kh" "$X" skill install kiro --dry-run --output json
+check "skill install: OPENCODE_CONFIG_DIR" 0 out "\"install_dir\": \"$WORK/oc/skills/xurl-rs\"" -- env OPENCODE_CONFIG_DIR="$WORK/oc" "$X" skill install opencode --dry-run --output json
+xdg_config_home_rows() {
+  check "skill install opencode: XURL_SKILL_HOME outranks XDG_CONFIG_HOME" 0 out "\"install_dir\": \"$WORK/home/.config/opencode/skills/xurl-rs\"" -- env XDG_CONFIG_HOME="$WORK/xdg" "$X" skill install opencode --dry-run --output json
+  check "skill install opencode: XDG_CONFIG_HOME without XURL_SKILL_HOME" 0 out "\"install_dir\": \"$WORK/xdg/opencode/skills/xurl-rs\"" -- env -u XURL_SKILL_HOME XDG_CONFIG_HOME="$WORK/xdg" "$X" skill install opencode --dry-run --output json
+}
+xdg_config_home_rows
+check "--help: env index lists XURL_SKILL_HOME" 0 out 'XURL_SKILL_HOME' -- "$X" --help
+mkdir -p "$WORK/home/.codex/skills/xurl-rs"
+check "skill install codex: legacy_install_dir names the old copy" 0 out "\"legacy_install_dir\": \"$WORK/home/.codex/skills/xurl-rs\"" -- "$X" skill install codex --dry-run --output json
+check "skill install codex text: the note names skill update" 0 out 'xr skill update codex' -- "$X" skill install codex --dry-run
+check "skill update --all: an old codex copy counts as installed" 0 out 'dry_run' -- bash -c "'$X' skill update --all --dry-run --output json | jaq -r '.installations[] | select(.host == \"codex\") | .status' 2>/dev/null || '$X' skill update --all --dry-run --output json | jq -r '.installations[] | select(.host == \"codex\") | .status'"
 
 # --- Group 2: staged user token, stub API (every success path) -----------
 
@@ -378,6 +442,23 @@ check "--verbose json: no vocabulary note" 0 err '!info: X sent' -- "$X" read 12
 check "--verbose --quiet: no vocabulary note" 0 err '!info: X sent' -- "$X" read 123 --verbose --quiet
 check "spec-marked stream: firehose streams without -s" 0 out '{"data":{"id":"s2","text":"two"}}' -- "$X" /2/likes/firehose/stream --auth app --output json --timeout 5
 check "auth default <app> <user>: two documents" 0 out 'Default user set to' -- "$X" auth default demo alice --output json
+check "media alt-text: POST /2/media/metadata" 0 log '"path": "/2/media/metadata"' -- "$X" media alt-text 1585341984679469056 "A dog" --output json
+check "media alt-text: body nests metadata.alt_text.text" 0 log '{"id":"1585341984679469056","metadata":{"alt_text":{"text":"A dog"}}}' -- "$X" media alt-text 1585341984679469056 "A dog" --output json
+check "media alt-text: the API document" 0 out '"associated_metadata"' -- "$X" media alt-text 1585341984679469056 "A dog" --output json
+check "media alt-text: no status key" 0 out '!"status"' -- "$X" media alt-text 1585341984679469056 "A dog" --output json
+check "media alt-text live bad input: no request sent" 1 log '!/2/media/metadata' -- "$X" media alt-text 1 "$LONG_ALT" --output json
+check "media alt-text live bad input: message names the check" 1 err '"message": "alt-text-too-long"' -- "$X" media alt-text 1 "$LONG_ALT" --output json
+check "validate alt-text: alt-text response" 0 out '"valid": true' -- bash -c "'$X' media alt-text 1 'A dog' --output json | '$X' validate --schema alt-text --output json"
+check "media subtitles add: POST /2/media/subtitles" 0 log '"path": "/2/media/subtitles"' -- "$X" media subtitles add 1 2 --language en --name English --output json
+check "media subtitles add: language upper-cased, category wire name" 0 log '{"id":"1","media_category":"AmplifyVideo","subtitles":{"id":"2","language_code":"EN","display_name":"English"}}' -- "$X" media subtitles add 1 2 --language en --name English --output json
+check "media subtitles add --category tweet_video: TweetVideo" 0 log '"media_category":"TweetVideo"' -- "$X" media subtitles add 1 2 --language en --category tweet_video --output json
+check "media subtitles add: the API document" 0 out '"associated_subtitles"' -- "$X" media subtitles add 1 2 --language en --output json
+check "validate subtitles: add response" 0 out '"valid": true' -- bash -c "'$X' media subtitles add 1 2 --language en --output json | '$X' validate --schema subtitles --output json"
+check "media subtitles remove: DELETE /2/media/subtitles" 0 log '{"method": "DELETE", "path": "/2/media/subtitles"}' -- "$X" media subtitles remove 1 --language en --output json
+check "media subtitles remove: JSON body names the track" 0 log '{"id":"1","media_category":"AmplifyVideo","language_code":"EN"}' -- "$X" media subtitles remove 1 --language en --output json
+check "media subtitles remove: deleted document" 0 out '"deleted": true' -- "$X" media subtitles remove 1 --language en --output json
+check "validate delete: subtitles remove response" 0 out '"valid": true' -- bash -c "'$X' media subtitles remove 1 --language en --output json | '$X' validate --schema delete --output json"
+check "raw DELETE -d: body sent" 0 log 'body: {"connection_ids":["1"]}' -- "$X" -X DELETE /2/connections -d '{"connection_ids":["1"]}' --output json
 
 printf '\n# Group 3: bundled scripts against the real binary\n'
 check "paginate.sh: streams statusless pages" 0 out '"id":"1"' -- "$ROOT/scripts/paginate.sh" --max-pages 2 -- "$X" search x
@@ -393,6 +474,16 @@ check "dry-run-gate.sh: delete without --force" 1 err 'pass --force' -- "$ROOT/s
 check "dry-run-gate.sh: delete --force goes live" 0 log '"path": "/2/tweets/123"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" delete 123 --force
 check "dry-run-gate.sh: block goes live" 0 log '"path": "/2/users/42/blocking"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" block @spammer
 check "dry-run-gate.sh: moderators add goes live" 0 log '"path": "/2/broadcasts/chat/moderators"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" broadcasts moderators add @helper
+check "dry-run-gate.sh: alt-text goes live" 0 log '"path": "/2/media/metadata"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" media alt-text 1 "A dog"
+check "dry-run-gate.sh: subtitles remove goes live" 0 log '"path": "/2/media/subtitles"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" media subtitles remove 1 --language en
+check "dry-run-gate.sh: dash-leading text after -- goes live" 0 log '{"id":"1","metadata":{"alt_text":{"text":"-5C on the dial"}}}' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" media alt-text 1 -- "-5C on the dial"
+check "media alt-text: dash-leading text needs --" 2 err '"reason": "invalid-args"' -- "$X" media alt-text 1 "-5C on the dial" --dry-run --output json
+check "dry-run-gate.sh: XURL_DRY_RUN set: refused before the preflight" 2 err 'XURL_DRY_RUN is set' -- env XURL_DRY_RUN=true "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" post "hello"
+check "dry-run-gate.sh: XURL_JSON set: still goes live" 0 log '"path": "/2/tweets"' -- env XURL_JSON=true "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" post "hello"
+check "paginate.sh: XURL_JSONL set: still streams" 0 out '"id":"1"' -- env XURL_JSONL=true "$ROOT/scripts/paginate.sh" --max-pages 1 -- "$X" search x
+check "XURL_JSON beside --output: invalid-args" 2 err 'cannot be used with' -- env XURL_JSON=true "$X" whoami --output json
+check "XURL_DRY_RUN: the live form answers a dry_run envelope" 0 out '"status": "dry_run"' -- env XURL_DRY_RUN=true "$X" post "hello" --output json
+check "dry-run-gate.sh: refused preflight names its reason" 1 err 'reason=alt-text-too-long' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" media alt-text 1 "$LONG_ALT"
 check "paginate.sh: moderators list stops on a repeated cursor" 1 err 'answered the cursor it was fetched with' -- "$ROOT/scripts/paginate.sh" --max-pages 5 -- "$X" broadcasts moderators list
 check "paginate.sh: moderators list streams the page once before stopping" 1 out '"username":"u"' -- "$ROOT/scripts/paginate.sh" --max-pages 5 -- "$X" broadcasts moderators list
 

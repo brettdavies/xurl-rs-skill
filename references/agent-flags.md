@@ -1,7 +1,7 @@
 # Agent flags: output, pagination, dry-run, env-var precedence
 
 This file enumerates the global flags every `xr` command honors. The per-command flags are documented by `xr <cmd>
---help`. Verified on `xr 4.1.0`.
+--help`. Verified on `xr 4.2.0`.
 
 ## Output format
 
@@ -12,6 +12,11 @@ xr <cmd> --jsonl                        # shorthand for --output jsonl
 XURL_OUTPUT=json xr <cmd>               # env var equivalent
 XURL_JSON=1 xr <cmd>                    # env var equivalent to --json
 ```
+
+`XURL_JSON` and `XURL_JSONL` count as passing `--json` / `--jsonl`, so either one beside an explicit `--output` is
+`invalid-args`, exit `2` (`the argument '--output <OUTPUT>' cannot be used with '--json'`). Use one form, not both; the
+bundled scripts unset the two variables for their own calls. `XURL_DRY_RUN` set to a true value turns every write into
+its preflight, the live form included.
 
 | Format   | What it emits                                                                                    |
 | -------- | ------------------------------------------------------------------------------------------------ |
@@ -47,7 +52,9 @@ xr <cmd> --raw                          # strip ANSI in text mode; compact JSON 
 XURL_RAW=1 xr <cmd>
 ```
 
-Use `--raw` when piping `--output json` to another tool that doesn't want pretty-printing.
+Use `--raw` when piping `--output json` to another tool that doesn't want pretty-printing. It compacts the error
+envelope on stderr too, a flag-parsing failure under a subcommand (`xr post --output json --raw`) included, so a log
+that wants one line per document gets one either way.
 
 ### Color control
 
@@ -96,12 +103,12 @@ xr <cmd> --no-pager                     # documented no-op; safe to pass uncondi
 
 `xr` never invokes `$PAGER`; `--no-pager` is advertised so agents can always pass it without the binary rejecting it.
 The `--no-interactive` flag matters when running unattended; without it, `xr` may prompt for missing input on a TTY.
-The three verbs with no inverse (`delete`, `auth clear`, `auth apps remove`) gate themselves: they answer `reason:
-"confirmation-required"`, exit `1`, when they cannot prompt (no TTY, or `--no-interactive`) and `--force` is absent;
-pass `--force` after the user has confirmed. The gate runs before `--dry-run` is considered, so a headless preflight
-of `delete` needs `--force` too. Every other write verb, `block`, `mute`, `unfollow`, and `dm` included, takes no
-`--force`; passing it answers `invalid-args`, exit `2`. Whether to confirm those with the user is a judgment call the
-skill's guardrail makes, not a flag the binary requires.
+Three verbs gate themselves (`delete`, `auth clear`, `auth apps remove`): they answer `reason: "confirmation-required"`,
+exit `1`, when they cannot prompt (no TTY, or `--no-interactive`) and `--force` is absent; pass `--force` after the user
+has confirmed. The gate runs before `--dry-run` is considered, so a headless preflight of `delete` needs `--force` too.
+Every other write verb, `block`, `mute`, `unfollow`, `dm`, and the media verbs included, takes no `--force`; passing it
+answers `invalid-args`, exit `2`. Whether to confirm those with the user is a judgment call the skill's guardrail makes,
+not a flag the binary requires.
 
 ## Timeouts
 
@@ -119,14 +126,17 @@ XURL_DRY_RUN=1 xr <write-verb> --output json
 ```
 
 **Honored by every write op**: `post`, `reply`, `quote`, `delete`, `like`, `unlike`, `repost`, `unrepost`, `bookmark`,
-`unbookmark`, `follow`, `unfollow`, `block`, `unblock`, `mute`, `unmute`, `dm`, `broadcasts moderators add`,
-`broadcasts moderators remove`, `media upload`. Read ops ignore `--dry-run`.
+`unbookmark`, `follow`, `unfollow`, `block`, `unblock`, `mute`, `unmute`, `dm`, `broadcasts moderators add`, `broadcasts
+moderators remove`, `media upload`, `media alt-text`, `media subtitles add`, `media subtitles remove`. Read ops ignore
+`--dry-run`.
 
 Output shape:
 
 - `--output text` → `Would <action> …` line on a TTY; the validated inputs as JSON when stdout is a pipe.
 - `--output json` / `--output jsonl` → canonical `status: "dry_run"` envelope with `would_succeed`, `exit_code`, and a
-  verb-specific payload (command name, body preview, target IDs).
+  verb-specific payload (command name, body preview, target IDs). When an input fails a check (`post ""`, alt text over
+  1000 characters, a media id that is not digits, a language code that is not two letters), the preflight still exits
+  `0` and answers `would_succeed: false` with a `reason` naming the check.
 
 Dry-run validates inputs only: no credential check, no filesystem check (`media upload` of a missing file still
 answers `would_succeed: true`), and no bypass of a verb's own confirmation gate (`delete` needs `--force` even here).
@@ -143,19 +153,19 @@ xr <list-cmd> --after <next_token>      # alias for --cursor (familiar from gh /
 xr <list-cmd> --page <n>                # NOT supported by X; returns reason: "unsupported-pagination"
 ```
 
-Commands that thread `--cursor` through as `pagination_token`: `search`, `timeline`, `mentions`, `bookmarks`, `likes`,
-`following`, `followers`, `muted`, `blocked`, `dms`. (The `--cursor` help text lists the first eight; `muted` and
-`blocked` thread it the same way, verified against the binary.)
+Commands that thread `--cursor` through as `pagination_token`, as the `--cursor` and `--limit` help text names them:
+`search`, `timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`, `muted`, `blocked`, `dms`. Every other
+command ignores both flags.
 
 Every user-scoped list verb (`timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`, `muted`,
 `blocked`) resolves `/2/users/me` before each page to learn the caller's id, so one page costs **two** requests;
 `search` and `dms` cost one. Budget `--max-pages` against a rate-limit window accordingly.
 
-`broadcasts moderators list` is not a paged verb: it sends one `GET /2/broadcasts/chat/moderators` with no
-`max_results` and no `pagination_token`, whatever `--limit` or `--cursor` say (its `--help` advertises the global
-flags; the request ignores them), and it has no `-n` at all (`invalid-args`, exit `2`). Run it directly, not through
-`scripts/paginate.sh`, which stops it at page 2 with a repeated-cursor message if the API ever returns a
-`next_token`.
+`broadcasts moderators list` is not a paged verb: it sends one `GET /2/broadcasts/chat/moderators` with no `max_results`
+and no `pagination_token`, whatever `--limit` or `--cursor` say (its `--help` lists the global flags, whose text names
+the paged commands and says every other command ignores them), and it has no `-n` at all (`invalid-args`, exit `2`). Run
+it directly, not through `scripts/paginate.sh`, which stops it at page 2 with a repeated-cursor message if the API ever
+returns a `next_token`.
 
 ### `--limit` and `-n/--max-results`
 
@@ -221,6 +231,10 @@ The full env-var index is at the bottom of `xr --help`:
 | `XURL_APP`                                          | `--app`                                                            |
 | `XURL_NO_BROWSER`                                   | `--no-browser` (auth only)                                         |
 | `XURL_TOKEN_STORE`                                  | token-store file instead of `~/.xurl`                              |
+| `XURL_SKILL_HOME`                                   | stands in for `~` in `skill install` / `skill update` destinations |
+| `CLAUDE_CONFIG_DIR`, `KIRO_HOME`                    | stand in for `~/.claude`, `~/.kiro` in that host's skill path      |
+| `OPENCODE_CONFIG_DIR`                               | stands in for `~/.config/opencode` in the `opencode` skill path    |
+| `XDG_CONFIG_HOME`                                   | stands in for `~/.config` in the `opencode` skill path             |
 | `XURL_BEARER_TOKEN`                                 | app-only bearer; wins over the stored bearer for the active app    |
 | `CLIENT_ID`, `CLIENT_SECRET`                        | OAuth2 client credentials; win over the active app's stored values |
 | `REDIRECT_URI`                                      | OAuth2 redirect URI override                                       |
