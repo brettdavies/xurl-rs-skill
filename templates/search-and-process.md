@@ -31,11 +31,11 @@ The answer is the X API document, `{"data":[…],"meta":{"result_count":…,"nex
 [references/output-envelope.md](../references/output-envelope.md)). `-n` is the page size, `10..=100` for search (the
 API's floor is 10; the other list verbs accept `1..=100`).
 
-Engagement counters read under the post vocabulary (`public_metrics.repost_count`, never `retweet_count`), and a
-counter X left out of a record prints as `0`. When a missing counter has to stay distinguishable from a real zero, run
-the search in raw mode (`xr '/2/tweets/search/recent?query=<URL-ENCODED>&post.fields=public_metrics&max_results=50'
---output json`), which prints X's fields as sent. `post.fields` is the parameter typed `xr search` sends. Raw mode
-takes its paging in the URL (`max_results`, `pagination_token`): it ignores `-n`, `--limit`, and `--cursor`.
+Engagement counters read under the post vocabulary (`public_metrics.repost_count`, never `retweet_count`), and a counter
+X left out of a record prints as `0`. When a missing counter has to stay distinguishable from a real zero, run the
+search in raw mode (`xr '/2/tweets/search/recent?query=<URL-ENCODED>&post.fields=public_metrics&max_results=50' --output
+json`), which prints X's fields as sent. `post.fields` is the parameter typed `xr search` sends. Raw mode takes its
+paging in the URL (`max_results`, `pagination_token`): it ignores `-n`, `--limit`, and `--cursor`.
 
 Capture and pipe:
 
@@ -179,8 +179,8 @@ Substitute the verb in the loop above; the `--cursor` plumbing is identical. Con
 
 ## Streaming endpoints
 
-For live filtered streams, use raw mode with `--output jsonl`; a streaming endpoint is the one case where every
-chunk arrives on its own line (text mode adds `Connecting…` / `End of stream` banners around them):
+For live filtered streams, use raw mode with `--output jsonl`; a streaming endpoint is the one case where every chunk
+arrives on its own line (text mode adds `Connecting…` / `End of stream` banners around them):
 
 ```bash
 xr /2/tweets/search/stream --auth app --output jsonl \

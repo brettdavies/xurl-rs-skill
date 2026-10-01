@@ -19,7 +19,8 @@
 #     0   live call succeeded (verb's own 0)
 #     1   dry-run rejected (would_succeed=false, error envelope, or non-zero
 #         exit from the dry-run call itself)
-#     2   usage error (missing args, forbidden flag, read-op verb)
+#     2   usage error (missing args, forbidden flag, read-op verb, or
+#         XURL_DRY_RUN set, which would turn the live call into a dry run)
 #     3   refused (non-TTY without --yes)
 #     4   user declined at the prompt
 #     *   verb's own non-zero exit code on the live call
@@ -52,10 +53,14 @@ Verbs that carry their own confirmation gate (delete, auth clear, auth apps
 remove) need --force in args: xr answers confirmation-required before the
 dry-run otherwise, and the gate is the confirmation step.
 
+Text that starts with "-" goes after the verb's own "--"; the gate adds its
+flags before that separator.
+
 Examples:
     $PROG -- xr post "Shipping today."
     $PROG --yes -- xr reply 1234567890 "Congrats!"
     $PROG -- xr delete 1234567890 --force
+    $PROG -- xr media alt-text 1234567890 -- "-5C on the dial at the finish"
 EOF
 }
 
@@ -87,7 +92,26 @@ if [ $# -eq 0 ]; then
   exit 2
 fi
 
-for arg in "$@"; do
+# Arguments from the verb's own `--` on are positionals (alt text may start
+# with `-`), so the gate inspects and extends only the flags before it.
+VERB=()
+POSITIONAL=()
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--" ]; then
+    POSITIONAL=("$@")
+    break
+  fi
+  VERB+=("$1")
+  shift
+done
+
+if [ ${#VERB[@]} -eq 0 ]; then
+  printf '%s: missing verb before the verb'"'"'s own "--"\n' "$PROG" >&2
+  usage
+  exit 2
+fi
+
+for arg in "${VERB[@]}"; do
   case "$arg" in
     --dry-run | --dry-run=*)
       printf '%s: do not pass --dry-run; the gate adds it for the preflight.\n' "$PROG" >&2
@@ -104,6 +128,18 @@ for arg in "$@"; do
   esac
 done
 
+case "$(printf '%s' "${XURL_DRY_RUN:-}" | tr '[:upper:]' '[:lower:]')" in
+  "" | 0 | false | no | off) ;;
+  *)
+    printf '%s: XURL_DRY_RUN is set, so the live call would only dry-run; unset it to run the verb live.\n' "$PROG" >&2
+    exit 2
+    ;;
+esac
+
+# xr reads XURL_JSON / XURL_JSONL as --json / --jsonl, which it rejects beside
+# the --output this gate passes.
+unset XURL_JSON XURL_JSONL
+
 if ! pick_jq; then
   print_jq_install_advice "$PROG"
   exit 2
@@ -116,7 +152,7 @@ printf '%s: dry-run preflight…\n' "$PROG" >&2
 
 DRY_OUTPUT=""
 EC=0
-DRY_OUTPUT=$("$@" --dry-run --output json --quiet 2>"$ERR_FILE") || EC=$?
+DRY_OUTPUT=$("${VERB[@]}" --dry-run --output json --quiet ${POSITIONAL[@]+"${POSITIONAL[@]}"} 2>"$ERR_FILE") || EC=$?
 if [ "$EC" -ne 0 ]; then
   REASON=$(envelope_reason "$ERR_FILE" "$JQ_BIN")
   if [ -n "$REASON" ]; then
@@ -147,8 +183,9 @@ case "$STATUS" in
     WOULD=$(printf '%s' "$DRY_OUTPUT" | "$JQ_BIN" -r '.would_succeed')
     EXIT_CODE=$(printf '%s' "$DRY_OUTPUT" | "$JQ_BIN" -r '.exit_code')
     if [ "$WOULD" != "true" ] || [ "$EXIT_CODE" != "0" ]; then
-      printf '%s: dry-run says the live call would NOT succeed (would_succeed=%s, exit_code=%s).\n' \
-        "$PROG" "$WOULD" "$EXIT_CODE" >&2
+      REASON=$(printf '%s' "$DRY_OUTPUT" | "$JQ_BIN" -r '.reason // "unstated"')
+      printf '%s: dry-run says the live call would NOT succeed (would_succeed=%s, exit_code=%s, reason=%s).\n' \
+        "$PROG" "$WOULD" "$EXIT_CODE" "$REASON" >&2
       printf '%s\n' "$DRY_OUTPUT" >&2
       exit 1
     fi
@@ -195,4 +232,5 @@ if [ "$ASSUME_YES" != "1" ]; then
 fi
 
 printf '%s: running live…\n' "$PROG" >&2
-exec "$@" --output json
+rm -f "$ERR_FILE"
+exec "${VERB[@]}" --output json ${POSITIONAL[@]+"${POSITIONAL[@]}"}

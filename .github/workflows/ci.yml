@@ -68,6 +68,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Guard test environments
+        # Fails a test script that resets HOME, TMPDIR, an XDG_* directory, a
+        # tool home, or PATH's whole value; tests/core-env-allowlist.tsv holds
+        # the exceptions. A verbatim copy of the github-repo-setup template.
+        run: tests/core-env-guard.sh
       - name: Run fixture-driven tests
         # The runner exports JSON envelopes via XR_STUB_* env vars so a bash
         # stub xr at fixtures/bin/xr can replay them. Hits no live API and

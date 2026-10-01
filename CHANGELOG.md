@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-10-01
+
+### Added
+
+- Add the `xr media alt-text` and `xr media subtitles add` / `remove` workflows to the media template: describe an uploaded image or video for screen readers, and attach or detach a video's subtitle track, each behind the dry-run gate. by @brettdavies in [#28](https://github.com/brettdavies/xurl-rs-skill/pull/28)
+- Add the `xr skill install` / `update` destination rules: `CLAUDE_CONFIG_DIR`, `KIRO_HOME`, and `OPENCODE_CONFIG_DIR` per host, `XURL_SKILL_HOME` in place of `~`, `XDG_CONFIG_HOME` for OpenCode, and `legacy_install_dir` for an old Codex copy.
+
+### Changed
+
+- Change the documented contract to `xr 4.2.0`: Codex installs at `~/.agents/skills/xurl-rs`, and a dry run refused by an input check answers `would_succeed: false` with a `reason` naming the check at exit `0`. by @brettdavies in [#28](https://github.com/brettdavies/xurl-rs-skill/pull/28)
+- Change the references to point at `xr schema --list`, `xr validate --help`, `xr examples`, and `xr --help` for counts, schema names, and the environment-variable index instead of copying them.
+
+### Fixed
+
+- Fix the post-release backport PR body so it cites the released commit rather than the annotated tag's object SHA and lists synced files as code spans without backslashes. by @brettdavies in [#27](https://github.com/brettdavies/xurl-rs-skill/pull/27)
+- Fix `scripts/sync-dev-after-release.sh` leaving writes behind on a dry run or an early exit: any exit before the commit now returns to `dev` with the tree and index as found, and a dry run works while a sync branch is open.
+- Fix the post-sync regen check reporting PR-body drift for every failure; it runs only when the sync carried `CHANGELOG.md` and prints the generator's own reason, including wrap-only drift.
+- Fix `scripts/dry-run-gate.sh` for text that starts with `-` (its flags go before the verb's own `--`) and for an exported `XURL_DRY_RUN` (it refuses rather than report a dry run as a live call); it names the `reason` of a refused dry run, and both scripts work with `XURL_JSON` or `XURL_JSONL` exported. by @brettdavies in [#28](https://github.com/brettdavies/xurl-rs-skill/pull/28)
+
+### Documentation
+
+- Name the documented `xr` contract version once, in `SKILL.md`; the references and getting-started point there. by @brettdavies in [#29](https://github.com/brettdavies/xurl-rs-skill/pull/29)
+
+**Full Changelog**: [v0.4.0...v0.5.0](https://github.com/brettdavies/xurl-rs-skill/compare/v0.4.0...v0.5.0)
+
 ## [0.4.0] - 2026-09-24
 
 ### Added

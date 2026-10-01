@@ -1,0 +1,5 @@
+# Tests allowed to reset a core environment variable. One tab-separated entry
+# per line: path, enclosing @test or function name ("-" for top level), and
+# the reason. Read by tests/core-env-guard.sh; a sweep fails on an entry that
+# matches no finding.
+tests/contract.sh	xdg_config_home_rows	XDG_CONFIG_HOME is the variable under test: each row sets it for one `xr skill install opencode --dry-run` subprocess to check where xr resolves the OpenCode destination, and a dry run writes nothing

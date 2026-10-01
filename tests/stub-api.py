@@ -20,6 +20,12 @@ LOG = sys.argv[2]
 USER = {"id": "42", "username": "alice", "name": "Alice"}
 LIST_RECORDS = [{"id": "1", "text": "hi", "username": "u", "name": "U"}]
 MODERATORS = {"moderator_user_ids": ["7"]}
+ALT_TEXT = {"id": "m1", "associated_metadata": {"alt_text": {"text": "A dog"}}}
+SUBTITLES = {
+    "id": "v1",
+    "media_category": "AmplifyVideo",
+    "associated_subtitles": {"subtitles": [{"id": "s1", "language_code": "EN", "display_name": "English"}]},
+}
 # X still answers some endpoints in its pre-rename post vocabulary.
 LEGACY_POST_KEYS = {"edit_history_tweet_ids": ["777"], "public_metrics": {"retweet_count": 3}}
 SINGLE_POST = re.compile(r"^/2/tweets/(\d+)(\?|$)")
@@ -91,12 +97,18 @@ class Handler(BaseHTTPRequestHandler):
         nxt = "T%d" % (int(match.group(1)) + 1) if match else "T2"
         return {"data": LIST_RECORDS, "meta": {"result_count": 1, "next_token": nxt}}
 
-    def do_POST(self):
+    def _body(self):
         length = int(self.headers.get("Content-Length") or 0)
-        body = self.rfile.read(length).decode(errors="replace") if length else ""
-        self._record(body)
+        return self.rfile.read(length).decode(errors="replace") if length else ""
+
+    def do_POST(self):
+        self._record(self._body())
         if self._refusal():
             return None
+        if self.path.startswith("/2/media/metadata"):
+            return self._reply({"data": ALT_TEXT})
+        if self.path.startswith("/2/media/subtitles"):
+            return self._reply({"data": SUBTITLES})
         if self.path.startswith("/2/media/upload"):
             return self._reply({"data": {"id": "m1", "media_key": "3_m1", "expires_after_secs": 3600}})
         if self.path.startswith("/2/tweets"):
@@ -118,7 +130,7 @@ class Handler(BaseHTTPRequestHandler):
         )
 
     def do_DELETE(self):
-        self._record(None)
+        self._record(self._body())
         if self._refusal():
             return None
         return self._reply(

@@ -125,6 +125,10 @@ for arg in "$@"; do
   esac
 done
 
+# xr reads XURL_JSON / XURL_JSONL as --json / --jsonl, which it rejects beside
+# the --output this script passes.
+unset XURL_JSON XURL_JSONL
+
 if ! pick_jq; then
   print_jq_install_advice "$PROG"
   exit 2
