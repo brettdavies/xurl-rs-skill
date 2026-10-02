@@ -83,9 +83,11 @@ git checkout -B release/v<version> origin/main
 
 # 2. Overlay dev's entire tracked tree onto the main base. `checkout -- .` writes dev's
 #    paths but does not delete files that exist on main and are absent on dev, so remove
-#    those next (the 'D' rows are main-only files dev deleted).
+#    those next (the 'D' rows are main-only files dev deleted or moved). `--no-renames`
+#    lists a moved file as a deletion; rename detection would report it as an R row,
+#    and the stale copy left behind would ship to main.
 git checkout origin/dev -- .
-git diff --name-status origin/main origin/dev | grep '^D'
+git diff --no-renames --name-status origin/main origin/dev | grep '^D'
 trash <each main-only file listed above>
 
 # 3. Strip the paths guard-main-docs forbids on main. The set resolves from the workflow;
@@ -114,7 +116,9 @@ git diff --cached --name-only origin/main | grep -E "$GUARDED" \
 #       set, so it is blind to a category nobody registered yet. Every docs/ entry and
 #       every added markdown file needs a reason to ship, or it needs registering in the
 #       workflow's extra_paths and removing from the branch.
-git diff --cached --diff-filter=A --name-only origin/main | grep -E '(^docs/|\.md$)' | grep -Ev "$GUARDED" || echo "(none unguarded)"
+#       `--no-renames` lists a doc moved from one main carries as added; rename detection
+#       would report it as R, and the A filter would drop it.
+git diff --cached --no-renames --diff-filter=A --name-only origin/main | grep -E '(^docs/|\.md$)' | grep -Ev "$GUARDED" || echo "(none unguarded)"
 
 # 6. Commit the overlay as one commit sitting directly on top of main, then re-check that
 #    main did not move while the branch was being built.
