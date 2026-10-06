@@ -250,7 +250,7 @@ check "validate unknown schema; validate unknown schema: known_schemas" 1 \
   -- bash -c "printf '{}' | '$X' validate --schema tweet --output json"
 check "validate --schema moderators: needs moderator_user_ids" 1 err 'moderator_user_ids' -- bash -c "printf '%s' '{\"data\":[]}' | '$X' validate --schema moderators --output json"
 check "validate missing file: io exit 1" 1 err '"reason": "io"' -- "$X" validate ./nope.json --schema post --output json
-check "version: xr <semver>" 0 out 'xr 4.' -- "$X" version
+check "version: xr <semver>" 0 out 'xr 9.' -- "$X" version
 check "version --verbose: names xdk-rs" 0 out '(xdk-rs ' -- "$X" version --verbose
 check "version --output json: version key; xdk_rs key; no status key" 0 \
   out '"version": "4.' \
