@@ -10,7 +10,7 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 | xurl-rs commit      | `e2c7e8a`, the `v4.2.0` tag (2026-09-30)                                                         |
 | Binary self-report  | `xr 4.2.0` (`xdk-rs 0.1.3`), the `x86_64-unknown-linux-gnu` asset of the `v4.2.0` GitHub release |
 | Contract documented | 4.2.0: `media alt-text` / `media subtitles`, skill destination variables, `legacy_install_dir`   |
-| Harness result      | `tests/contract.sh`: 212 checks (280 assertions) passing against that binary                     |
+| Harness result      | `tests/contract.sh`: 212 checks (290 assertions) passing against that binary                     |
 
 The bundle documents the contract of the `xr` release it ships beside: the upstream `dev` head when a release is being
 cut from it, or the released artifact once it is out. A release that changes nothing the bundle documents (only the
@@ -75,7 +75,7 @@ invocation.
    and `XURL_TOKEN_STORE`, the host config-directory variables that outrank `XURL_SKILL_HOME` unset, the API at a closed
    port), so a probe reads and writes nothing under the real `~/.xurl` or skill directories
    (`docs/solutions/conventions/hermetic-cli-spawn-seam-with-unwritable-default-store-and-escape-hatch-guard.md`).
-   Document what it shows and add the needles or checks.
+   Document what it shows and add the assertions or checks.
 4. Re-run `tests/refresh.sh` until every step passes, then re-run the evals in `evals/` that touch the changed surface.
 5. Update the **Verified against** table above and `SKILL.md`'s contract-version sentence; no other file names the
    version.
@@ -83,8 +83,12 @@ invocation.
 The docs state only what the binary cannot tell an agent itself: which stream a document lands on, exit codes, success
 shapes, the scripts' behavior, and the gotchas. For counts, name lists, help text, and the environment-variable index
 they point at `xr schema --list`, `xr validate --help`, `xr examples`, and `xr --help`, so those facts carry no harness
-row and no per-release edit. A row runs its command once and asserts every needle for it (`check LABEL EXIT STREAM
-NEEDLE [STREAM NEEDLE]... -- cmd`); add a needle to an existing row before adding a row for the same command.
+row and no per-release edit. A row runs its command once and makes every assertion for it (`check LABEL EXIT
+ASSERTION... -- cmd`); add an assertion to an existing row before adding a row for the same command. Over a JSON
+document an assertion reads a field, `out.json PATH WANT` or `err.json PATH WANT` with a jaq filter for `PATH`, so it
+fails on wrong data and not on key order or indentation; `out.shape` and `err.shape` name the layout (`compact`,
+`pretty`, `lines`, `empty`) for the rows whose claim is the layout. A fixed-string needle, `out NEEDLE`, is for text
+output and the stub's request log. `tests/contract-lib.sh` holds `check`, and `tests/run.sh` tests it.
 
 Two groups in the harness matter equally. Group 1 runs against an empty store and a closed port and sees every failure
 envelope; group 2 runs against `tests/stub-api.py` with a fake user token and sees every **success** document. A
