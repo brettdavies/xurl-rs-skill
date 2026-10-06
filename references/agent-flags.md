@@ -118,6 +118,22 @@ xr <cmd> --timeout 60                   # XURL_TIMEOUT=60; seconds, default 30
 
 Bump for streaming endpoints or slow networks. Streaming verbs respect the timeout per chunk, not per stream.
 
+## Rate limits
+
+```bash
+xr <cmd> --wait-on-rate-limit                             # XURL_WAIT_ON_RATE_LIMIT=1; wait out a 429, retry once
+xr <cmd> --wait-on-rate-limit --rate-limit-max-wait 300   # XURL_RATE_LIMIT_MAX_WAIT=300; longest wait, in seconds
+```
+
+Without the flag a 429 fails at once: `reason: "rate-limited"`, exit `3`. With it, when the response names its reset
+and the wait fits `--rate-limit-max-wait` (`xr --help` states the default), `xr` waits for the reset and sends the
+request once more, printing nothing while it waits. A reset further off than the maximum, or a 429 that names no reset,
+fails at once exactly as it does without the flag.
+
+Either way the failure says when to come back. A 429 that named its reset carries `retry_after_secs` and `retry_at`
+beside a `wait-and-retry` `next_step`; one that did not carries none of the three. Read them rather than guessing a
+wait: see [output-envelope.md](output-envelope.md#next_step).
+
 ## Dry-run
 
 ```bash
@@ -198,6 +214,15 @@ passed:
 cat post.json | xr validate --schema post --output json
 cat post.json | xr validate - --schema post --output json
 xr validate ./post.json --schema post --output json
+```
+
+A secret goes in on stdin too. Each credential flag has a `-file` twin that reads a path, or stdin when the path is
+`-`: `--client-secret-file` (`auth apps add`, `auth apps update`), `--bearer-token-file` (`auth app`), and
+`--consumer-secret-file`, `--access-token-file`, `--token-secret-file` (`auth oauth1`). One trailing newline is
+dropped, and only one flag per command can take `-`.
+
+```bash
+op read 'op://<vault>/<item>/client_secret' | xr auth apps add my-app --client-id "$ID" --client-secret-file -
 ```
 
 ## Env-var precedence

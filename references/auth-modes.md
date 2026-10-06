@@ -13,7 +13,7 @@ file describes each path, when to use it, how to verify it, and how to recover w
 | OAuth2 PKCE (browser)  | `xr auth oauth2`                       | Desktop with a browser; user-scoped endpoints | All v2 user-scoped endpoints              |
 | OAuth2 PKCE (headless) | `xr auth oauth2 --no-browser --step …` | SSH / containers / CI                         | Same as above                             |
 | OAuth1 (HMAC-SHA1)     | `xr auth oauth1`                       | v1.1 + some v2 write paths                    | Legacy + a few v2 ops the API still gates |
-| Bearer (app-only)      | `xr auth app --bearer-token "$TOKEN"`  | Read-only v2 + search                         | Read-only v2 endpoints + search           |
+| Bearer (app-only)      | `xr auth app --bearer-token-file -`    | Read-only v2 + search                         | Read-only v2 endpoints + search           |
 
 The CLI picks per request:
 
@@ -86,8 +86,9 @@ xr whoami --output json 2>&1 >/dev/null      # the failure itself, carrying next
 
 Branch on `next_step.action`:
 
-- `register-app`: nothing is registered. `next_step.template` is `xr auth apps add <name> --client-id <client-id>
-  --client-secret <client-secret>`; ask the user for the values, never invent them.
+- `register-app`: nothing is registered. `next_step.template` is `<secret-command> | xr auth apps add <name>
+  --client-id <client-id> --client-secret-file -`, where `<secret-command>` is whatever prints the client secret (`op
+  read …`); ask the user for the values, never invent them.
 - `sign-in`: the app has client credentials but no token. `next_step.command` is the headless two-step form (`xr auth
   oauth2 --no-browser --step 1`); run it verbatim, then step 2.
 - `select-app`: another registered app is the one to use. `next_step.command` names it with `--app`; run verbatim.
@@ -107,6 +108,10 @@ xr auth oauth2
 
 `xr` opens the browser, the user grants scopes, the loopback callback finalizes the exchange, the access and refresh
 tokens land in `~/.xurl`. Done.
+
+The sign-in asks for every scope `xr` can use. `--scopes tweet.read,users.read` asks for those alone plus
+`offline.access`, which is always added so the login can refresh; on the headless flow the flag goes on step 1. A scope
+X does not define is `reason: "validation"`, exit `1`, with the valid names in `message`.
 
 If multiple apps are registered, `xr` uses the default app unless `--app <name>` is passed. Set the default with `xr
 auth default <name>` (or run `xr auth default` for an interactive picker).
@@ -140,8 +145,16 @@ user) when none does.
 ## OAuth1
 
 ```bash
-xr auth oauth1   # interactive prompt for consumer key + consumer secret + token + token secret
+op read 'op://<vault>/<item>/token_secret' | xr auth oauth1 \
+  --consumer-key "$CONSUMER_KEY" \
+  --consumer-secret-file consumer-secret.txt \
+  --access-token-file access-token.txt \
+  --token-secret-file -
 ```
+
+All four values are required; a bare `xr auth oauth1` is `invalid-args`, exit `2`, not a prompt. Each of the three
+secrets comes from its `-file` flag (a path, or `-` for stdin on one of them) or from the plain flag of the same name
+without `-file`.
 
 Required when a verb hits a v1.1 endpoint or one of the few v2 paths the API still gates behind OAuth1 (some media, some
 legacy read paths). Tokens persist in `~/.xurl` under the active app. The CLI auto-selects OAuth1 when the endpoint
@@ -150,25 +163,25 @@ requires it; pass `--auth oauth1` to force it.
 ## Bearer (app-only)
 
 ```bash
-xr auth app --bearer-token "$XURL_BEARER_TOKEN"
-# or:
+op read 'op://<vault>/<item>/bearer_token' | xr auth app --bearer-token-file -
+# or, without storing it:
 XURL_BEARER_TOKEN="$(op read op://...)" xr search "rustlang" --auth app
 ```
 
 For read-only v2 endpoints and search. Cannot post, like, follow, etc. A write verb against an app whose only credential
 is a Bearer answers `reason: "auth-method-mismatch"`, exit `2`, with `available_in_app: ["app"]` and the schemes the
 endpoint accepts in `supported`. Forcing `--auth app` on a read when no bearer is staged answers `reason:
-"auth-required"`, exit `77`, with no `next_step`: stage one with `xr auth app --bearer-token` or drop the flag.
+"auth-required"`, exit `77`, with no `next_step`: stage one with `xr auth app --bearer-token-file -` or drop the flag.
 
 ## Multi-app management
 
 ```bash
 # Register an app. Answers status: "ok" with a sign-in next_step.
-xr auth apps add my-app --client-id "$ID" --client-secret "$SECRET" --output json
+op read 'op://<vault>/<item>/client_secret' | xr auth apps add my-app --client-id "$ID" --client-secret-file - --output json
 
 # List, update, remove.
 xr auth apps list --output json | jaq -r '.apps[].name'
-xr auth apps update my-app --client-secret "$NEW_SECRET" --output json
+xr auth apps update my-app --client-secret-file new-client-secret.txt --output json
 xr auth apps remove my-app --force --output json      # --force skips the prompt; required without a TTY
 
 # Set default app for new shells.

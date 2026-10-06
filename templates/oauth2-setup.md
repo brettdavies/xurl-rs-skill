@@ -17,11 +17,16 @@ An empty store answers `"apps": []`.
 If the user has no apps registered (`"apps": []`), register one before authenticating:
 
 ```bash
-xr auth apps add <APP_NAME> \
+op read 'op://<vault>/<item>/client_secret' | xr auth apps add <APP_NAME> \
   --client-id "<CLIENT_ID>" \
-  --client-secret "<CLIENT_SECRET>" \
+  --client-secret-file - \
   --output json
 ```
+
+`--client-secret-file -` reads the secret from stdin, so it never reaches the argument list or the shell history; any
+command that prints the secret works in place of `op read`. `--client-secret-file <PATH>` reads a file. Either way a
+trailing newline is dropped. `--client-secret <VALUE>` still exists and conflicts with the file flag (`invalid-args`,
+exit `2`); a path that cannot be read is `reason: "io"`, exit `5`.
 
 The answer is a success envelope that already names the next command (the Branch B step 1 below, runnable verbatim):
 
@@ -35,11 +40,11 @@ The answer is a success envelope that already names the next command (the Branch
 ```
 
 A read verb run before any of this exits `77` with `reason: "auth-required"` and a `next_step` whose `action` is
-`register-app` and whose `template` is the `apps add` invocation above with angle-bracket placeholders. Ask the user for
-the values; never invent a client id or secret.
+`register-app` and whose `template` is that invocation with placeholders: `<secret-command> | xr auth apps add <name>
+--client-id <client-id> --client-secret-file -`. Ask the user for the values; never invent a client id or secret.
 
-> **Never paste `--client-secret` inline on a shared host.** Pull it from a secrets manager:
-> `--client-secret "$(op read op://<vault>/<item>/client_secret)"`
+> **Never put a secret in the argument list.** `--client-secret "$(op read …)"` still expands into argv, where `ps` and
+> the shell history can show it. Pipe it into the `-file -` flag as above.
 
 Set this app as default (so subsequent commands use it without `--app`):
 
@@ -53,8 +58,10 @@ xr auth default <APP_NAME>
 xr auth oauth2
 ```
 
-`xr` opens the browser; the user grants the scopes the app's developer-portal configuration requests; the loopback
-callback finalizes the exchange.
+`xr` opens the browser; the user grants the scopes; the loopback callback finalizes the exchange. The sign-in asks for
+every scope `xr` can use. To ask for less, name the scopes: `xr auth oauth2 --scopes tweet.read,users.read` requests
+those plus `offline.access`, which is always added so the login can refresh. A scope X does not define is `reason:
+"validation"`, exit `1`, and the message lists the valid ones.
 
 Optional shortcut: append the X username to skip the `/2/users/me` lookup at the end:
 
@@ -73,7 +80,8 @@ xr auth oauth2 --no-browser --step 1 --output json
 ```
 
 Under `--output text` this prints the URL to open. Under `--output json` it answers `{"status":"ok","auth_url":"…",
-"instructions":"…"}`; read `.auth_url`. Against an app with no client id it answers `reason:
+"instructions":"…"}`; read `.auth_url`. `--scopes` goes on this step (`--step 1 --scopes tweet.read,users.read`).
+Against an app with no client id it answers `reason:
 "client-credentials-missing"`, exit `2`, with a `select-app` `next_step` when another registered app does have one and a
 `register-app` `next_step` (a `template` to fill with the user's values) when none does.
 
@@ -117,22 +125,22 @@ stderr carries a `next_step` naming the fix; see the troubleshooting table.
 
 ## Troubleshooting
 
-| Symptom                                                              | Likely cause                                  | Fix                                                                                 |
-| -------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Exit `77`, `next_step.action: "register-app"`                        | No app registered                             | Run the Pre-flight `apps add` with real values from the user                        |
-| Exit `77`, `next_step.action: "sign-in"`                             | App registered, no token                      | Run `next_step.command` verbatim (Branch B step 1), then step 2                     |
-| Exit `77`, `next_step.action: "select-app"`                          | The credentials live on another app           | Run `next_step.command` verbatim; it names the app with `--app`                     |
-| Exit `77`, `next_step.action: "inspect-store"`                       | `~/.xurl` exists but could not be read        | `xr auth status` names the file; back it up, move it aside, re-run                  |
-| `reason: "auth-method-mismatch"`, exit `2`                           | Only a Bearer is staged, or `--auth` is wrong | Read `supported`; run the OAuth2 flow or drop the `--auth` flag                     |
-| `reason: "client-credentials-missing"` on step 1                     | Target app has no client id                   | Follow its `next_step`, or `apps update <APP_NAME> --client-id … --client-secret …` |
-| Browser opens to a redirect-uri mismatch error                       | Registered URI differs from `xr`'s            | `xr auth apps redirect-uri set <APP_NAME> <URI>` to match the portal                |
-| `reason: "auth-required"` after a successful flow, no `next_step`    | A scope the verb needs wasn't requested       | Re-grant the missing scope in the developer portal, re-run flow                     |
-| `reason: "forbidden"`, `next_step.action: "enroll-app"`              | X refused the app (403 naming enrollment)     | Open `next_step.docs`; the fix is in the developer portal                           |
-| `reason: "forbidden"`, no `next_step`                                | The token lacks a scope, or the tier the path | Read `message`; grant the scope in the portal and re-run the flow, or change tier   |
-| `broadcasts moderators …` exits `77` on a token that works elsewhere | Token predates the `broadcast.*` scopes       | Allow them in the portal, then re-run Branch A or B for that app                    |
-| `reason: "token-store"` from `auth status`                           | `~/.xurl` is corrupt or unreadable            | Back up `~/.xurl`, move it aside, re-run Pre-flight                                 |
-| Browser never opens (Branch A on a headless host)                    | Use Branch B                                  | `xr auth oauth2 --no-browser --step 1 / 2`                                          |
-| Step 2 fails with `invalid_grant`                                    | Code expired (typically ~60s after grant)     | Re-run Step 1, complete Step 2 promptly                                             |
+| Symptom                                                              | Likely cause                                  | Fix                                                                                      |
+| -------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Exit `77`, `next_step.action: "register-app"`                        | No app registered                             | Run the Pre-flight `apps add` with real values from the user                             |
+| Exit `77`, `next_step.action: "sign-in"`                             | App registered, no token                      | Run `next_step.command` verbatim (Branch B step 1), then step 2                          |
+| Exit `77`, `next_step.action: "select-app"`                          | The credentials live on another app           | Run `next_step.command` verbatim; it names the app with `--app`                          |
+| Exit `77`, `next_step.action: "inspect-store"`                       | `~/.xurl` exists but could not be read        | `xr auth status` names the file; back it up, move it aside, re-run                       |
+| `reason: "auth-method-mismatch"`, exit `2`                           | Only a Bearer is staged, or `--auth` is wrong | Read `supported`; run the OAuth2 flow or drop the `--auth` flag                          |
+| `reason: "client-credentials-missing"` on step 1                     | Target app has no client id                   | Follow its `next_step`, or `apps update <APP_NAME> --client-id … --client-secret-file -` |
+| Browser opens to a redirect-uri mismatch error                       | Registered URI differs from `xr`'s            | `xr auth apps redirect-uri set <APP_NAME> <URI>` to match the portal                     |
+| `reason: "auth-required"` after a successful flow, no `next_step`    | A scope the verb needs wasn't requested       | Re-grant the missing scope in the developer portal, re-run flow                          |
+| `reason: "forbidden"`, `next_step.action: "enroll-app"`              | X refused the app (403 naming enrollment)     | Open `next_step.docs`; the fix is in the developer portal                                |
+| `reason: "forbidden"`, no `next_step`                                | The token lacks a scope, or the tier the path | Read `message`; grant the scope in the portal and re-run the flow, or change tier        |
+| `broadcasts moderators …` exits `77` on a token that works elsewhere | Token predates the `broadcast.*` scopes       | Allow them in the portal, then re-run Branch A or B for that app                         |
+| `reason: "token-store"` from `auth status`                           | `~/.xurl` is corrupt or unreadable            | Back up `~/.xurl`, move it aside, re-run Pre-flight                                      |
+| Browser never opens (Branch A on a headless host)                    | Use Branch B                                  | `xr auth oauth2 --no-browser --step 1 / 2`                                               |
+| Step 2 fails with `invalid_grant`                                    | Code expired (typically ~60s after grant)     | Re-run Step 1, complete Step 2 promptly                                                  |
 
 ## Multi-user on the same app
 
@@ -151,8 +159,10 @@ xr --username <USERNAME_B> whoami       # one-off override (-u for short)
 For read-only v2 + search, you can stage a Bearer token without OAuth2:
 
 ```bash
-xr auth app --bearer-token "$XURL_BEARER_TOKEN"
+op read 'op://<vault>/<item>/bearer_token' | xr auth app --bearer-token-file -
 xr search "rustlang" --auth app --output json
 ```
+
+`printenv XURL_BEARER_TOKEN | xr auth app --bearer-token-file -` stores one that is already in the environment.
 
 This does NOT enable posting, liking, following, DMs, or any other user-scoped verb.

@@ -41,9 +41,7 @@ override both, because the defaults will reject your upload.
 The authoritative catalog of categories changes occasionally; verify at
 <https://docs.x.com/x-api/media/quickstart/media-upload-chunked.md> when in doubt.
 
-## Upload, synchronous (image, short video)
-
-For files small enough that processing completes in seconds, no polling needed:
+## Upload (image, GIF, video)
 
 ```bash
 RESP=$(xr media upload <FILE> \
@@ -51,37 +49,65 @@ RESP=$(xr media upload <FILE> \
   --category <CATEGORY> \
   --output json)
 
-MEDIA_ID=$(printf '%s' "$RESP" | jaq -r '.data.id')
+MEDIA_ID=$(printf '%s' "$RESP" | jaq -rs '.[0].data.id')
 echo "Uploaded: $MEDIA_ID"
 ```
 
 The answer is the API document (no `status` key): `data.id` is the media id to thread into `--media-id`, beside
 `data.media_key` and `data.expires_after_secs`; `xr schema` has no `media-upload` entry, so read the fields from a live
-call rather than a schema.
+call rather than a schema. A video upload prints a second document after it (next section), which is why the id is read
+from the first with `jaq -s`.
 
-## Upload with `--wait` for processing (long video, GIF)
+## The wait for processing (video)
 
-Videos and animated GIFs need server-side processing after upload. Pass `--wait` to block until processing finishes (or
-fails) before returning:
+A video needs server-side processing before a post can carry it. For a category whose name contains `video`
+(`tweet_video`, `amplify_video`, `dm_video`), `xr media upload` waits for that by default, then prints the final status
+as a second document on stdout:
 
 ```bash
-xr media upload ./clip.mp4 \
-  --media-type video/mp4 \
-  --category tweet_video \
-  --wait \
-  --output json
+xr media upload ./clip.mp4 --media-type video/mp4 --category tweet_video --output json
 ```
 
-The returned envelope's `data.processing_info.state` will be `succeeded` (good) or `failed` (the envelope's
-`data.processing_info.error` will name the problem).
+In that second document `data.processing_info.state` is `succeeded` (good) or `failed` (`data.processing_info.error`
+names the problem).
+
+| Form            | What it does                                                          |
+| --------------- | --------------------------------------------------------------------- |
+| no flag         | Waits up to the default deadline (`xr media upload --help` states it) |
+| `--wait=<SECS>` | Waits up to that many seconds                                         |
+| `--wait=false`  | Returns after FINALIZE with the one document; `--wait=0` is the same  |
+| `--wait 120`    | `invalid-args`, exit `2`: the value follows `=`                       |
+
+A wait that reaches its deadline exits `1` with `reason: "processing-timeout"`. The upload is intact: stdout still
+carries the FINALIZE document, and the envelope on stderr names the media id and the command that waits again for twice
+as long. After `--wait=30`:
+
+```json
+{
+  "status": "error",
+  "reason": "processing-timeout",
+  "exit_code": 1,
+  "media_id": "<MEDIA_ID>",
+  "message": "media <MEDIA_ID> was still processing when the 30-second wait ended",
+  "next_step": { "action": "resume-wait", "command": "xr media status <MEDIA_ID> --wait=60" }
+}
+```
+
+Run `next_step.command` as given (append `--output json` to read its answer); do not upload the file again. Each
+timeout doubles the wait its command names.
+
+The upload does not wait for a GIF or an image. For a GIF that needs processing, wait on the status verb: `xr media
+status <MEDIA_ID> --wait`.
 
 ## Polling explicitly
 
-If you don't want `xr media upload --wait` to block your shell, poll the status verb later. `xr media status <id>
---wait` blocks until processing finishes; the manual loop below is for when you need per-poll control:
+`xr media status <id>` reads the status once and exits `0` while the job is still processing. `xr media status <id>
+--wait` (or `--wait=<SECS>`) blocks until processing finishes or its deadline passes, with the same
+`processing-timeout` envelope. To upload without blocking and poll yourself, pass `--wait=false`; the manual loop below
+is for when you need per-poll control:
 
 ```bash
-MEDIA_ID=$(xr media upload ./clip.mp4 --media-type video/mp4 --category tweet_video --output json | jaq -r '.data.id')
+MEDIA_ID=$(xr media upload ./clip.mp4 --media-type video/mp4 --category tweet_video --wait=false --output json | jaq -r '.data.id')
 
 while true; do
   STATUS=$(xr media status "$MEDIA_ID" --output json | jaq -r '.data.processing_info.state // "succeeded"')
@@ -199,21 +225,22 @@ X enforces per-post attachment limits (typically up to 4 images, or 1 video, or 
 
 ## Errors and retries
 
-| Symptom                               | Likely cause                                                 | Fix                                                                 |
-| ------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------- |
-| `reason: "auth-method-mismatch"`      | Bearer-only is staged; need OAuth1 / OAuth2                  | Re-auth with [oauth2-setup.md](oauth2-setup.md)                     |
-| `reason: "auth-required"`, exit `77`  | No credential staged at all                                  | Follow the envelope's `next_step`                                   |
-| `reason: "io"`, exit `5`              | The file path does not exist or is unreadable                | Fix the path; `--dry-run` does not catch this                       |
-| `reason: "network-error"`, exit `5`   | No answer from X (DNS, TCP, TLS, timeout); same exit as `io` | Branch on `reason`, not the exit code; retry once, bump `--timeout` |
-| `reason: "invalid-request"`, exit `1` | X rejected the INIT or FINALIZE body (400 / 422)             | Read `message`; fix `--media-type` / `--category` for the file      |
-| `reason: "invalid-args"`, exit `2`    | A flag was mistyped (`--wait false`, an unknown option)      | `xr media upload --help`; `--wait` takes no value                   |
-| Upload succeeds; `processing failed`  | File doesn't meet X's spec (size, codec, duration)           | Inspect `processing_info.error`; transcode if needed                |
-| `reason: "rate-limited"`              | Per-user media cap hit                                       | `xr usage --output json`; wait until reset                          |
-| Attach to post fails after upload     | `media_id` not yet ready                                     | Use `--wait` on upload OR poll `xr media status` until success      |
-| Repeated retries for same file        | Network truncation; retry doesn't resume the same upload     | New upload starts a new `media_id`; chain through the new id        |
-| Preflight `would_succeed: false`      | An input check failed; `reason` names it                     | Fix the id, the text, or `--language`; see the two sections above   |
-| `reason: "validation"`, exit `1`      | The same input check on a live `alt-text` / `subtitles` call | `message` names the check; no request was sent                      |
-| `invalid-args` on `media subtitles`   | `--category` outside the two values, or no `--language`      | `--category amplify_video` or `tweet_video`; pass `--language xx`   |
+| Symptom                                  | Likely cause                                                         | Fix                                                                                 |
+| ---------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `reason: "auth-method-mismatch"`         | Bearer-only is staged; need OAuth1 / OAuth2                          | Re-auth with [oauth2-setup.md](oauth2-setup.md)                                     |
+| `reason: "auth-required"`, exit `77`     | No credential staged at all                                          | Follow the envelope's `next_step`                                                   |
+| `reason: "io"`, exit `5`                 | The file path does not exist or is unreadable                        | Fix the path; `--dry-run` does not catch this                                       |
+| `reason: "network-error"`, exit `5`      | No answer from X (DNS, TCP, TLS, timeout); same exit as `io`         | Branch on `reason`, not the exit code; retry once, bump `--timeout`                 |
+| `reason: "invalid-request"`, exit `1`    | X rejected the INIT or FINALIZE body (400 / 422)                     | Read `message`; fix `--media-type` / `--category` for the file                      |
+| `reason: "invalid-args"`, exit `2`       | A flag was mistyped (`--wait false`, an unknown option)              | `xr media upload --help`; a `--wait` value follows `=`                              |
+| `reason: "processing-timeout"`, exit `1` | The wait ended with the video still processing; the upload is intact | Run `next_step.command`; it waits twice as long                                     |
+| Upload succeeds; `processing failed`     | File doesn't meet X's spec (size, codec, duration)                   | Inspect `processing_info.error`; transcode if needed                                |
+| `reason: "rate-limited"`                 | Per-user media cap hit                                               | Wait `retry_after_secs` when the envelope carries it; else `xr usage --output json` |
+| Attach to post fails after upload        | `media_id` not yet ready                                             | Let the upload's wait finish, or `xr media status <id> --wait`                      |
+| Repeated retries for same file           | Network truncation; retry doesn't resume the same upload             | New upload starts a new `media_id`; chain through the new id                        |
+| Preflight `would_succeed: false`         | An input check failed; `reason` names it                             | Fix the id, the text, or `--language`; see the two sections above                   |
+| `reason: "validation"`, exit `1`         | The same input check on a live `alt-text` / `subtitles` call         | `message` names the check; no request was sent                                      |
+| `invalid-args` on `media subtitles`      | `--category` outside the two values, or no `--language`              | `--category amplify_video` or `tweet_video`; pass `--language xx`                   |
 
 ## Cleanup
 
