@@ -139,6 +139,10 @@ check "unknown flag: invalid-args envelope; invalid-args message: no error: pref
   -- "$X" post hi --bogus --output json
 check "missing positional: invalid-args envelope" 2 err.json .reason invalid-args -- "$X" post --output json
 check "media upload --wait false: invalid-args" 2 err.json .reason invalid-args -- "$X" media upload ./x.png --wait false --output json
+check "media upload --wait=false: accepted" 0 out.json .would_succeed true -- "$X" media upload ./nope.png --wait=false --dry-run --output json
+check "media upload --wait=0: accepted" 0 out.json .would_succeed true -- "$X" media upload ./nope.png --wait=0 --dry-run --output json
+check "media upload --wait=120: accepted" 0 out.json .would_succeed true -- "$X" media upload ./nope.png --wait=120 --dry-run --output json
+check "media status --wait false: invalid-args" 2 err.json .reason invalid-args -- "$X" media status 1 --wait false --output json
 check "media upload bearer-only: auth-method-mismatch" 2 err.json .available_in_app '["app"]' -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" media upload "$WORK/tiny.png" --output json
 check "unknown command: suggestion; show-help next_step; help of the nearest command" 2 \
   err.json .suggestion whoami \
@@ -169,6 +173,30 @@ check "oauth2 step 1, no app: client-credentials-missing; register-app" 2 \
   err.json .reason client-credentials-missing \
   err.json .next_step.action register-app \
   -- "$X" auth oauth2 --no-browser --step 1 --output json
+check "oauth2 step 1 --scopes: the subset plus offline.access" 0 \
+  out.json '.auth_url | contains("scope=tweet.read+users.read+offline.access")' true \
+  -- env XURL_TOKEN_STORE="$WORK/creds.yaml" "$X" auth oauth2 --no-browser --step 1 --scopes tweet.read,users.read --output json
+check "oauth2 step 1 --scopes: unknown scope is validation" 1 \
+  err.json .reason validation \
+  err.json '.message | contains("Valid scopes:")' true \
+  -- env XURL_TOKEN_STORE="$WORK/creds.yaml" "$X" auth oauth2 --no-browser --step 1 --scopes nope.read --output json
+check "apps add --client-secret-file -: stdin; sign-in next" 0 \
+  out.json .next_step.action sign-in \
+  -- bash -c "printf 's3cret\n' | XURL_TOKEN_STORE='$WORK/secrets.yaml' '$X' auth apps add my-app --client-id abcdefgh12345 --client-secret-file - --output json"
+check "apps add --client-secret-file -: the secret is stored without its newline" 0 out 'client_secret: s3cret' -- cat "$WORK/secrets.yaml"
+printf 'rotated\n' >"$WORK/client-secret.txt"
+check "apps update --client-secret-file PATH" 0 out.json .status ok -- env XURL_TOKEN_STORE="$WORK/secrets.yaml" "$X" auth apps update my-app --client-secret-file "$WORK/client-secret.txt" --output json
+check "apps update --client-secret-file PATH: stored" 0 out 'client_secret: rotated' -- cat "$WORK/secrets.yaml"
+check "--client-secret with --client-secret-file: invalid-args" 2 err.json .reason invalid-args -- env XURL_TOKEN_STORE="$WORK/secrets.yaml" "$X" auth apps add other --client-id x --client-secret y --client-secret-file "$WORK/client-secret.txt" --output json
+check "--client-secret-file missing: io exit 5" 5 err.json .reason io -- env XURL_TOKEN_STORE="$WORK/secrets.yaml" "$X" auth apps add other --client-id x --client-secret-file "$WORK/absent.txt" --output json
+check "auth app --bearer-token-file -: stdin" 0 out.json .status ok -- bash -c "printf 'filebearer\n' | XURL_TOKEN_STORE='$WORK/secrets.yaml' '$X' auth app --bearer-token-file - --output json"
+check "auth app --bearer-token-file -: stored" 0 out 'bearer: filebearer' -- cat "$WORK/secrets.yaml"
+printf 'cs\n' >"$WORK/consumer-secret.txt"
+printf 'at\n' >"$WORK/access-token.txt"
+check "auth oauth1: three secrets from files, one of them stdin" 0 \
+  out.json '.message | contains("saved")' true \
+  -- bash -c "printf 'ts\n' | XURL_TOKEN_STORE='$WORK/secrets.yaml' '$X' auth oauth1 --consumer-key ck --consumer-secret-file '$WORK/consumer-secret.txt' --access-token-file '$WORK/access-token.txt' --token-secret-file - --output json"
+check "auth oauth1 from files: stored" 0 out 'token_secret: ts' out 'consumer_secret: cs' out 'access_token: at' -- cat "$WORK/secrets.yaml"
 check "auth clear without selector: validation" 1 err.json .reason validation -- "$X" auth clear --output json
 check "skill install no host: error on STDOUT; known_hosts" 2 \
   out.json .reason missing-host \
@@ -391,10 +419,44 @@ check "post: 201 body; typed post: edit_history_post_ids; typed post: no legacy 
 check "block: lookup then POST /blocking" 0 log '"path": "/2/users/42/blocking"' -- "$X" block @spammer --output json
 check "unblock: DELETE /blocking/<target>" 0 log '/2/users/42/blocking/7' -- "$X" unblock spammer --output json
 check "delete --force: DELETE /2/tweets/<id>" 0 log '"path": "/2/tweets/123"' -- "$X" delete 123 --force --output json
-check "HTTP 429: rate-limited exit 3; no next_step" 3 \
+check "HTTP 429, no reset named: rate-limited exit 3; no next_step, no retry keys" 3 \
   err.json .reason rate-limited \
   err.json 'has("next_step")' false \
+  err.json 'has("retry_after_secs")' false \
+  err.json 'has("retry_at")' false \
   -- "$X" /2/ratelimit --output json
+check "HTTP 429 naming its reset: retry keys; wait-and-retry with docs and no command" 3 \
+  err.json .reason rate-limited \
+  err.json '.retry_after_secs > 0 and .retry_after_secs <= 600' true \
+  err.json '.retry_at | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")' true \
+  err.json .next_step.action wait-and-retry \
+  err.json '.next_step.docs | startswith("https://")' true \
+  err.json '.next_step | has("command")' false \
+  -- "$X" /2/ratelimitreset --output json
+check "HTTP 429 naming its reset, text: one retry line on stderr" 3 err 'Rate limited. Retry in ' -- "$X" /2/ratelimitreset
+check "--wait-on-rate-limit: waits out a near reset and retries once" 0 \
+  out.json .meta.result_count 1 \
+  -- "$X" --wait-on-rate-limit /2/ratelimitonce/flag --output json
+check "--wait-on-rate-limit: the request went out twice" 0 out 2 -- bash -c "'$X' --wait-on-rate-limit /2/ratelimitonce/count --output json >/dev/null && grep -c ratelimitonce/count '$REQUEST_LOG'"
+check "XURL_WAIT_ON_RATE_LIMIT=1: same" 0 out.json .meta.result_count 1 -- env XURL_WAIT_ON_RATE_LIMIT=1 "$X" /2/ratelimitonce/env --output json
+check "--wait-on-rate-limit: a reset past --rate-limit-max-wait fails at once" 3 \
+  err.json .next_step.action wait-and-retry \
+  -- "$X" --wait-on-rate-limit /2/ratelimitreset --output json
+check "--rate-limit-max-wait 0: no wait fits" 3 err.json .reason rate-limited -- "$X" --wait-on-rate-limit --rate-limit-max-wait 0 /2/ratelimitonce/nowait --output json
+check "--wait-on-rate-limit: a 429 naming no reset fails at once" 3 err.json 'has("next_step")' false -- "$X" --wait-on-rate-limit /2/ratelimit --output json
+check "media status: one read, processing state" 0 out.json .data.processing_info.state succeeded -- "$X" media status 123 --output json
+check "media status: still processing reads as success" 0 out.json .data.processing_info.check_after_secs 1 -- "$X" media status 9001 --output json
+check "media status --wait=1 past its deadline: processing-timeout; resume-wait for twice as long" 1 \
+  err.json .reason processing-timeout \
+  err.json .media_id 9001 \
+  err.json .next_step.action resume-wait \
+  err.json .next_step.command 'xr media status 9001 --wait=2' \
+  -- "$X" media status 9001 --wait=1 --output json
+check "processing-timeout, text: the resume command on stderr" 1 err 'Run: xr media status 9001 --wait=2' -- "$X" media status 9001 --wait=1
+check "the resume-wait command runs as given, and doubles again" 1 \
+  err.json .next_step.command 'xr media status 9001 --wait=4' \
+  -- bash -c "cmd=\$('$X' media status 9001 --wait=1 --output json 2>&1 >/dev/null | '$CONTRACT_JQ' -r .next_step.command); '$X' \${cmd#xr } --output json"
+check "media status --wait: a finished job returns it" 0 out.json .data.processing_info.state succeeded -- "$X" media status 123 --wait --output json
 check "HTTP 404: not-found exit 4" 4 err.json .reason not-found -- "$X" /2/missing --output json
 check "HTTP 401: auth-required exit 77; no next_step" 77 \
   err.json .reason auth-required \

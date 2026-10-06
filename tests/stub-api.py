@@ -12,6 +12,7 @@ Usage: python3 -B tests/stub-api.py <port> <log-file>
 import json
 import re
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = int(sys.argv[1])
@@ -31,6 +32,15 @@ LEGACY_POST_KEYS = {"edit_history_tweet_ids": ["777"], "public_metrics": {"retwe
 SINGLE_POST = re.compile(r"^/2/tweets/(\d+)(\?|$)")
 BY_USERNAME = re.compile(r"^/2/users/by/username/([^/?]+)")
 PAGINATION_TOKEN = re.compile(r"pagination_token=T(\d+)")
+MEDIA_STATUS = re.compile(r"^/2/media/upload\?.*media_id=(\d+)")
+# A media id whose processing never finishes, for the wait deadline.
+STUCK_MEDIA_ID = "9001"
+# Seconds until the reset a 429 names: far enough out that a default wait
+# does not fit one, and near enough that `ratelimitonce` is waited out.
+RESET_FAR_SECS = 600
+RESET_NEAR_SECS = 1
+
+LIMITED_ONCE = set()
 
 STATUS_BY_SEGMENT = {
     "ratelimit": (429, "Too Many Requests"),
@@ -52,15 +62,34 @@ class Handler(BaseHTTPRequestHandler):
             if body:
                 log.write("body: " + body.replace("\n", " ") + "\n")
 
-    def _reply(self, obj, status=200):
+    def _reply(self, obj, status=200, headers=None):
         data = json.dumps(obj).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
+        for name, value in (headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(data)
 
+    def _rate_limited(self, reset_in_secs):
+        reset = str(int(time.time()) + reset_in_secs)
+        body = {"title": "Too Many Requests", "status": 429, "detail": "ratelimit"}
+        self._reply(body, 429, {"x-rate-limit-reset": reset})
+
     def _refusal(self):
+        # `ratelimitreset` names its reset on every request; `ratelimitonce`
+        # names a near one on the first request for a path and answers the
+        # second, which is what a single retry needs to see.
+        if "ratelimitreset" in self.path:
+            self._rate_limited(RESET_FAR_SECS)
+            return True
+        if "ratelimitonce" in self.path:
+            if self.path in LIMITED_ONCE:
+                return False
+            LIMITED_ONCE.add(self.path)
+            self._rate_limited(RESET_NEAR_SECS)
+            return True
         for segment, (status, title) in STATUS_BY_SEGMENT.items():
             if segment in self.path:
                 self._reply({"title": title, "status": status, "detail": segment}, status)
@@ -85,10 +114,20 @@ class Handler(BaseHTTPRequestHandler):
         match = BY_USERNAME.match(path)
         if match:
             return self._reply({"data": {"id": "7", "username": match.group(1), "name": "U"}})
+        match = MEDIA_STATUS.match(path)
+        if match:
+            return self._reply({"data": self._media_status(match.group(1))})
         match = SINGLE_POST.match(path)
         if match:
             return self._reply({"data": {"id": match.group(1), "text": "hi", **LEGACY_POST_KEYS}})
         return self._reply(self._list_page())
+
+    def _media_status(self, media_id):
+        if media_id == STUCK_MEDIA_ID:
+            info = {"state": "in_progress", "check_after_secs": 1, "progress_percent": 50}
+        else:
+            info = {"state": "succeeded", "progress_percent": 100}
+        return {"id": media_id, "media_key": "7_" + media_id, "processing_info": info}
 
     def _list_page(self):
         # The token advances per page the way X's does, so a verb that
