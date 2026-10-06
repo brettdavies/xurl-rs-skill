@@ -56,65 +56,8 @@ REQUEST_LOG="$WORK/requests.log"
 
 # --- Scaffolding -----------------------------------------------------------
 
-_stdout=""
-_stderr=""
-_exit=0
-
-run() {
-  local stderr_file="$WORK/stderr"
-  _stdout=$("$@" 2>"$stderr_file" </dev/null) && _exit=0 || _exit=$?
-  _stderr=$(cat "$stderr_file")
-}
-
-# check LABEL EXPECTED_EXIT STREAM NEEDLE [STREAM NEEDLE]... -- cmd...
-#   Runs cmd once and asserts its exit code and every STREAM/NEEDLE pair.
-#   STREAM is out, err, or log (the stub request log). NEEDLE is a fixed
-#   string that must appear there; prefix it with '!' to require absence.
-check() {
-  local label=$1 want_exit=$2
-  shift 2
-  local pairs=()
-  while [ $# -gt 0 ] && [ "$1" != "--" ]; do
-    pairs+=("$1" "$2")
-    shift 2
-  done
-  shift
-  : >"$REQUEST_LOG"
-  run "$@"
-  local ok=1 i stream needle hay
-  if [ "$_exit" != "$want_exit" ]; then
-    printf '    expected exit %s, got %s\n' "$want_exit" "$_exit" >&2
-    ok=0
-  fi
-  for ((i = 0; i < ${#pairs[@]}; i += 2)); do
-    stream=${pairs[i]}
-    needle=${pairs[i + 1]}
-    ASSERTIONS=$((ASSERTIONS + 1))
-    case "$stream" in
-      out) hay=$_stdout ;;
-      err) hay=$_stderr ;;
-      log) hay=$(cat "$REQUEST_LOG" 2>/dev/null) ;;
-    esac
-    if [ "${needle#!}" != "$needle" ]; then
-      if grep -qF -- "${needle#!}" <<<"$hay"; then
-        printf '    %s unexpectedly contains: %s\n' "$stream" "${needle#!}" >&2
-        ok=0
-      fi
-    elif ! grep -qF -- "$needle" <<<"$hay"; then
-      printf '    %s missing: %s\n' "$stream" "$needle" >&2
-      ok=0
-    fi
-  done
-  if [ "$ok" = 1 ]; then
-    PASSED=$((PASSED + 1))
-    printf 'PASS %s\n' "$label"
-  else
-    FAILED=$((FAILED + 1))
-    printf 'FAIL %s\n' "$label"
-    printf '    stdout: %s\n' "$(head -c 300 <<<"$_stdout" | tr '\n' ' ')" >&2
-    printf '    stderr: %s\n' "$(head -c 300 <<<"$_stderr" | tr '\n' ' ')" >&2
-  fi
-}
+# shellcheck source=contract-lib.sh disable=SC1091
+. "$ROOT/tests/contract-lib.sh"
 
 # --- Group 1: empty store, closed port (every failure path) ---------------
 
@@ -358,6 +301,8 @@ export API_BASE_URL="http://127.0.0.1:$STUB_PORT"
 PYTHONDONTWRITEBYTECODE=1 python3 -B "$ROOT/tests/stub-api.py" "$STUB_PORT" "$REQUEST_LOG" &
 STUB_PID=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do
+  # `run`, in contract-lib.sh, sets _exit.
+  # shellcheck disable=SC2154
   if run "$X" whoami --output json && [ "$_exit" = 0 ]; then break; fi
   sleep 0.3
 done
