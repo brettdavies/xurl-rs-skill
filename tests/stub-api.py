@@ -32,13 +32,18 @@ LEGACY_POST_KEYS = {"edit_history_tweet_ids": ["777"], "public_metrics": {"retwe
 SINGLE_POST = re.compile(r"^/2/tweets/(\d+)(\?|$)")
 BY_USERNAME = re.compile(r"^/2/users/by/username/([^/?]+)")
 PAGINATION_TOKEN = re.compile(r"pagination_token=T(\d+)")
-MEDIA_STATUS = re.compile(r"^/2/media/upload\?.*media_id=(\d+)")
-# A media id whose processing never finishes, for the wait deadline.
+MEDIA_STATUS = re.compile(r"^/2/media/upload\?.*media_id=([^&]+)")
+MEDIA_PHASE = re.compile(r"^/2/media/upload/([^/]+)/(append|finalize)")
+# A media id whose processing never finishes, for the wait deadline. An
+# upload in the DM video category is given it.
 STUCK_MEDIA_ID = "9001"
+STUCK_CATEGORY = '"dm_video"'
 # Seconds until the reset a 429 names: far enough out that a default wait
-# does not fit one, and near enough that `ratelimitonce` is waited out.
+# does not fit one, near enough that `ratelimitonce` is waited out, and
+# already behind the clock for `ratelimitpast`.
 RESET_FAR_SECS = 600
 RESET_NEAR_SECS = 1
+RESET_PAST_SECS = -5
 
 LIMITED_ONCE = set()
 
@@ -83,6 +88,9 @@ class Handler(BaseHTTPRequestHandler):
         # second, which is what a single retry needs to see.
         if "ratelimitreset" in self.path:
             self._rate_limited(RESET_FAR_SECS)
+            return True
+        if "ratelimitpast" in self.path:
+            self._rate_limited(RESET_PAST_SECS)
             return True
         if "ratelimitonce" in self.path:
             if self.path in LIMITED_ONCE:
@@ -141,7 +149,8 @@ class Handler(BaseHTTPRequestHandler):
         return self.rfile.read(length).decode(errors="replace") if length else ""
 
     def do_POST(self):
-        self._record(self._body())
+        body = self._body()
+        self._record(body)
         if self._refusal():
             return None
         if self.path.startswith("/2/media/metadata"):
@@ -149,7 +158,12 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.startswith("/2/media/subtitles"):
             return self._reply({"data": SUBTITLES})
         if self.path.startswith("/2/media/upload"):
-            return self._reply({"data": {"id": "m1", "media_key": "3_m1", "expires_after_secs": 3600}})
+            phase = MEDIA_PHASE.match(self.path)
+            if phase:
+                media_id = phase.group(1)
+            else:
+                media_id = STUCK_MEDIA_ID if STUCK_CATEGORY in body else "m1"
+            return self._reply({"data": {"id": media_id, "media_key": "3_" + media_id, "expires_after_secs": 3600}})
         if self.path.startswith("/2/tweets"):
             return self._reply({"data": {"id": "777", "text": "posted", **LEGACY_POST_KEYS}}, 201)
         return self._reply(

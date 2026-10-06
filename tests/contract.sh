@@ -97,6 +97,7 @@ check "auth apps list: apps wrapper" 0 out.json .apps '[]' -- "$X" auth apps lis
 check "whoami: 77 on stderr; register-app template; nothing on stdout" 77 \
   err.json .reason auth-required \
   err.json .next_step.action register-app \
+  err.json .next_step.template '<secret-command> | xr auth apps add <name> --client-id <client-id> --client-secret-file -' \
   out.shape empty \
   -- "$X" whoami --output json
 check "post --dry-run: dry_run envelope; would_succeed; no creds needed" 0 \
@@ -155,8 +156,11 @@ check "unknown top-level word, nothing close: root help" 2 err.json .next_step.c
 check "<typo> --help: unknown-command, exit 2" 2 err.json .reason unknown-command -- "$X" whoam --help --output json
 check "<typo> -V: unknown-command, exit 2" 2 err.json .reason unknown-command -- "$X" whoam -V --output json
 check "help --help: the help page, exit 0" 0 out 'Print this message or the help' -- "$X" help --help
-check "schema --envelope: show-help declared; next_step declared; enroll-app" 0 \
+check "schema --envelope: the eight actions; next_step and the retry keys declared" 0 \
   out.json '[.. | objects | .const? // empty] | index("show-help") != null' true \
+  out.json '[.. | objects | .const? // empty] - ["ok", "dry_run", "error"] | unique | length' 8 \
+  out.json '[.. | objects | .const? // empty] | (index("resume-wait") != null) and (index("wait-and-retry") != null)' true \
+  out.json '[.. | objects | .properties? // empty | has("retry_after_secs") and has("retry_at") and has("media_id")] | any' true \
   out.json '[.oneOf[].properties | has("next_step")] | any' true \
   out.json '[.. | objects | .const? // empty] | index("enroll-app") != null' true \
   -- "$X" schema --envelope --output json
@@ -193,9 +197,13 @@ check "auth app --bearer-token-file -: stdin" 0 out.json .status ok -- bash -c "
 check "auth app --bearer-token-file -: stored" 0 out 'bearer: filebearer' -- cat "$WORK/secrets.yaml"
 printf 'cs\n' >"$WORK/consumer-secret.txt"
 printf 'at\n' >"$WORK/access-token.txt"
+check "auth oauth1 bare: invalid-args, no prompt" 2 err.json .reason invalid-args -- "$X" auth oauth1 --output json
 check "auth oauth1: three secrets from files, one of them stdin" 0 \
   out.json '.message | contains("saved")' true \
   -- bash -c "printf 'ts\n' | XURL_TOKEN_STORE='$WORK/secrets.yaml' '$X' auth oauth1 --consumer-key ck --consumer-secret-file '$WORK/consumer-secret.txt' --access-token-file '$WORK/access-token.txt' --token-secret-file - --output json"
+check "two -file flags on stdin: invalid-args" 2 \
+  err.json .reason invalid-args \
+  -- bash -c "printf 'x\n' | XURL_TOKEN_STORE='$WORK/secrets.yaml' '$X' auth oauth1 --consumer-key ck --consumer-secret-file - --access-token-file - --token-secret-file '$WORK/access-token.txt' --output json"
 check "auth oauth1 from files: stored" 0 out 'token_secret: ts' out 'consumer_secret: cs' out 'access_token: at' -- cat "$WORK/secrets.yaml"
 check "auth clear without selector: validation" 1 err.json .reason validation -- "$X" auth clear --output json
 check "skill install no host: error on STDOUT; known_hosts" 2 \
@@ -434,8 +442,10 @@ check "HTTP 429 naming its reset: retry keys; wait-and-retry with docs and no co
   err.json '.next_step | has("command")' false \
   -- "$X" /2/ratelimitreset --output json
 check "HTTP 429 naming its reset, text: one retry line on stderr" 3 err 'Rate limited. Retry in ' -- "$X" /2/ratelimitreset
-check "--wait-on-rate-limit: waits out a near reset and retries once" 0 \
+check "HTTP 429 whose reset has passed: retry_after_secs is 0" 3 err.json .retry_after_secs 0 -- "$X" /2/ratelimitpast --output json
+check "--wait-on-rate-limit: waits out a near reset and retries once, silently" 0 \
   out.json .meta.result_count 1 \
+  err.shape empty \
   -- "$X" --wait-on-rate-limit /2/ratelimitonce/flag --output json
 check "--wait-on-rate-limit: the request went out twice" 0 out 2 -- bash -c "'$X' --wait-on-rate-limit /2/ratelimitonce/count --output json >/dev/null && grep -c ratelimitonce/count '$REQUEST_LOG'"
 check "XURL_WAIT_ON_RATE_LIMIT=1: same" 0 out.json .meta.result_count 1 -- env XURL_WAIT_ON_RATE_LIMIT=1 "$X" /2/ratelimitonce/env --output json
@@ -457,6 +467,26 @@ check "the resume-wait command runs as given, and doubles again" 1 \
   err.json .next_step.command 'xr media status 9001 --wait=4' \
   -- bash -c "cmd=\$('$X' media status 9001 --wait=1 --output json 2>&1 >/dev/null | '$CONTRACT_JQ' -r .next_step.command); '$X' \${cmd#xr } --output json"
 check "media status --wait: a finished job returns it" 0 out.json .data.processing_info.state succeeded -- "$X" media status 123 --wait --output json
+printf x >"$WORK/tiny.mp4"
+printf x >"$WORK/tiny.gif"
+check "media upload video: waits by default; FINALIZE document, then the final status" 0 \
+  out '[2,"m1","succeeded"]' \
+  -- bash -c "'$X' media upload '$WORK/tiny.mp4' --media-type video/mp4 --category tweet_video --output json | '$CONTRACT_JQ' -sc '[length, .[0].data.id, .[1].data.processing_info.state]'"
+check "media upload video --wait=1 past its deadline: FINALIZE document on stdout; processing-timeout on stderr" 1 \
+  out.json .data.id 9001 \
+  err.json .reason processing-timeout \
+  err.json .media_id 9001 \
+  err.json .next_step.command 'xr media status 9001 --wait=2' \
+  -- "$X" media upload "$WORK/tiny.mp4" --media-type video/mp4 --category dm_video --wait=1 --output json
+check "media upload video --wait=false: one document, no status read" 0 \
+  out '["9001",0]' \
+  -- bash -c "id=\$('$X' media upload '$WORK/tiny.mp4' --media-type video/mp4 --category dm_video --wait=false --output json | '$CONTRACT_JQ' -r .data.id); printf '[\"%s\",%s]' \"\$id\" \"\$(grep -c STATUS '$REQUEST_LOG')\""
+check "media upload video --wait=0: no status read" 0 \
+  out 0 \
+  -- bash -c "'$X' media upload '$WORK/tiny.mp4' --media-type video/mp4 --category dm_video --wait=0 --output json >/dev/null; grep -c STATUS '$REQUEST_LOG' || true"
+check "media upload GIF: the wait covers video categories only" 0 \
+  out 0 \
+  -- bash -c "'$X' media upload '$WORK/tiny.gif' --media-type image/gif --category tweet_gif --output json >/dev/null; grep -c STATUS '$REQUEST_LOG' || true"
 check "HTTP 404: not-found exit 4" 4 err.json .reason not-found -- "$X" /2/missing --output json
 check "HTTP 401: auth-required exit 77; no next_step" 77 \
   err.json .reason auth-required \
