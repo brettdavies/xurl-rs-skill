@@ -9,7 +9,7 @@ description: Drive the X (Twitter) API from the command line via `xr`, the xurl-
 broadcast moderators, media upload with alt text and subtitles), a raw curl-style mode for any `/2/...` endpoint, OAuth1
 / OAuth2-PKCE / Bearer auth with a multi-app token store at `~/.xurl`, chunked media upload, streaming, typed
 JSON-schema responses, and typed error envelopes with a `next_step` an agent can act on. This bundle describes the `xr
-4.2.0` contract.
+4.3.0` contract.
 
 The binary self-introspects. Treat it as the source of truth: this skill routes you to the binary's helpers and provides
 the workflow patterns that the binary can't describe on its own.
