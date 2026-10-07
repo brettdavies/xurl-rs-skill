@@ -576,7 +576,15 @@ check "spec-marked stream: firehose streams without -s" 0 \
   out.shape lines \
   out.json 'select(.data.id == "s2") | .data.text' two \
   -- "$X" /2/likes/firehose/stream --auth app --output json --timeout 5
-check "auth default <app> <user>: two documents" 0 out.json 'select(has("status") | not) | .message' 'Default user set to "alice"' -- "$X" auth default demo alice --output json
+check "auth default <app> <user>: one document naming both" 0 \
+  out.json .status ok \
+  out.json .message 'Default app set to "demo" and default user to "alice"' \
+  -- "$X" auth default demo alice --output json
+check "auth default <app> <unknown user>: token-store; nothing on stdout" 77 \
+  err.json .reason token-store \
+  out.shape empty \
+  -- "$X" auth default demo nobody --output json
+check "auth default <unknown app> <user>: token-store" 77 err.json .reason token-store -- "$X" auth default nope alice --output json
 check "media alt-text: POST /2/media/metadata; body nests metadata.alt_text.text; the API document; no status key" 0 \
   log '"path": "/2/media/metadata"' \
   log '{"id":"1585341984679469056","metadata":{"alt_text":{"text":"A dog"}}}' \

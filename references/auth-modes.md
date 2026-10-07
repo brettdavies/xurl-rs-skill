@@ -186,7 +186,7 @@ xr auth apps remove my-app --force --output json      # --force skips the prompt
 
 # Set default app for new shells.
 xr auth default my-app             # by name
-xr auth default my-app alice       # app + default user together (two documents under --output json)
+xr auth default my-app alice       # app + default user together: one answer, and both are saved or neither
 xr auth default                    # interactive picker
 
 # Per-request override (no default change).

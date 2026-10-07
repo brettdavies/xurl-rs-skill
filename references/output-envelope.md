@@ -99,8 +99,9 @@ Verbs that never touch the API answer `status: "ok"` with their own keys beside 
 | `skill install <host>`, `skill update <host>`                                                   | the per-host install record (`legacy_install_dir` when an old copy exists) |
 | `skill install --all`, `skill update --all`                                                     | `action`, `installations`, `exit_code`                                     |
 
-`auth default <app> <user>` prints two documents (the app message with `status`, then the user message without); parse
-the first or run the two forms separately.
+`auth default <app> <user>` answers one document whose `message` names the app and the user, and saves both or
+neither: a user the app does not hold, or an app that is not registered, fails with `reason: "token-store"`, nothing on
+stdout, and the defaults as they were.
 
 `xr version` is local but carries no `status`: under `--output json` it prints `{"name":"xr","version":"<semver>",
 "xdk_rs":"<semver>"}` (the CLI version beside the `xdk-rs` library it links), `--output yaml` the same keys, and text
