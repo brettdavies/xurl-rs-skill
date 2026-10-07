@@ -191,7 +191,9 @@ xr <list-cmd> -n 50                     # per-command, takes precedence when bot
 
 Use `--limit` as a default cap across a script; override per call with `-n`. The default page size is 10. Every list
 verb clamps the value to `1..=100`, except `search`, which the X API floors at 10: `xr search … -n 3` sends
-`max_results=10`. Ask for fewer than 10 search results by filtering the page, not by lowering `-n`.
+`max_results=10`. Ask for fewer than 10 search results by filtering the page, not by lowering `-n`. X's spec also sets a
+minimum of 5 for `mentions` and `likes`, and there `xr` sends a lower value as given, so keep `-n` at 5 or more for
+those two.
 
 `--limit`, `-n`, and `--cursor` / `--after` apply to the typed list verbs only. Raw mode (`xr /2/...`) sends the URL as
 written and ignores all three, without an error; put `max_results` and `pagination_token` in the URL instead (`xr

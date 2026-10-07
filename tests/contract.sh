@@ -415,6 +415,8 @@ check "stream --output jsonl: one chunk per line" 0 \
 check "stream --output json: no banners" 0 out.shape lines -- "$X" /2/tweets/search/stream --auth app --output json --timeout 5
 check "search -n 3 floors at 10" 0 log 'max_results=10' -- "$X" search x -n 3 --output json
 check "search -n 500 clamps to 100" 0 log 'max_results=100' -- "$X" search x -n 500 --output json
+check "mentions -n 3: sent as given, below X's floor of 5" 0 log 'max_results=3' -- "$X" mentions -n 3 --output json
+check "likes -n 3: sent as given, below X's floor of 5" 0 log 'max_results=3' -- "$X" likes -n 3 --output json
 check "timeline -n 3 honored" 0 log 'max_results=3' -- "$X" timeline -n 3 --output json
 check "timeline --limit 3" 0 log 'max_results=3' -- "$X" timeline --limit 3 --output json
 check "-n wins over --limit" 0 log 'max_results=7' -- "$X" timeline --limit 3 -n 7 --output json
