@@ -255,6 +255,14 @@ check "broadcasts moderators add --dry-run; broadcasts moderators add --dry-run 
 check "broadcasts moderators add --force: invalid-args" 2 err.json .reason invalid-args -- "$X" broadcasts moderators add @helper --force --dry-run --output json
 check "broadcasts moderators remove --dry-run" 0 out.json .command broadcasts-moderators-remove -- "$X" broadcasts moderators remove @helper --dry-run --output json
 check "broadcasts moderators list ignores --dry-run" 77 err.json .reason auth-required -- "$X" broadcasts moderators list --dry-run --output json
+check "raw mode: a target that is neither http(s) nor /-prefixed is validation" 1 \
+  err.json .reason validation \
+  err.json '.message | contains("example.com/x")' true \
+  -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" example.com/x --auth app --output json
+check "raw mode: an http URL that does not parse is invalid-url" 1 \
+  err.json .reason invalid-url \
+  err.json '.message | contains("http://[bad")' true \
+  -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" 'http://[bad' --auth app --output json
 check "closed port: network-error exit 5" 5 err.json .reason network-error -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" search x --auth app --output json
 check "closed port: URL containing 429 is still network-error" 5 err.json .reason network-error -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" /2/tweets/429 --auth app --output json
 check "--auth oauth2 with creds, no token: 77; sign-in" 77 \
