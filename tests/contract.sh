@@ -80,6 +80,7 @@ apps:
       bearer: fakebearer
 default_app: demo
 EOF
+printf ':::: not yaml [\n' >"$WORK/broken.yaml"
 cat >"$WORK/creds.yaml" <<'EOF'
 apps:
   demo:
@@ -130,15 +131,23 @@ check "blocked ignores --dry-run" 77 err.json .reason auth-required -- "$X" bloc
 check "search --page: unsupported-pagination" 1 err.json .reason unsupported-pagination -- "$X" search x --page 2 --output json
 check "--output yml: an alias of yaml" 0 out "name: xr" -- "$X" version --output yml
 check "XURL_OUTPUT=yml: the alias from the environment" 0 out "name: xr" -- env XURL_OUTPUT=yml "$X" version
-check "--output toml: clap error, exit 2; no envelope; names the help to read" 2 \
-  err "invalid value 'toml'" \
-  err '!"reason"' \
-  err "Try 'xr whoami --help'." \
+check "--output toml: JSON invalid-args envelope, exit 2; names the help to read" 2 \
+  err.json .reason invalid-args \
+  err.json ".message | contains(\"invalid value 'toml'\")" true \
+  err.json .next_step.command 'xr whoami --help' \
+  out.shape empty \
   -- "$X" whoami --output toml
+check "XURL_OUTPUT=xml: the same envelope from the environment" 2 err.json .reason invalid-args -- env XURL_OUTPUT=xml "$X" whoami
+check "--output Text: a miscased text keeps the text error" 2 \
+  err "Error: invalid value 'Text'" \
+  err '!"reason"' \
+  -- "$X" whoami --output Text
 check "unknown flag: invalid-args envelope; invalid-args message: no error: prefix; invalid-args message: names the help to read" 2 \
   err.json .reason invalid-args \
   err.json '.message | startswith("unexpected argument")' true \
   err.json ".message | endswith(\"Try 'xr post --help'.\")" true \
+  err.json .next_step.action show-help \
+  err.json .next_step.command 'xr post --help' \
   -- "$X" post hi --bogus --output json
 check "missing positional: invalid-args envelope" 2 err.json .reason invalid-args -- "$X" post --output json
 check "media upload --wait false: invalid-args" 2 err.json .reason invalid-args -- "$X" media upload ./x.png --wait false --output json
@@ -166,7 +175,10 @@ check "schema --envelope: the eight actions; next_step and the retry keys declar
   out.json '[.oneOf[].properties | has("next_step")] | any' true \
   out.json '[.. | objects | .const? // empty] | index("enroll-app") != null' true \
   -- "$X" schema --envelope --output json
-check "bare xr --output json: invalid-args" 2 err.json .reason invalid-args -- "$X" --output json
+check "bare xr --output json: invalid-args; show-help names the root help" 2 \
+  err.json .reason invalid-args \
+  err.json .next_step.command 'xr --help' \
+  -- "$X" --output json
 check "--auth app without bearer: 77; no next_step" 77 \
   err.json .reason auth-required \
   err.json 'has("next_step")' false \
@@ -265,6 +277,26 @@ check "raw mode: an http URL that does not parse is invalid-url" 1 \
   err.json .reason invalid-url \
   err.json '.message | contains("http://[bad")' true \
   -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" 'http://[bad' --auth app --output json
+check "unloadable store, auth status: token-store; inspect-store with docs and no command; names the file" 77 \
+  err.json .reason token-store \
+  err.json .next_step.action inspect-store \
+  err.json '.next_step | has("command")' false \
+  err.json .next_step.docs 'https://github.com/brettdavies/xurl-rs/blob/main/crates/xurl-cli/README.md#token-store-could-not-be-read' \
+  err.json ".message | contains(\"$WORK/broken.yaml\")" true \
+  -- env XURL_TOKEN_STORE="$WORK/broken.yaml" "$X" auth status --output json
+check "unloadable store, whoami: auth-required; inspect-store keeps xr auth status and carries docs" 77 \
+  err.json .reason auth-required \
+  err.json .next_step.action inspect-store \
+  err.json .next_step.command 'xr auth status' \
+  err.json '.next_step | has("docs")' true \
+  -- env XURL_TOKEN_STORE="$WORK/broken.yaml" "$X" whoami --output json
+check "unloadable store: auth clear --all --force reports ok and leaves the file as it was" 0 \
+  out '":::: not yaml ["' \
+  -- bash -c "XURL_TOKEN_STORE='$WORK/broken.yaml' '$X' auth clear --all --force --output json >/dev/null && '$CONTRACT_JQ' -Rs 'split(\"\n\")[0]' '$WORK/broken.yaml'"
+check "a name the store does not hold: token-store, no next_step" 77 \
+  err.json .reason token-store \
+  err.json 'has("next_step")' false \
+  -- env XURL_TOKEN_STORE="$WORK/creds.yaml" "$X" auth default nope --output json
 check "closed port: network-error exit 5" 5 err.json .reason network-error -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" search x --auth app --output json
 check "closed port: URL containing 429 is still network-error" 5 err.json .reason network-error -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" /2/tweets/429 --auth app --output json
 check "--auth oauth2 with creds, no token: 77; sign-in" 77 \

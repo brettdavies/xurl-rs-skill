@@ -64,12 +64,13 @@ add `status: "ok"`. A **failure** is a `status: "error"` envelope on **stderr** 
 `3`), `not-found` (`4`), `auth-required` (`77`), or one of `forbidden` / `invalid-request` / `server-error` /
 `api-error` (all exit `1`); `network-error` (exit `5`) means the request never got an answer. Exit `77` means no usable
 credential; its `next_step.action` is one of `register-app` / `sign-in` / `select-app` / `inspect-store`. Four more
-actions ride on other reasons: `enroll-app` on a `forbidden` that names enrollment, `show-help` on `unknown-command`
-(run its `command`: it is the help of the nearest real command), `resume-wait` on `processing-timeout` (a media wait
-reached its deadline with the upload intact; run its `command`), and `wait-and-retry` on a `rate-limited` whose 429
-named its reset (wait the envelope's `retry_after_secs`, then send the request again). A `command` is safe to run
-verbatim while a `template` needs values only the user has. A newer `xr` can add a `reason` or an `action`, so every
-branch needs a default that reads `message` and shows the user the step rather than acting on it:
+actions ride on other reasons: `enroll-app` on a `forbidden` that names enrollment, `show-help` on `unknown-command` and
+`invalid-args` (run its `command`: it is the help of the nearest real command, or of the command the usage error belongs
+to), `resume-wait` on `processing-timeout` (a media wait reached its deadline with the upload intact; run its
+`command`), and `wait-and-retry` on a `rate-limited` whose 429 named its reset (wait the envelope's `retry_after_secs`,
+then send the request again). A `command` is safe to run verbatim while a `template` needs values only the user has. A
+newer `xr` can add a `reason` or an `action`, so every branch needs a default that reads `message` and shows the user
+the step rather than acting on it:
 
 ```bash
 xr auth status --output json                 # {"status":"ok","apps":[...]}; each entry carries client_id_hint and bearer
@@ -164,16 +165,17 @@ prints a second for the user, after saving the app first), and accepts neither `
 (`invalid-args`), a wait never ends in `processing-timeout`, a `rate-limited` envelope never carries `retry_after_secs`,
 `retry_at`, or a `next_step`, the `register-app` template names `--client-secret <client-secret>`, `--output jsonl`
 prints a document indented across several lines as `json` does (`ndjson` is the one-line format there), `--output yml`
-is refused (`invalid-args`; spell it `yaml`), and a typed list verb exits `1` with `serialization` on a page with no
-results (raw mode reads it). On `xr 4.1.x`, additionally, `media alt-text` and `media subtitles` do not exist
-(`unknown-command`), `xr validate` knows neither the `alt-text` nor the `subtitles` schema, `xr skill install codex`
-clones into `~/.codex/skills/xurl-rs`, and the skill verbs ignore `XURL_SKILL_HOME` and the host config-directory
-variables. On `xr 4.0.x`, additionally, an `unknown-command` envelope carries `suggestion` but no `next_step`, and typed
-output prints X's legacy post field names (`edit_history_tweet_ids`, `retweet_count`) where X sends them. On `xr 3.x`,
-`auth status` / `auth apps list` answer a bare top-level array (read `.[]` instead of `.apps[]`), `block` / `unblock` /
-`blocked` / `muted` and the `broadcasts` family do not exist (`unknown-command`), every non-401/404/429 HTTP failure is
-`network-error` at exit `1`, and `xr version` has no structured form. Upgrade (`brew upgrade xurl-rs`, or
-<https://github.com/brettdavies/xurl-rs/releases>) rather than adapting the calls.
+is refused (`invalid-args`; spell it `yaml`), an unsupported `--output` value such as `toml` is a plain-text error with
+no envelope, `invalid-args` and `token-store` envelopes carry no `next_step`, and a typed list verb exits `1` with
+`serialization` on a page with no results (raw mode reads it). On `xr 4.1.x`, additionally, `media alt-text` and `media
+subtitles` do not exist (`unknown-command`), `xr validate` knows neither the `alt-text` nor the `subtitles` schema, `xr
+skill install codex` clones into `~/.codex/skills/xurl-rs`, and the skill verbs ignore `XURL_SKILL_HOME` and the host
+config-directory variables. On `xr 4.0.x`, additionally, an `unknown-command` envelope carries `suggestion` but no
+`next_step`, and typed output prints X's legacy post field names (`edit_history_tweet_ids`, `retweet_count`) where X
+sends them. On `xr 3.x`, `auth status` / `auth apps list` answer a bare top-level array (read `.[]` instead of
+`.apps[]`), `block` / `unblock` / `blocked` / `muted` and the `broadcasts` family do not exist (`unknown-command`),
+every non-401/404/429 HTTP failure is `network-error` at exit `1`, and `xr version` has no structured form. Upgrade
+(`brew upgrade xurl-rs`, or <https://github.com/brettdavies/xurl-rs/releases>) rather than adapting the calls.
 
 If `xr` is not on `$PATH`, install it from <https://github.com/brettdavies/xurl-rs/releases>, or refresh this bundle
 with `xr skill update claude_code` (or whichever host; `xr skill update --all` refreshes every host that already has an

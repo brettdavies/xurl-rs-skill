@@ -42,8 +42,9 @@ stream` banners around them. `xr` streams every path the X API spec it vendors m
 streams, `/2/likes/firehose/stream`, the compliance streams, `/2/activity/stream`, …) without `-s`; `-s` / `--stream`
 forces streaming on any other path.
 
-Formats outside this enum (e.g. `toml`, `xml`) are rejected at flag parsing: a clap usage error on stderr listing the
-possible values, exit `2`, no envelope.
+Formats outside this enum (e.g. `toml`, `xml`) are rejected at flag parsing: a JSON `invalid-args` envelope on stderr
+listing the possible values, exit `2`, whether the value came from `--output` or `XURL_OUTPUT`. A miscased `text`
+(`--output Text`) keeps the plain-text error.
 
 ### `--raw`
 

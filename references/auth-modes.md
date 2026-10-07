@@ -93,7 +93,8 @@ Branch on `next_step.action`:
   oauth2 --no-browser --step 1`); run it verbatim, then step 2.
 - `select-app`: another registered app is the one to use. `next_step.command` names it with `--app`; run verbatim.
 - `inspect-store`: `~/.xurl` exists but could not be read. `next_step.command` is `xr auth status`, whose `message`
-  names the file. Back it up, then `xr auth clear --all --force` or move it aside, and re-run the flow.
+  names the file, and `next_step.docs` says how to recover it. Repair the file or move it aside, then re-run the flow;
+  `xr auth clear` does not rewrite a store it could not load.
 
 Every message-shaped auth verb (`apps add`, `apps update`, `apps remove`, `default`, `clear`, `app --bearer-token`)
 answers `{"status":"ok","message":"…"}` under `--output json`; `apps add` also carries `default` (whether the new app
