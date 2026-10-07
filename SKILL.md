@@ -157,16 +157,17 @@ part of the contract). A newer `4.x` therefore keeps everything this bundle docu
 unrecognized `reason`, `action`, or key, which the default branches above absorb.
 
 An older binary does not. On `xr 4.2.x`, the `-file` secret flags, `--scopes`, `--wait-on-rate-limit`, and
-`--rate-limit-max-wait` do not exist (`invalid-args`), `media upload` waits on a video with no deadline and accepts
-neither `--wait=<SECS>` nor `--wait=false` (`invalid-args`), a wait never ends in `processing-timeout`, a `rate-limited`
-envelope never carries `retry_after_secs`, `retry_at`, or a `next_step`, and the `register-app` template names
-`--client-secret <client-secret>`. On `xr 4.1.x`, additionally, `media alt-text` and `media subtitles` do not exist
-(`unknown-command`), `xr validate` knows neither the `alt-text` nor the `subtitles` schema, `xr skill install codex`
-clones into `~/.codex/skills/xurl-rs`, and the skill verbs ignore `XURL_SKILL_HOME` and the host config-directory
-variables. On `xr 4.0.x`, additionally, an `unknown-command` envelope carries `suggestion` but no `next_step`, and typed
-output prints X's legacy post field names (`edit_history_tweet_ids`, `retweet_count`) where X sends them. On `xr 3.x`,
-`auth status` / `auth apps list` answer a bare top-level array (read `.[]` instead of `.apps[]`), `block` / `unblock` /
-`blocked` / `muted` and the `broadcasts` family do not exist (`unknown-command`), every non-401/404/429 HTTP failure is
+`--rate-limit-max-wait` do not exist (`invalid-args`), `media upload` waits on a video with no deadline, waits for no
+other category, prints the final status as a second JSON document after FINALIZE's, and accepts neither `--wait=<SECS>`
+nor `--wait=false` (`invalid-args`), a wait never ends in `processing-timeout`, a `rate-limited` envelope never carries
+`retry_after_secs`, `retry_at`, or a `next_step`, and the `register-app` template names `--client-secret
+<client-secret>`. On `xr 4.1.x`, additionally, `media alt-text` and `media subtitles` do not exist (`unknown-command`),
+`xr validate` knows neither the `alt-text` nor the `subtitles` schema, `xr skill install codex` clones into
+`~/.codex/skills/xurl-rs`, and the skill verbs ignore `XURL_SKILL_HOME` and the host config-directory variables. On `xr
+4.0.x`, additionally, an `unknown-command` envelope carries `suggestion` but no `next_step`, and typed output prints X's
+legacy post field names (`edit_history_tweet_ids`, `retweet_count`) where X sends them. On `xr 3.x`, `auth status` /
+`auth apps list` answer a bare top-level array (read `.[]` instead of `.apps[]`), `block` / `unblock` / `blocked` /
+`muted` and the `broadcasts` family do not exist (`unknown-command`), every non-401/404/429 HTTP failure is
 `network-error` at exit `1`, and `xr version` has no structured form. Upgrade (`brew upgrade xurl-rs`, or
 <https://github.com/brettdavies/xurl-rs/releases>) rather than adapting the calls.
 

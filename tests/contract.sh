@@ -469,9 +469,14 @@ check "the resume-wait command runs as given, and doubles again" 1 \
 check "media status --wait: a finished job returns it" 0 out.json .data.processing_info.state succeeded -- "$X" media status 123 --wait --output json
 printf x >"$WORK/tiny.mp4"
 printf x >"$WORK/tiny.gif"
-check "media upload video: waits by default; FINALIZE document, then the final status" 0 \
-  out '[2,"m1","succeeded"]' \
-  -- bash -c "'$X' media upload '$WORK/tiny.mp4' --media-type video/mp4 --category tweet_video --output json | '$CONTRACT_JQ' -sc '[length, .[0].data.id, .[1].data.processing_info.state]'"
+check "media upload video: waits by default; one document with FINALIZE's fields and the final state" 0 \
+  out.json .data.id m1 \
+  out.json .data.expires_after_secs 3600 \
+  out.json .data.processing_info.state succeeded \
+  -- "$X" media upload "$WORK/tiny.mp4" --media-type video/mp4 --category tweet_video --output json
+check "media upload --verbose: still one document under a structured format" 0 \
+  out.json .data.processing_info.state succeeded \
+  -- "$X" media upload "$WORK/tiny.mp4" --media-type video/mp4 --category tweet_video --output json --verbose
 check "media upload video --wait=1 past its deadline: FINALIZE document on stdout; processing-timeout on stderr" 1 \
   out.json .data.id 9001 \
   err.json .reason processing-timeout \
@@ -484,9 +489,17 @@ check "media upload video --wait=false: one document, no status read" 0 \
 check "media upload video --wait=0: no status read" 0 \
   out 0 \
   -- bash -c "'$X' media upload '$WORK/tiny.mp4' --media-type video/mp4 --category dm_video --wait=0 --output json >/dev/null; grep -c STATUS '$REQUEST_LOG' || true"
-check "media upload GIF: the wait covers video categories only" 0 \
+check "media upload GIF X reports as ready: no status read" 0 \
   out 0 \
   -- bash -c "'$X' media upload '$WORK/tiny.gif' --media-type image/gif --category tweet_gif --output json >/dev/null; grep -c STATUS '$REQUEST_LOG' || true"
+check "media upload GIF X reports as still processing: waited for; no state left once X reports none" 0 \
+  out.json .data.id 9002 \
+  out.json '.data | has("processing_info")' false \
+  log 'command=STATUS&media_id=9002' \
+  -- "$X" media upload "$WORK/tiny.gif" --media-type image/gif --category dm_gif --output json
+check "media upload --wait=false on media still processing: FINALIZE's pending state, unread" 0 \
+  out.json .data.processing_info.state pending \
+  -- "$X" media upload "$WORK/tiny.gif" --media-type image/gif --category dm_gif --wait=false --output json
 check "HTTP 404: not-found exit 4" 4 err.json .reason not-found -- "$X" /2/missing --output json
 check "HTTP 401: auth-required exit 77; no next_step" 77 \
   err.json .reason auth-required \

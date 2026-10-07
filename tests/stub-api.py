@@ -38,6 +38,12 @@ MEDIA_PHASE = re.compile(r"^/2/media/upload/([^/]+)/(append|finalize)")
 # upload in the DM video category is given it.
 STUCK_MEDIA_ID = "9001"
 STUCK_CATEGORY = '"dm_video"'
+# A media id X reports as still processing when it is finalized, though its
+# category is not a video one. An upload in the DM GIF category is given it,
+# and its status carries no processing state, which is how X reports media
+# it has finished with.
+PENDING_MEDIA_ID = "9002"
+PENDING_CATEGORY = '"dm_gif"'
 # Seconds until the reset a 429 names: far enough out that a default wait
 # does not fit one, near enough that `ratelimitonce` is waited out, and
 # already behind the clock for `ratelimitpast`.
@@ -131,11 +137,12 @@ class Handler(BaseHTTPRequestHandler):
         return self._reply(self._list_page())
 
     def _media_status(self, media_id):
+        status = {"id": media_id, "media_key": "7_" + media_id}
         if media_id == STUCK_MEDIA_ID:
-            info = {"state": "in_progress", "check_after_secs": 1, "progress_percent": 50}
-        else:
-            info = {"state": "succeeded", "progress_percent": 100}
-        return {"id": media_id, "media_key": "7_" + media_id, "processing_info": info}
+            status["processing_info"] = {"state": "in_progress", "check_after_secs": 1, "progress_percent": 50}
+        elif media_id != PENDING_MEDIA_ID:
+            status["processing_info"] = {"state": "succeeded", "progress_percent": 100}
+        return status
 
     def _list_page(self):
         # The token advances per page the way X's does, so a verb that
@@ -161,9 +168,16 @@ class Handler(BaseHTTPRequestHandler):
             phase = MEDIA_PHASE.match(self.path)
             if phase:
                 media_id = phase.group(1)
+            elif STUCK_CATEGORY in body:
+                media_id = STUCK_MEDIA_ID
+            elif PENDING_CATEGORY in body:
+                media_id = PENDING_MEDIA_ID
             else:
-                media_id = STUCK_MEDIA_ID if STUCK_CATEGORY in body else "m1"
-            return self._reply({"data": {"id": media_id, "media_key": "3_" + media_id, "expires_after_secs": 3600}})
+                media_id = "m1"
+            data = {"id": media_id, "media_key": "3_" + media_id, "expires_after_secs": 3600}
+            if phase and phase.group(2) == "finalize" and media_id == PENDING_MEDIA_ID:
+                data["processing_info"] = {"state": "pending", "check_after_secs": 1}
+            return self._reply({"data": data})
         if self.path.startswith("/2/tweets"):
             return self._reply({"data": {"id": "777", "text": "posted", **LEGACY_POST_KEYS}}, 201)
         return self._reply(

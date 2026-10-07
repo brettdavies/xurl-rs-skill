@@ -49,34 +49,36 @@ RESP=$(xr media upload <FILE> \
   --category <CATEGORY> \
   --output json)
 
-MEDIA_ID=$(printf '%s' "$RESP" | jaq -rs '.[0].data.id')
+MEDIA_ID=$(printf '%s' "$RESP" | jaq -r '.data.id')
 echo "Uploaded: $MEDIA_ID"
 ```
 
-The answer is the API document (no `status` key): `data.id` is the media id to thread into `--media-id`, beside
+The answer is one API document (no `status` key): `data.id` is the media id to thread into `--media-id`, beside
 `data.media_key` and `data.expires_after_secs`; `xr schema` has no `media-upload` entry, so read the fields from a live
-call rather than a schema. A video upload prints a second document after it (next section), which is why the id is read
-from the first with `jaq -s`.
+call rather than a schema. When the upload waited for processing (next section), the same document also carries the
+final `data.processing_info`.
 
-## The wait for processing (video)
+## The wait for processing (video, and whatever X is still processing)
 
-A video needs server-side processing before a post can carry it. For a category whose name contains `video`
-(`tweet_video`, `amplify_video`, `dm_video`), `xr media upload` waits for that by default, then prints the final status
-as a second document on stdout:
+A video needs server-side processing before a post can carry it, and X can still be processing other media, such as
+an animated GIF, when the upload is finalized. `xr media upload` waits for both by default: always for a category whose
+name contains `video` (`tweet_video`, `amplify_video`, `dm_video`), and for any other upload whose FINALIZE answer
+reports processing still under way. An upload X reports as ready returns at once.
 
 ```bash
 xr media upload ./clip.mp4 --media-type video/mp4 --category tweet_video --output json
 ```
 
-In that second document `data.processing_info.state` is `succeeded` (good) or `failed` (`data.processing_info.error`
-names the problem).
+After a wait, `data.processing_info.state` in the answer is `succeeded` (good) or `failed`
+(`data.processing_info.error` names the problem). When X reports no state for media it has finished with, the answer
+carries no `processing_info`.
 
-| Form            | What it does                                                          |
-| --------------- | --------------------------------------------------------------------- |
-| no flag         | Waits up to the default deadline (`xr media upload --help` states it) |
-| `--wait=<SECS>` | Waits up to that many seconds                                         |
-| `--wait=false`  | Returns after FINALIZE with the one document; `--wait=0` is the same  |
-| `--wait 120`    | `invalid-args`, exit `2`: the value follows `=`                       |
+| Form            | What it does                                                            |
+| --------------- | ----------------------------------------------------------------------- |
+| no flag         | Waits up to the default deadline (`xr media upload --help` states it)   |
+| `--wait=<SECS>` | Waits up to that many seconds                                           |
+| `--wait=false`  | Returns after FINALIZE without reading a status; `--wait=0` is the same |
+| `--wait 120`    | `invalid-args`, exit `2`: the value follows `=`                         |
 
 A wait that reaches its deadline exits `1` with `reason: "processing-timeout"`. The upload is intact: stdout still
 carries the FINALIZE document, and the envelope on stderr names the media id and the command that waits again for twice
@@ -96,8 +98,8 @@ as long. After `--wait=30`:
 Run `next_step.command` as given (append `--output json` to read its answer); do not upload the file again. Each
 timeout doubles the wait its command names.
 
-The upload does not wait for a GIF or an image. For a GIF that needs processing, wait on the status verb: `xr media
-status <MEDIA_ID> --wait`.
+A `processing_info` still `pending` or `in_progress` in the answer means the upload did not wait (`--wait=false`) or
+the wait ended early; `xr media status <MEDIA_ID> --wait` waits on it.
 
 ## Polling explicitly
 
