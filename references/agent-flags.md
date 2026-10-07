@@ -24,7 +24,7 @@ its preflight, the live form included.
 | `json`   | The document, pretty-printed (compact with `--raw`)                                          |
 | `jsonl`  | The same document, compact on one line                                                       |
 | `ndjson` | Identical to `jsonl`                                                                         |
-| `yaml`   | YAML serialization of the JSON shape                                                         |
+| `yaml`   | YAML serialization of the JSON shape; `yml` is an alias                                      |
 | `csv`    | Comma-separated, best-effort flattening of the top level; nested values are JSON-stringified |
 | `tsv`    | Tab-separated, same flattening                                                               |
 

@@ -128,6 +128,8 @@ check "media upload --dry-run: no stat; defaults" 0 \
 check "media upload missing file: io exit 5" 5 err.json .reason io -- "$X" media upload ./nope.png --output json
 check "blocked ignores --dry-run" 77 err.json .reason auth-required -- "$X" blocked --dry-run --output json
 check "search --page: unsupported-pagination" 1 err.json .reason unsupported-pagination -- "$X" search x --page 2 --output json
+check "--output yml: an alias of yaml" 0 out "name: xr" -- "$X" version --output yml
+check "XURL_OUTPUT=yml: the alias from the environment" 0 out "name: xr" -- env XURL_OUTPUT=yml "$X" version
 check "--output toml: clap error, exit 2; no envelope; names the help to read" 2 \
   err "invalid value 'toml'" \
   err '!"reason"' \
