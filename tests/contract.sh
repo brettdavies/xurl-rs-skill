@@ -385,6 +385,14 @@ check "search: data + meta, no status; search: no status key; search default pag
   log '!/2/users/me' \
   log 'post.fields=' \
   -- "$X" search x --output json
+check "search with no results: an empty data list at exit 0" 0 \
+  out.json .data '[]' \
+  out.json .meta.result_count 0 \
+  -- "$X" search noresults --output json
+check "raw search with no results: X's body as sent, no data key" 0 \
+  out.json 'has("data")' false \
+  out.json .meta.result_count 0 \
+  -- "$X" '/2/tweets/search/recent?query=noresults' --output json
 check "search --output jsonl: whole document on one line; NOT one line per post" 0 \
   out.json .meta.next_token T2 \
   out.shape compact \
@@ -636,6 +644,7 @@ check "paginate.sh: streams statusless pages; follows next_token; cap message" 0
   err 'stopped after 2 pages' \
   -- "$ROOT/scripts/paginate.sh" --max-pages 2 -- "$X" search x
 check "paginate.sh: third page carries the advanced cursor" 0 log 'pagination_token=T3' -- "$ROOT/scripts/paginate.sh" --max-pages 3 -- "$X" search x
+check "paginate.sh: a search with no results ends at exit 0 with no lines" 0 out.shape empty -- "$ROOT/scripts/paginate.sh" --max-pages 3 -- "$X" search noresults
 check "paginate.sh: blocked" 0 out.json .username u -- "$ROOT/scripts/paginate.sh" --max-pages 1 -- "$X" blocked -n 5
 check "paginate.sh: 429 passes exit 3 through" 3 err 'reason=rate-limited (exit 3)' -- "$ROOT/scripts/paginate.sh" -- "$X" /2/ratelimit
 check "dry-run-gate.sh: post goes live; dry_run envelope on stderr" 0 \

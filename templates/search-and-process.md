@@ -29,7 +29,9 @@ xr search "<QUERY>" -n 50 --output json
 
 The answer is the X API document, `{"data":[…],"meta":{"result_count":…,"next_token":…}}`, with no `status` key (see
 [references/output-envelope.md](../references/output-envelope.md)). `-n` is the page size, `10..=100` for search (the
-API's floor is 10; the other list verbs take `1..=100`, with an API floor of 5 for `mentions` and `likes`).
+API's floor is 10; the other list verbs take `1..=100`, with an API floor of 5 for `mentions` and `likes`). A query
+nothing matches answers `{"data":[],"meta":{"result_count":0}}` at exit 0. X sends that page with no `data` key, which
+is what raw mode prints.
 
 Engagement counters read under the post vocabulary (`public_metrics.repost_count`, never `retweet_count`), and a counter
 X left out of a record prints as `0`. When a missing counter has to stay distinguishable from a real zero, run the

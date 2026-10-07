@@ -134,6 +134,9 @@ class Handler(BaseHTTPRequestHandler):
         match = SINGLE_POST.match(path)
         if match:
             return self._reply({"data": {"id": match.group(1), "text": "hi", **LEGACY_POST_KEYS}})
+        if "noresults" in path:
+            # X's answer for a list with nothing in it: meta alone, no data.
+            return self._reply({"meta": {"result_count": 0}})
         return self._reply(self._list_page())
 
     def _media_status(self, media_id):
