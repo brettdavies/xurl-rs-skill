@@ -5,12 +5,12 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 
 ## Verified against
 
-| Field               | Value                                                                                            |
-| ------------------- | ------------------------------------------------------------------------------------------------ |
-| xurl-rs commit      | `e2c7e8a`, the `v4.2.0` tag (2026-09-30)                                                         |
-| Binary self-report  | `xr 4.2.0` (`xdk-rs 0.1.3`), the `x86_64-unknown-linux-gnu` asset of the `v4.2.0` GitHub release |
-| Contract documented | 4.2.0: `media alt-text` / `media subtitles`, skill destination variables, `legacy_install_dir`   |
-| Harness result      | `tests/contract.sh`: 212 checks (290 assertions) passing against that binary                     |
+| Field               | Value                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| xurl-rs commit      | `835abc0`, the `v4.3.0` tag (2026-10-07)                                                                                        |
+| Binary self-report  | `xr 4.3.0` (`xdk-rs 0.2.0`), the `x86_64-unknown-linux-gnu` asset of the `v4.3.0` GitHub release                                |
+| Contract documented | 4.3.0: secret files, `--scopes`, the bounded media wait, rate-limit recovery, steps on usage and store errors, one-line `jsonl` |
+| Harness result      | `tests/contract.sh`: 274 checks (397 assertions) passing against that binary                                                    |
 
 The bundle documents the contract of the `xr` release it ships beside: the upstream `dev` head when a release is being
 cut from it, or the released artifact once it is out. A release that changes nothing the bundle documents (only the

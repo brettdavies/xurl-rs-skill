@@ -80,6 +80,7 @@ apps:
       bearer: fakebearer
 default_app: demo
 EOF
+printf ':::: not yaml [\n' >"$WORK/broken.yaml"
 cat >"$WORK/creds.yaml" <<'EOF'
 apps:
   demo:
@@ -97,6 +98,7 @@ check "auth apps list: apps wrapper" 0 out.json .apps '[]' -- "$X" auth apps lis
 check "whoami: 77 on stderr; register-app template; nothing on stdout" 77 \
   err.json .reason auth-required \
   err.json .next_step.action register-app \
+  err.json .next_step.template '<secret-command> | xr auth apps add <name> --client-id <client-id> --client-secret-file -' \
   out.shape empty \
   -- "$X" whoami --output json
 check "post --dry-run: dry_run envelope; would_succeed; no creds needed" 0 \
@@ -127,18 +129,32 @@ check "media upload --dry-run: no stat; defaults" 0 \
 check "media upload missing file: io exit 5" 5 err.json .reason io -- "$X" media upload ./nope.png --output json
 check "blocked ignores --dry-run" 77 err.json .reason auth-required -- "$X" blocked --dry-run --output json
 check "search --page: unsupported-pagination" 1 err.json .reason unsupported-pagination -- "$X" search x --page 2 --output json
-check "--output toml: clap error, exit 2; no envelope; names the help to read" 2 \
-  err "invalid value 'toml'" \
-  err '!"reason"' \
-  err "Try 'xr whoami --help'." \
+check "--output yml: an alias of yaml" 0 out "name: xr" -- "$X" version --output yml
+check "XURL_OUTPUT=yml: the alias from the environment" 0 out "name: xr" -- env XURL_OUTPUT=yml "$X" version
+check "--output toml: JSON invalid-args envelope, exit 2; names the help to read" 2 \
+  err.json .reason invalid-args \
+  err.json ".message | contains(\"invalid value 'toml'\")" true \
+  err.json .next_step.command 'xr whoami --help' \
+  out.shape empty \
   -- "$X" whoami --output toml
+check "XURL_OUTPUT=xml: the same envelope from the environment" 2 err.json .reason invalid-args -- env XURL_OUTPUT=xml "$X" whoami
+check "--output Text: a miscased text keeps the text error" 2 \
+  err "Error: invalid value 'Text'" \
+  err '!"reason"' \
+  -- "$X" whoami --output Text
 check "unknown flag: invalid-args envelope; invalid-args message: no error: prefix; invalid-args message: names the help to read" 2 \
   err.json .reason invalid-args \
   err.json '.message | startswith("unexpected argument")' true \
   err.json ".message | endswith(\"Try 'xr post --help'.\")" true \
+  err.json .next_step.action show-help \
+  err.json .next_step.command 'xr post --help' \
   -- "$X" post hi --bogus --output json
 check "missing positional: invalid-args envelope" 2 err.json .reason invalid-args -- "$X" post --output json
 check "media upload --wait false: invalid-args" 2 err.json .reason invalid-args -- "$X" media upload ./x.png --wait false --output json
+check "media upload --wait=false: accepted" 0 out.json .would_succeed true -- "$X" media upload ./nope.png --wait=false --dry-run --output json
+check "media upload --wait=0: accepted" 0 out.json .would_succeed true -- "$X" media upload ./nope.png --wait=0 --dry-run --output json
+check "media upload --wait=120: accepted" 0 out.json .would_succeed true -- "$X" media upload ./nope.png --wait=120 --dry-run --output json
+check "media status --wait false: invalid-args" 2 err.json .reason invalid-args -- "$X" media status 1 --wait false --output json
 check "media upload bearer-only: auth-method-mismatch" 2 err.json .available_in_app '["app"]' -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" media upload "$WORK/tiny.png" --output json
 check "unknown command: suggestion; show-help next_step; help of the nearest command" 2 \
   err.json .suggestion whoami \
@@ -151,12 +167,18 @@ check "unknown top-level word, nothing close: root help" 2 err.json .next_step.c
 check "<typo> --help: unknown-command, exit 2" 2 err.json .reason unknown-command -- "$X" whoam --help --output json
 check "<typo> -V: unknown-command, exit 2" 2 err.json .reason unknown-command -- "$X" whoam -V --output json
 check "help --help: the help page, exit 0" 0 out 'Print this message or the help' -- "$X" help --help
-check "schema --envelope: show-help declared; next_step declared; enroll-app" 0 \
+check "schema --envelope: the eight actions; next_step and the retry keys declared" 0 \
   out.json '[.. | objects | .const? // empty] | index("show-help") != null' true \
+  out.json '[.. | objects | .const? // empty] - ["ok", "dry_run", "error"] | unique | length' 8 \
+  out.json '[.. | objects | .const? // empty] | (index("resume-wait") != null) and (index("wait-and-retry") != null)' true \
+  out.json '[.. | objects | .properties? // empty | has("retry_after_secs") and has("retry_at") and has("media_id")] | any' true \
   out.json '[.oneOf[].properties | has("next_step")] | any' true \
   out.json '[.. | objects | .const? // empty] | index("enroll-app") != null' true \
   -- "$X" schema --envelope --output json
-check "bare xr --output json: invalid-args" 2 err.json .reason invalid-args -- "$X" --output json
+check "bare xr --output json: invalid-args; show-help names the root help" 2 \
+  err.json .reason invalid-args \
+  err.json .next_step.command 'xr --help' \
+  -- "$X" --output json
 check "--auth app without bearer: 77; no next_step" 77 \
   err.json .reason auth-required \
   err.json 'has("next_step")' false \
@@ -169,6 +191,34 @@ check "oauth2 step 1, no app: client-credentials-missing; register-app" 2 \
   err.json .reason client-credentials-missing \
   err.json .next_step.action register-app \
   -- "$X" auth oauth2 --no-browser --step 1 --output json
+check "oauth2 step 1 --scopes: the subset plus offline.access" 0 \
+  out.json '.auth_url | contains("scope=tweet.read+users.read+offline.access")' true \
+  -- env XURL_TOKEN_STORE="$WORK/creds.yaml" "$X" auth oauth2 --no-browser --step 1 --scopes tweet.read,users.read --output json
+check "oauth2 step 1 --scopes: unknown scope is validation" 1 \
+  err.json .reason validation \
+  err.json '.message | contains("Valid scopes:")' true \
+  -- env XURL_TOKEN_STORE="$WORK/creds.yaml" "$X" auth oauth2 --no-browser --step 1 --scopes nope.read --output json
+check "apps add --client-secret-file -: stdin; sign-in next" 0 \
+  out.json .next_step.action sign-in \
+  -- bash -c "printf 's3cret\n' | XURL_TOKEN_STORE='$WORK/secrets.yaml' '$X' auth apps add my-app --client-id abcdefgh12345 --client-secret-file - --output json"
+check "apps add --client-secret-file -: the secret is stored without its newline" 0 out 'client_secret: s3cret' -- cat "$WORK/secrets.yaml"
+printf 'rotated\n' >"$WORK/client-secret.txt"
+check "apps update --client-secret-file PATH" 0 out.json .status ok -- env XURL_TOKEN_STORE="$WORK/secrets.yaml" "$X" auth apps update my-app --client-secret-file "$WORK/client-secret.txt" --output json
+check "apps update --client-secret-file PATH: stored" 0 out 'client_secret: rotated' -- cat "$WORK/secrets.yaml"
+check "--client-secret with --client-secret-file: invalid-args" 2 err.json .reason invalid-args -- env XURL_TOKEN_STORE="$WORK/secrets.yaml" "$X" auth apps add other --client-id x --client-secret y --client-secret-file "$WORK/client-secret.txt" --output json
+check "--client-secret-file missing: io exit 5" 5 err.json .reason io -- env XURL_TOKEN_STORE="$WORK/secrets.yaml" "$X" auth apps add other --client-id x --client-secret-file "$WORK/absent.txt" --output json
+check "auth app --bearer-token-file -: stdin" 0 out.json .status ok -- bash -c "printf 'filebearer\n' | XURL_TOKEN_STORE='$WORK/secrets.yaml' '$X' auth app --bearer-token-file - --output json"
+check "auth app --bearer-token-file -: stored" 0 out 'bearer: filebearer' -- cat "$WORK/secrets.yaml"
+printf 'cs\n' >"$WORK/consumer-secret.txt"
+printf 'at\n' >"$WORK/access-token.txt"
+check "auth oauth1 bare: invalid-args, no prompt" 2 err.json .reason invalid-args -- "$X" auth oauth1 --output json
+check "auth oauth1: three secrets from files, one of them stdin" 0 \
+  out.json '.message | contains("saved")' true \
+  -- bash -c "printf 'ts\n' | XURL_TOKEN_STORE='$WORK/secrets.yaml' '$X' auth oauth1 --consumer-key ck --consumer-secret-file '$WORK/consumer-secret.txt' --access-token-file '$WORK/access-token.txt' --token-secret-file - --output json"
+check "two -file flags on stdin: invalid-args" 2 \
+  err.json .reason invalid-args \
+  -- bash -c "printf 'x\n' | XURL_TOKEN_STORE='$WORK/secrets.yaml' '$X' auth oauth1 --consumer-key ck --consumer-secret-file - --access-token-file - --token-secret-file '$WORK/access-token.txt' --output json"
+check "auth oauth1 from files: stored" 0 out 'token_secret: ts' out 'consumer_secret: cs' out 'access_token: at' -- cat "$WORK/secrets.yaml"
 check "auth clear without selector: validation" 1 err.json .reason validation -- "$X" auth clear --output json
 check "skill install no host: error on STDOUT; known_hosts" 2 \
   out.json .reason missing-host \
@@ -219,6 +269,34 @@ check "broadcasts moderators add --dry-run; broadcasts moderators add --dry-run 
 check "broadcasts moderators add --force: invalid-args" 2 err.json .reason invalid-args -- "$X" broadcasts moderators add @helper --force --dry-run --output json
 check "broadcasts moderators remove --dry-run" 0 out.json .command broadcasts-moderators-remove -- "$X" broadcasts moderators remove @helper --dry-run --output json
 check "broadcasts moderators list ignores --dry-run" 77 err.json .reason auth-required -- "$X" broadcasts moderators list --dry-run --output json
+check "raw mode: a target that is neither http(s) nor /-prefixed is validation" 1 \
+  err.json .reason validation \
+  err.json '.message | contains("example.com/x")' true \
+  -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" example.com/x --auth app --output json
+check "raw mode: an http URL that does not parse is invalid-url" 1 \
+  err.json .reason invalid-url \
+  err.json '.message | contains("http://[bad")' true \
+  -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" 'http://[bad' --auth app --output json
+check "unloadable store, auth status: token-store; inspect-store with docs and no command; names the file" 77 \
+  err.json .reason token-store \
+  err.json .next_step.action inspect-store \
+  err.json '.next_step | has("command")' false \
+  err.json .next_step.docs 'https://github.com/brettdavies/xurl-rs/blob/main/crates/xurl-cli/README.md#token-store-could-not-be-read' \
+  err.json ".message | contains(\"$WORK/broken.yaml\")" true \
+  -- env XURL_TOKEN_STORE="$WORK/broken.yaml" "$X" auth status --output json
+check "unloadable store, whoami: auth-required; inspect-store keeps xr auth status and carries docs" 77 \
+  err.json .reason auth-required \
+  err.json .next_step.action inspect-store \
+  err.json .next_step.command 'xr auth status' \
+  err.json '.next_step | has("docs")' true \
+  -- env XURL_TOKEN_STORE="$WORK/broken.yaml" "$X" whoami --output json
+check "unloadable store: auth clear --all --force reports ok and leaves the file as it was" 0 \
+  out '":::: not yaml ["' \
+  -- bash -c "XURL_TOKEN_STORE='$WORK/broken.yaml' '$X' auth clear --all --force --output json >/dev/null && '$CONTRACT_JQ' -Rs 'split(\"\n\")[0]' '$WORK/broken.yaml'"
+check "a name the store does not hold: token-store, no next_step" 77 \
+  err.json .reason token-store \
+  err.json 'has("next_step")' false \
+  -- env XURL_TOKEN_STORE="$WORK/creds.yaml" "$X" auth default nope --output json
 check "closed port: network-error exit 5" 5 err.json .reason network-error -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" search x --auth app --output json
 check "closed port: URL containing 429 is still network-error" 5 err.json .reason network-error -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" /2/tweets/429 --auth app --output json
 check "--auth oauth2 with creds, no token: 77; sign-in" 77 \
@@ -341,10 +419,23 @@ check "search: data + meta, no status; search: no status key; search default pag
   log '!/2/users/me' \
   log 'post.fields=' \
   -- "$X" search x --output json
-check "search --output jsonl: whole document, pretty; NOT one record per line" 0 \
+check "search with no results: an empty data list at exit 0" 0 \
+  out.json .data '[]' \
+  out.json .meta.result_count 0 \
+  -- "$X" search noresults --output json
+check "raw search with no results: X's body as sent, no data key" 0 \
+  out.json 'has("data")' false \
+  out.json .meta.result_count 0 \
+  -- "$X" '/2/tweets/search/recent?query=noresults' --output json
+check "search --output jsonl: whole document on one line; NOT one line per post" 0 \
   out.json .meta.next_token T2 \
-  out.shape pretty \
+  out.shape compact \
   -- "$X" search x --output jsonl
+check "version --output jsonl: an envelope is one line too" 0 \
+  out.shape compact \
+  out.json .name xr \
+  -- "$X" version --output jsonl
+check "a .id filter on a list document answers null" 0 out null -- bash -c "'$X' search x --output jsonl | '$CONTRACT_JQ' '.id'"
 check "search --output ndjson: whole document, compact" 0 \
   out.shape compact \
   out.json '.data[0].id' 1 \
@@ -357,6 +448,8 @@ check "per-record lines come from jaq" 0 \
   out.shape compact \
   out.json .username u \
   -- bash -c "'$X' search x --output json | jaq -c '.data[]?' 2>/dev/null || '$X' search x --output json | jq -c '.data[]?'"
+check "the help's list filter: one id per line" 0 out 1 -- bash -c "'$X' search x --output json | '$CONTRACT_JQ' -r '.data[]?.id'"
+check "search --help shows that filter" 0 out "--output json | jaq -r '.data[]?.id'" -- "$X" search --help
 check "stream --output jsonl: one chunk per line" 0 \
   out.shape lines \
   out.json 'select(.data.id == "s2") | .data.text' two \
@@ -364,6 +457,8 @@ check "stream --output jsonl: one chunk per line" 0 \
 check "stream --output json: no banners" 0 out.shape lines -- "$X" /2/tweets/search/stream --auth app --output json --timeout 5
 check "search -n 3 floors at 10" 0 log 'max_results=10' -- "$X" search x -n 3 --output json
 check "search -n 500 clamps to 100" 0 log 'max_results=100' -- "$X" search x -n 500 --output json
+check "mentions -n 3: sent as given, below X's floor of 5" 0 log 'max_results=3' -- "$X" mentions -n 3 --output json
+check "likes -n 3: sent as given, below X's floor of 5" 0 log 'max_results=3' -- "$X" likes -n 3 --output json
 check "timeline -n 3 honored" 0 log 'max_results=3' -- "$X" timeline -n 3 --output json
 check "timeline --limit 3" 0 log 'max_results=3' -- "$X" timeline --limit 3 --output json
 check "-n wins over --limit" 0 log 'max_results=7' -- "$X" timeline --limit 3 -n 7 --output json
@@ -391,10 +486,79 @@ check "post: 201 body; typed post: edit_history_post_ids; typed post: no legacy 
 check "block: lookup then POST /blocking" 0 log '"path": "/2/users/42/blocking"' -- "$X" block @spammer --output json
 check "unblock: DELETE /blocking/<target>" 0 log '/2/users/42/blocking/7' -- "$X" unblock spammer --output json
 check "delete --force: DELETE /2/tweets/<id>" 0 log '"path": "/2/tweets/123"' -- "$X" delete 123 --force --output json
-check "HTTP 429: rate-limited exit 3; no next_step" 3 \
+check "HTTP 429, no reset named: rate-limited exit 3; no next_step, no retry keys" 3 \
   err.json .reason rate-limited \
   err.json 'has("next_step")' false \
+  err.json 'has("retry_after_secs")' false \
+  err.json 'has("retry_at")' false \
   -- "$X" /2/ratelimit --output json
+check "HTTP 429 naming its reset: retry keys; wait-and-retry with docs and no command" 3 \
+  err.json .reason rate-limited \
+  err.json '.retry_after_secs > 0 and .retry_after_secs <= 600' true \
+  err.json '.retry_at | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")' true \
+  err.json .next_step.action wait-and-retry \
+  err.json '.next_step.docs | startswith("https://")' true \
+  err.json '.next_step | has("command")' false \
+  -- "$X" /2/ratelimitreset --output json
+check "HTTP 429 naming its reset, text: one retry line on stderr" 3 err 'Rate limited. Retry in ' -- "$X" /2/ratelimitreset
+check "HTTP 429 whose reset has passed: retry_after_secs is 0" 3 err.json .retry_after_secs 0 -- "$X" /2/ratelimitpast --output json
+check "--wait-on-rate-limit: waits out a near reset and retries once, silently" 0 \
+  out.json .meta.result_count 1 \
+  err.shape empty \
+  -- "$X" --wait-on-rate-limit /2/ratelimitonce/flag --output json
+check "--wait-on-rate-limit: the request went out twice" 0 out 2 -- bash -c "'$X' --wait-on-rate-limit /2/ratelimitonce/count --output json >/dev/null && grep -c ratelimitonce/count '$REQUEST_LOG'"
+check "XURL_WAIT_ON_RATE_LIMIT=1: same" 0 out.json .meta.result_count 1 -- env XURL_WAIT_ON_RATE_LIMIT=1 "$X" /2/ratelimitonce/env --output json
+check "--wait-on-rate-limit: a reset past --rate-limit-max-wait fails at once" 3 \
+  err.json .next_step.action wait-and-retry \
+  -- "$X" --wait-on-rate-limit /2/ratelimitreset --output json
+check "--rate-limit-max-wait 0: no wait fits" 3 err.json .reason rate-limited -- "$X" --wait-on-rate-limit --rate-limit-max-wait 0 /2/ratelimitonce/nowait --output json
+check "--wait-on-rate-limit: a 429 naming no reset fails at once" 3 err.json 'has("next_step")' false -- "$X" --wait-on-rate-limit /2/ratelimit --output json
+check "media status: one read, processing state" 0 out.json .data.processing_info.state succeeded -- "$X" media status 123 --output json
+check "media status: still processing reads as success" 0 out.json .data.processing_info.check_after_secs 1 -- "$X" media status 9001 --output json
+check "media status --wait=1 past its deadline: processing-timeout; resume-wait for twice as long" 1 \
+  err.json .reason processing-timeout \
+  err.json .media_id 9001 \
+  err.json .next_step.action resume-wait \
+  err.json .next_step.command 'xr media status 9001 --wait=2' \
+  -- "$X" media status 9001 --wait=1 --output json
+check "processing-timeout, text: the resume command on stderr" 1 err 'Run: xr media status 9001 --wait=2' -- "$X" media status 9001 --wait=1
+check "the resume-wait command runs as given, and doubles again" 1 \
+  err.json .next_step.command 'xr media status 9001 --wait=4' \
+  -- bash -c "cmd=\$('$X' media status 9001 --wait=1 --output json 2>&1 >/dev/null | '$CONTRACT_JQ' -r .next_step.command); '$X' \${cmd#xr } --output json"
+check "media status --wait: a finished job returns it" 0 out.json .data.processing_info.state succeeded -- "$X" media status 123 --wait --output json
+printf x >"$WORK/tiny.mp4"
+printf x >"$WORK/tiny.gif"
+check "media upload video: waits by default; one document with FINALIZE's fields and the final state" 0 \
+  out.json .data.id m1 \
+  out.json .data.expires_after_secs 3600 \
+  out.json .data.processing_info.state succeeded \
+  -- "$X" media upload "$WORK/tiny.mp4" --media-type video/mp4 --category tweet_video --output json
+check "media upload --verbose: still one document under a structured format" 0 \
+  out.json .data.processing_info.state succeeded \
+  -- "$X" media upload "$WORK/tiny.mp4" --media-type video/mp4 --category tweet_video --output json --verbose
+check "media upload video --wait=1 past its deadline: FINALIZE document on stdout; processing-timeout on stderr" 1 \
+  out.json .data.id 9001 \
+  err.json .reason processing-timeout \
+  err.json .media_id 9001 \
+  err.json .next_step.command 'xr media status 9001 --wait=2' \
+  -- "$X" media upload "$WORK/tiny.mp4" --media-type video/mp4 --category dm_video --wait=1 --output json
+check "media upload video --wait=false: one document, no status read" 0 \
+  out '["9001",0]' \
+  -- bash -c "id=\$('$X' media upload '$WORK/tiny.mp4' --media-type video/mp4 --category dm_video --wait=false --output json | '$CONTRACT_JQ' -r .data.id); printf '[\"%s\",%s]' \"\$id\" \"\$(grep -c STATUS '$REQUEST_LOG')\""
+check "media upload video --wait=0: no status read" 0 \
+  out 0 \
+  -- bash -c "'$X' media upload '$WORK/tiny.mp4' --media-type video/mp4 --category dm_video --wait=0 --output json >/dev/null; grep -c STATUS '$REQUEST_LOG' || true"
+check "media upload GIF X reports as ready: no status read" 0 \
+  out 0 \
+  -- bash -c "'$X' media upload '$WORK/tiny.gif' --media-type image/gif --category tweet_gif --output json >/dev/null; grep -c STATUS '$REQUEST_LOG' || true"
+check "media upload GIF X reports as still processing: waited for; no state left once X reports none" 0 \
+  out.json .data.id 9002 \
+  out.json '.data | has("processing_info")' false \
+  log 'command=STATUS&media_id=9002' \
+  -- "$X" media upload "$WORK/tiny.gif" --media-type image/gif --category dm_gif --output json
+check "media upload --wait=false on media still processing: FINALIZE's pending state, unread" 0 \
+  out.json .data.processing_info.state pending \
+  -- "$X" media upload "$WORK/tiny.gif" --media-type image/gif --category dm_gif --wait=false --output json
 check "HTTP 404: not-found exit 4" 4 err.json .reason not-found -- "$X" /2/missing --output json
 check "HTTP 401: auth-required exit 77; no next_step" 77 \
   err.json .reason auth-required \
@@ -471,7 +635,15 @@ check "spec-marked stream: firehose streams without -s" 0 \
   out.shape lines \
   out.json 'select(.data.id == "s2") | .data.text' two \
   -- "$X" /2/likes/firehose/stream --auth app --output json --timeout 5
-check "auth default <app> <user>: two documents" 0 out.json 'select(has("status") | not) | .message' 'Default user set to "alice"' -- "$X" auth default demo alice --output json
+check "auth default <app> <user>: one document naming both" 0 \
+  out.json .status ok \
+  out.json .message 'Default app set to "demo" and default user to "alice"' \
+  -- "$X" auth default demo alice --output json
+check "auth default <app> <unknown user>: token-store; nothing on stdout" 77 \
+  err.json .reason token-store \
+  out.shape empty \
+  -- "$X" auth default demo nobody --output json
+check "auth default <unknown app> <user>: token-store" 77 err.json .reason token-store -- "$X" auth default nope alice --output json
 check "media alt-text: POST /2/media/metadata; body nests metadata.alt_text.text; the API document; no status key" 0 \
   log '"path": "/2/media/metadata"' \
   log '{"id":"1585341984679469056","metadata":{"alt_text":{"text":"A dog"}}}' \
@@ -506,6 +678,7 @@ check "paginate.sh: streams statusless pages; follows next_token; cap message" 0
   err 'stopped after 2 pages' \
   -- "$ROOT/scripts/paginate.sh" --max-pages 2 -- "$X" search x
 check "paginate.sh: third page carries the advanced cursor" 0 log 'pagination_token=T3' -- "$ROOT/scripts/paginate.sh" --max-pages 3 -- "$X" search x
+check "paginate.sh: a search with no results ends at exit 0 with no lines" 0 out.shape empty -- "$ROOT/scripts/paginate.sh" --max-pages 3 -- "$X" search noresults
 check "paginate.sh: blocked" 0 out.json .username u -- "$ROOT/scripts/paginate.sh" --max-pages 1 -- "$X" blocked -n 5
 check "paginate.sh: 429 passes exit 3 through" 3 err 'reason=rate-limited (exit 3)' -- "$ROOT/scripts/paginate.sh" -- "$X" /2/ratelimit
 check "dry-run-gate.sh: post goes live; dry_run envelope on stderr" 0 \

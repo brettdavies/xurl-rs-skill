@@ -16,9 +16,9 @@ Plain-text gallery organized by use case, from authentication through media, sch
 with two or three canonical invocations (text mode, then `--output json`, sometimes piped to `jaq`). This is the fastest
 way to learn the shape of any workflow.
 
-One caveat: every `--output jsonl` line in the gallery and in the per-command `--help` examples (`bookmarks`, `likes`,
-`muted`, `blocked`, …) prints the whole document rather than one record per line, so the gallery's `| jaq '.id'` answers
-`null`; filter the document instead: `--output json | jaq -c '.data[]?'` (see
+One caveat: an `--output jsonl` line in the gallery (`following`, `likes`, `muted`, `blocked`) or in the `muted` and
+`blocked` help examples prints the whole document on one line, not one line per post or user. The per-record form is
+the filter the gallery's `bookmarks` line and the list commands' help show: `--output json | jaq -r '.data[]?.id'` (see
 [agent-flags.md § Output format](agent-flags.md#output-format)).
 
 ### 2. `xr <command> --help`: per-command flag matrix and examples

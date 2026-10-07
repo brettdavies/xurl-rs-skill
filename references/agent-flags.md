@@ -22,28 +22,29 @@ its preflight, the live form included.
 | -------- | -------------------------------------------------------------------------------------------- |
 | `text`   | Human-readable, colored, default; the pretty JSON document when stdout is a pipe             |
 | `json`   | The document, pretty-printed (compact with `--raw`)                                          |
-| `jsonl`  | The same document as `json`, pretty-printed; compact with `--raw`                            |
-| `ndjson` | The same document, compact on one line                                                       |
-| `yaml`   | YAML serialization of the JSON shape                                                         |
+| `jsonl`  | The same document, compact on one line                                                       |
+| `ndjson` | Identical to `jsonl`                                                                         |
+| `yaml`   | YAML serialization of the JSON shape; `yml` is an alias                                      |
 | `csv`    | Comma-separated, best-effort flattening of the top level; nested values are JSON-stringified |
 | `tsv`    | Tab-separated, same flattening                                                               |
 
-**No format splits a list response into one record per line.** `xr search … --output jsonl` prints the whole
-`{"data":[…],"meta":{…}}` document exactly as `--output json` does, so `--output jsonl | jaq '.id'` answers `null`.
-Per-record lines come from a filter on the document (`scripts/paginate.sh` does this across pages):
+**No format splits a list response into one line per post or user.** `xr search … --output jsonl` prints the whole
+`{"data":[…],"meta":{…}}` document on one line, so `--output jsonl | jaq '.id'` answers `null`. Per-record lines come
+from a filter on the document (`scripts/paginate.sh` does this across pages):
 
 ```bash
 xr search "rustlang" -n 100 --output json | jaq -c '.data[]?'
 ```
 
-Where `jsonl` / `ndjson` do matter is a streaming endpoint (`xr /2/tweets/search/stream --auth app`): every chunk the
+A streaming endpoint (`xr /2/tweets/search/stream --auth app`) is where one line is one record: every chunk the
 stream delivers is printed as its own line under any structured format, and text mode adds `Connecting…` / `End of
 stream` banners around them. `xr` streams every path the X API spec it vendors marks as streaming (the search and sample
 streams, `/2/likes/firehose/stream`, the compliance streams, `/2/activity/stream`, …) without `-s`; `-s` / `--stream`
 forces streaming on any other path.
 
-Formats outside this enum (e.g. `toml`, `xml`) are rejected at flag parsing: a clap usage error on stderr listing the
-possible values, exit `2`, no envelope.
+Formats outside this enum (e.g. `toml`, `xml`) are rejected at flag parsing: a JSON `invalid-args` envelope on stderr
+listing the possible values, exit `2`, whether the value came from `--output` or `XURL_OUTPUT`. A miscased `text`
+(`--output Text`) keeps the plain-text error.
 
 ### `--raw`
 
@@ -118,6 +119,22 @@ xr <cmd> --timeout 60                   # XURL_TIMEOUT=60; seconds, default 30
 
 Bump for streaming endpoints or slow networks. Streaming verbs respect the timeout per chunk, not per stream.
 
+## Rate limits
+
+```bash
+xr <cmd> --wait-on-rate-limit                             # XURL_WAIT_ON_RATE_LIMIT=1; wait out a 429, retry once
+xr <cmd> --wait-on-rate-limit --rate-limit-max-wait 300   # XURL_RATE_LIMIT_MAX_WAIT=300; longest wait, in seconds
+```
+
+Without the flag a 429 fails at once: `reason: "rate-limited"`, exit `3`. With it, when the response names its reset
+and the wait fits `--rate-limit-max-wait` (`xr --help` states the default), `xr` waits for the reset and sends the
+request once more, printing nothing while it waits. A reset further off than the maximum, or a 429 that names no reset,
+fails at once exactly as it does without the flag.
+
+Either way the failure says when to come back. A 429 that named its reset carries `retry_after_secs` and `retry_at`
+beside a `wait-and-retry` `next_step`; one that did not carries none of the three. Read them rather than guessing a
+wait: see [output-envelope.md](output-envelope.md#next_step).
+
 ## Dry-run
 
 ```bash
@@ -175,7 +192,9 @@ xr <list-cmd> -n 50                     # per-command, takes precedence when bot
 
 Use `--limit` as a default cap across a script; override per call with `-n`. The default page size is 10. Every list
 verb clamps the value to `1..=100`, except `search`, which the X API floors at 10: `xr search … -n 3` sends
-`max_results=10`. Ask for fewer than 10 search results by filtering the page, not by lowering `-n`.
+`max_results=10`. Ask for fewer than 10 search results by filtering the page, not by lowering `-n`. X's spec also sets a
+minimum of 5 for `mentions` and `likes`, and there `xr` sends a lower value as given, so keep `-n` at 5 or more for
+those two.
 
 `--limit`, `-n`, and `--cursor` / `--after` apply to the typed list verbs only. Raw mode (`xr /2/...`) sends the URL as
 written and ignores all three, without an error; put `max_results` and `pagination_token` in the URL instead (`xr
@@ -198,6 +217,15 @@ passed:
 cat post.json | xr validate --schema post --output json
 cat post.json | xr validate - --schema post --output json
 xr validate ./post.json --schema post --output json
+```
+
+A secret goes in on stdin too. Each credential flag has a `-file` twin that reads a path, or stdin when the path is
+`-`: `--client-secret-file` (`auth apps add`, `auth apps update`), `--bearer-token-file` (`auth app`), and
+`--consumer-secret-file`, `--access-token-file`, `--token-secret-file` (`auth oauth1`). One trailing newline is
+dropped, and only one flag per command can take `-`.
+
+```bash
+op read 'op://<vault>/<item>/client_secret' | xr auth apps add my-app --client-id "$ID" --client-secret-file -
 ```
 
 ## Env-var precedence
