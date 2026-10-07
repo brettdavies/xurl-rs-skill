@@ -131,7 +131,8 @@ what's already on the system. They sit in `scripts/` beside this `SKILL.md`: `~/
 ## Common flag patterns to apply across calls
 
 - `--output json` (or `XURL_OUTPUT=json`): machine-readable on every command. `--output jsonl` prints the same whole
-  document, not one record per line; get per-record lines with `jaq -c '.data[]?'` (or `scripts/paginate.sh`).
+  document on one line, not one line per post or user; get per-record lines with `jaq -c '.data[]?'` (or
+  `scripts/paginate.sh`).
 - `--no-interactive`: fail with a structured envelope instead of prompting.
 - `--no-pager`: documented no-op, safe to always pass.
 - `--quiet`: suppress human-only banners (errors still go to stderr).
@@ -161,7 +162,8 @@ An older binary does not. On `xr 4.2.x`, the `-file` secret flags, `--scopes`, `
 other category, prints the final status as a second JSON document after FINALIZE's (as `auth default <app> <user>`
 prints a second for the user, after saving the app first), and accepts neither `--wait=<SECS>` nor `--wait=false`
 (`invalid-args`), a wait never ends in `processing-timeout`, a `rate-limited` envelope never carries `retry_after_secs`,
-`retry_at`, or a `next_step`, and the `register-app` template names `--client-secret <client-secret>`. On `xr 4.1.x`,
+`retry_at`, or a `next_step`, the `register-app` template names `--client-secret <client-secret>`, and `--output jsonl`
+prints a document indented across several lines as `json` does (`ndjson` is the one-line format there). On `xr 4.1.x`,
 additionally, `media alt-text` and `media subtitles` do not exist (`unknown-command`), `xr validate` knows neither the
 `alt-text` nor the `subtitles` schema, `xr skill install codex` clones into `~/.codex/skills/xurl-rs`, and the skill
 verbs ignore `XURL_SKILL_HOME` and the host config-directory variables. On `xr 4.0.x`, additionally, an

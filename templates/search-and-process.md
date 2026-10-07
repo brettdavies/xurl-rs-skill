@@ -208,8 +208,8 @@ Useful in CI when fixturing live captures.
 xr search "<QUERY>" -n 10 --output text         # human-readable table on a TTY; the JSON document when piped
 xr search "<QUERY>" -n 10 --output json         # the document, pretty-printed
 xr search "<QUERY>" -n 10 --output json --raw   # the document, compact, one line
-xr search "<QUERY>" -n 10 --output jsonl        # identical to json for a list response
-xr search "<QUERY>" -n 10 --output ndjson       # identical to json --raw
+xr search "<QUERY>" -n 10 --output jsonl        # identical to json --raw: the whole document on one line
+xr search "<QUERY>" -n 10 --output ndjson       # identical to jsonl
 xr search "<QUERY>" -n 10 --output yaml         # YAML serialization
 xr search "<QUERY>" -n 10 --output csv          # flat CSV: data and meta as JSON-stringified cells
 xr search "<QUERY>" -n 10 --output tsv          # flat TSV

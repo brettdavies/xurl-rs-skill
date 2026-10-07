@@ -22,21 +22,21 @@ its preflight, the live form included.
 | -------- | -------------------------------------------------------------------------------------------- |
 | `text`   | Human-readable, colored, default; the pretty JSON document when stdout is a pipe             |
 | `json`   | The document, pretty-printed (compact with `--raw`)                                          |
-| `jsonl`  | The same document as `json`, pretty-printed; compact with `--raw`                            |
-| `ndjson` | The same document, compact on one line                                                       |
+| `jsonl`  | The same document, compact on one line                                                       |
+| `ndjson` | Identical to `jsonl`                                                                         |
 | `yaml`   | YAML serialization of the JSON shape                                                         |
 | `csv`    | Comma-separated, best-effort flattening of the top level; nested values are JSON-stringified |
 | `tsv`    | Tab-separated, same flattening                                                               |
 
-**No format splits a list response into one record per line.** `xr search … --output jsonl` prints the whole
-`{"data":[…],"meta":{…}}` document exactly as `--output json` does, so `--output jsonl | jaq '.id'` answers `null`.
-Per-record lines come from a filter on the document (`scripts/paginate.sh` does this across pages):
+**No format splits a list response into one line per post or user.** `xr search … --output jsonl` prints the whole
+`{"data":[…],"meta":{…}}` document on one line, so `--output jsonl | jaq '.id'` answers `null`. Per-record lines come
+from a filter on the document (`scripts/paginate.sh` does this across pages):
 
 ```bash
 xr search "rustlang" -n 100 --output json | jaq -c '.data[]?'
 ```
 
-Where `jsonl` / `ndjson` do matter is a streaming endpoint (`xr /2/tweets/search/stream --auth app`): every chunk the
+A streaming endpoint (`xr /2/tweets/search/stream --auth app`) is where one line is one record: every chunk the
 stream delivers is printed as its own line under any structured format, and text mode adds `Connecting…` / `End of
 stream` banners around them. `xr` streams every path the X API spec it vendors marks as streaming (the search and sample
 streams, `/2/likes/firehose/stream`, the compliance streams, `/2/activity/stream`, …) without `-s`; `-s` / `--stream`

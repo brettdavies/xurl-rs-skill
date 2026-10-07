@@ -377,10 +377,15 @@ check "search: data + meta, no status; search: no status key; search default pag
   log '!/2/users/me' \
   log 'post.fields=' \
   -- "$X" search x --output json
-check "search --output jsonl: whole document, pretty; NOT one record per line" 0 \
+check "search --output jsonl: whole document on one line; NOT one line per post" 0 \
   out.json .meta.next_token T2 \
-  out.shape pretty \
+  out.shape compact \
   -- "$X" search x --output jsonl
+check "version --output jsonl: an envelope is one line too" 0 \
+  out.shape compact \
+  out.json .name xr \
+  -- "$X" version --output jsonl
+check "a .id filter on a list document answers null" 0 out null -- bash -c "'$X' search x --output jsonl | '$CONTRACT_JQ' '.id'"
 check "search --output ndjson: whole document, compact" 0 \
   out.shape compact \
   out.json '.data[0].id' 1 \
@@ -393,6 +398,8 @@ check "per-record lines come from jaq" 0 \
   out.shape compact \
   out.json .username u \
   -- bash -c "'$X' search x --output json | jaq -c '.data[]?' 2>/dev/null || '$X' search x --output json | jq -c '.data[]?'"
+check "the help's list filter: one id per line" 0 out 1 -- bash -c "'$X' search x --output json | '$CONTRACT_JQ' -r '.data[]?.id'"
+check "search --help shows that filter" 0 out "--output json | jaq -r '.data[]?.id'" -- "$X" search --help
 check "stream --output jsonl: one chunk per line" 0 \
   out.shape lines \
   out.json 'select(.data.id == "s2") | .data.text' two \
