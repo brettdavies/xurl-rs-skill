@@ -54,9 +54,9 @@ exercised the path and the documented behavior held), `regressed` (you exercised
    `pipeline.sh` must not branch on a `status` field to detect success.
 2. **F2**: the skill's auth reference shows `auth status` answering `{"status":"ok","apps":[...]}` and every jq path
    starting at `.apps[]`.
-3. **F4**: the skill's flags reference states that the `jsonl` output mode prints the whole document, not one record per
-   line, and that per-record lines come from a `jaq -c '.data[]?'` filter. A pipeline that pipes `--output jsonl`
-   straight into a per-record filter is a `regressed` finding.
+3. **F4**: the skill's flags reference states that the `jsonl` output mode prints the whole document on one line, not
+   one line per post, and that per-record lines come from a `jaq -c '.data[]?'` filter. A pipeline that pipes `--output
+   jsonl` straight into a per-record filter is a `regressed` finding.
 4. **F5**: the skill's flags reference states the page-size clamp (`1..=100`, search floors at 10, default 10) and that
    the per-command `-n` wins over the global `--limit`.
 5. **F11**: the skill's output-contract reference states that typed output reads engagement counters under the post

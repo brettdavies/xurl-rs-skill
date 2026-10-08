@@ -8,8 +8,8 @@ Walk these in order. Stop at the first one that answers the question.
 
 1. **`xr <command> --help`**: the binary's own docs, always current with the installed version. The root `xr --help`
    also carries the environment-variable index and the exit codes. Most "how do I pass X?" questions resolve here. A
-   mistyped command answers `unknown-command` with a `show-help` `next_step`: its `command` is the right help page to
-   read.
+   mistyped command (`unknown-command`) and a usage error (`invalid-args`) both carry a `show-help` `next_step`: its
+   `command` is the right help page to read.
 2. **`xr examples`**: curated invocation gallery, every major workflow with two-or-three lines per case. When the
    question is "what does the canonical pattern look like?", this is the answer.
 3. **`xr schema --list`**: every typed response shape, one row per verb (`<name> <Rust type>`). When the question is

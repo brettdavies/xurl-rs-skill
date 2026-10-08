@@ -79,3 +79,26 @@ jobs:
         # has no network egress; ubuntu-latest ships jq pre-installed which
         # _common.sh detects automatically.
         run: bash tests/run.sh
+
+  contract:
+    name: contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Fetch the pinned xr release
+        # The tag is the one AGENTS.md's "Verified against" table names.
+        # fetch-xr.sh checks the asset against the release's sha256sum.txt
+        # before it unpacks it.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(bash tests/pinned-xr.sh)
+          XR_BIN=$(bash tests/fetch-xr.sh "$TAG")
+          "$XR_BIN" --version
+          echo "XR_BIN=$XR_BIN" >> "$GITHUB_ENV"
+      - name: Run the contract harness
+        # Every invocation the bundle documents, run against that binary. The
+        # failure rows talk to a closed port and the success rows to
+        # tests/stub-api.py on localhost, so no request leaves the runner.
+        run: bash tests/contract.sh

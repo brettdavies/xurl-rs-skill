@@ -5,12 +5,12 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 
 ## Verified against
 
-| Field               | Value                                                                                            |
-| ------------------- | ------------------------------------------------------------------------------------------------ |
-| xurl-rs commit      | `e2c7e8a`, the `v4.2.0` tag (2026-09-30)                                                         |
-| Binary self-report  | `xr 4.2.0` (`xdk-rs 0.1.3`), the `x86_64-unknown-linux-gnu` asset of the `v4.2.0` GitHub release |
-| Contract documented | 4.2.0: `media alt-text` / `media subtitles`, skill destination variables, `legacy_install_dir`   |
-| Harness result      | `tests/contract.sh`: 212 checks (280 assertions) passing against that binary                     |
+| Field               | Value                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| xurl-rs commit      | `835abc0`, the `v4.3.0` tag (2026-10-07)                                                                                        |
+| Binary self-report  | `xr 4.3.0` (`xdk-rs 0.2.0`), the `x86_64-unknown-linux-gnu` asset of the `v4.3.0` GitHub release                                |
+| Contract documented | 4.3.0: secret files, `--scopes`, the bounded media wait, rate-limit recovery, steps on usage and store errors, one-line `jsonl` |
+| Harness result      | `tests/contract.sh`: 274 checks (397 assertions) passing against that binary                                                    |
 
 The bundle documents the contract of the `xr` release it ships beside: the upstream `dev` head when a release is being
 cut from it, or the released artifact once it is out. A release that changes nothing the bundle documents (only the
@@ -20,21 +20,21 @@ of `main` with the bundle's own `VERSION`; nothing pins the bundle to a binary v
 
 ## Repository shape
 
-| Path                 | Role                                                                                                                                                                                                                                                                                  |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SKILL.md`           | Consumer-facing entry point. Loaded by the agent when the skill activates.                                                                                                                                                                                                            |
-| `references/`        | Reference material an agent reads on demand. One topic per file; deterministic.                                                                                                                                                                                                       |
-| `templates/`         | Starter prompts and task recipes that the agent copies into a target project.                                                                                                                                                                                                         |
-| `getting-started.md` | Human-oriented quickstart that complements `SKILL.md`.                                                                                                                                                                                                                                |
-| `scripts/`           | Consumer-side helpers shipped to install dirs (`dry-run-gate.sh`, `paginate.sh`) plus producer-side release tooling (`generate-changelog.py`, `sync-dev-after-release.sh`).                                                                                                           |
-| `scripts/release/`   | Vendored release gates (`drift.sh`, `guarded-paths.sh`, `_lib.sh`). Refreshed as verbatim copies from the `github-repo-setup` skill; never edited in place.                                                                                                                           |
-| `CODEOWNERS`         | Required reviewers for governance, release-integrity, legal-hygiene, and workflow-doc paths; pairs with the rulesets' code-owner-review rule. Lives at the repo root so a local-tree audit sees it.                                                                                   |
-| `tests/`             | Producer-side: `run.sh` (script tests, CI); `contract.sh` + `stub-api.py` (the documented invocations against a real `xr`; needs `XR_BIN`); `refresh.sh` (a bundle pass in one command) with `fetch-xr.sh`, `surface-diff.sh`, `xr-sandbox.sh`; `core-env-guard.sh` + allowlist (CI). |
-| `fixtures/`          | Producer-side stub `xr` binary used by `tests/run.sh`; models the real streams (success on stdout, error envelope on stderr with the exit code).                                                                                                                                      |
-| `evals/`             | Self-contained eval prompts dispatched against a fresh agent session. Producer.                                                                                                                                                                                                       |
-| `docs/`              | Planning artifacts (brainstorms, plans, solutions, reviews). Blocked from `main`.                                                                                                                                                                                                     |
-| `docs/solutions/`    | Symlink to `~/dev/solutions-docs` (shared knowledge store; categorized by `problem_type` with YAML frontmatter). Relevant when implementing or debugging in documented areas.                                                                                                         |
-| `.github/`           | Workflows, rulesets, PR template, Dependabot. (Issues disabled; see below.)                                                                                                                                                                                                           |
+| Path                 | Role                                                                                                                                                                                                                                                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SKILL.md`           | Consumer-facing entry point. Loaded by the agent when the skill activates.                                                                                                                                                                                                                                                                   |
+| `references/`        | Reference material an agent reads on demand. One topic per file; deterministic.                                                                                                                                                                                                                                                              |
+| `templates/`         | Starter prompts and task recipes that the agent copies into a target project.                                                                                                                                                                                                                                                                |
+| `getting-started.md` | Human-oriented quickstart that complements `SKILL.md`.                                                                                                                                                                                                                                                                                       |
+| `scripts/`           | Consumer-side helpers shipped to install dirs (`dry-run-gate.sh`, `paginate.sh`) plus producer-side release tooling (`generate-changelog.py`, `sync-dev-after-release.sh`).                                                                                                                                                                  |
+| `scripts/release/`   | Vendored release gates (`drift.sh`, `guarded-paths.sh`, `_lib.sh`). Refreshed as verbatim copies from the `github-repo-setup` skill; never edited in place.                                                                                                                                                                                  |
+| `CODEOWNERS`         | Required reviewers for governance, release-integrity, legal-hygiene, and workflow-doc paths; pairs with the rulesets' code-owner-review rule. Lives at the repo root so a local-tree audit sees it.                                                                                                                                          |
+| `tests/`             | Producer-side: `run.sh` (script tests, CI); `contract.sh` + `stub-api.py` (the documented invocations against a real `xr`; needs `XR_BIN`; CI runs it against the pinned release); `refresh.sh` (a bundle pass in one command) with `fetch-xr.sh`, `pinned-xr.sh`, `surface-diff.sh`, `xr-sandbox.sh`; `core-env-guard.sh` + allowlist (CI). |
+| `fixtures/`          | Producer-side stub `xr` binary used by `tests/run.sh`; models the real streams (success on stdout, error envelope on stderr with the exit code).                                                                                                                                                                                             |
+| `evals/`             | Self-contained eval prompts dispatched against a fresh agent session. Producer.                                                                                                                                                                                                                                                              |
+| `docs/`              | Planning artifacts (brainstorms, plans, solutions, reviews). Blocked from `main`.                                                                                                                                                                                                                                                            |
+| `docs/solutions/`    | Symlink to `~/dev/solutions-docs` (shared knowledge store; categorized by `problem_type` with YAML frontmatter). Relevant when implementing or debugging in documented areas.                                                                                                                                                                |
+| `.github/`           | Workflows, rulesets, PR template, Dependabot. (Issues disabled; see below.)                                                                                                                                                                                                                                                                  |
 
 ## Branch model
 
@@ -48,12 +48,12 @@ See [`RELEASES.md`](RELEASES.md) for the full release workflow.
 
 ## CI
 
-| Workflow                    | Triggers                    | What it checks                                                                                                    |
-| --------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`                    | push + PR to `main` / `dev` | `markdownlint`, `shellcheck` on `scripts/` + `tests/` + `fixtures/bin/`, the core-env guard, fixture-driven tests |
-| `guard-main-docs.yml`       | PR to `main`                | Blocks engineering docs from reaching `main`                                                                      |
-| `guard-release-branch.yml`  | PR to `main`                | Rejects any head branch not under `release/`                                                                      |
-| `guard-main-provenance.yml` | PR to `main`                | Requires every commit to carry a `(#N)` squash-merge reference                                                    |
+| Workflow                    | Triggers                    | What it checks                                                                                                                                                          |
+| --------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`                    | push + PR to `main` / `dev` | `markdownlint`, `shellcheck` on `scripts/` + `tests/` + `fixtures/bin/`, the core-env guard, fixture-driven tests, the contract harness against the pinned `xr` release |
+| `guard-main-docs.yml`       | PR to `main`                | Blocks engineering docs from reaching `main`                                                                                                                            |
+| `guard-release-branch.yml`  | PR to `main`                | Rejects any head branch not under `release/`                                                                                                                            |
+| `guard-main-provenance.yml` | PR to `main`                | Requires every commit to carry a `(#N)` squash-merge reference                                                                                                          |
 
 ## Refreshing the bundle against a new `xr`
 
@@ -75,7 +75,7 @@ invocation.
    and `XURL_TOKEN_STORE`, the host config-directory variables that outrank `XURL_SKILL_HOME` unset, the API at a closed
    port), so a probe reads and writes nothing under the real `~/.xurl` or skill directories
    (`docs/solutions/conventions/hermetic-cli-spawn-seam-with-unwritable-default-store-and-escape-hatch-guard.md`).
-   Document what it shows and add the needles or checks.
+   Document what it shows and add the assertions or checks.
 4. Re-run `tests/refresh.sh` until every step passes, then re-run the evals in `evals/` that touch the changed surface.
 5. Update the **Verified against** table above and `SKILL.md`'s contract-version sentence; no other file names the
    version.
@@ -83,8 +83,12 @@ invocation.
 The docs state only what the binary cannot tell an agent itself: which stream a document lands on, exit codes, success
 shapes, the scripts' behavior, and the gotchas. For counts, name lists, help text, and the environment-variable index
 they point at `xr schema --list`, `xr validate --help`, `xr examples`, and `xr --help`, so those facts carry no harness
-row and no per-release edit. A row runs its command once and asserts every needle for it (`check LABEL EXIT STREAM
-NEEDLE [STREAM NEEDLE]... -- cmd`); add a needle to an existing row before adding a row for the same command.
+row and no per-release edit. A row runs its command once and makes every assertion for it (`check LABEL EXIT
+ASSERTION... -- cmd`); add an assertion to an existing row before adding a row for the same command. Over a JSON
+document an assertion reads a field, `out.json PATH WANT` or `err.json PATH WANT` with a jaq filter for `PATH`, so it
+fails on wrong data and not on key order or indentation; `out.shape` and `err.shape` name the layout (`compact`,
+`pretty`, `lines`, `empty`) for the rows whose claim is the layout. A fixed-string needle, `out NEEDLE`, is for text
+output and the stub's request log. `tests/contract-lib.sh` holds `check`, and `tests/run.sh` tests it.
 
 Two groups in the harness matter equally. Group 1 runs against an empty store and a closed port and sees every failure
 envelope; group 2 runs against `tests/stub-api.py` with a fake user token and sees every **success** document. A
@@ -93,8 +97,10 @@ never emits and ship a paginator that fails on every real page. The stub server 
 checkable; the reasoning and the failure it guards against are in
 `docs/solutions/developer-experience/verify-cli-success-paths-with-a-stub-server-not-a-closed-port.md`.
 
-`tests/contract.sh` is not wired into CI: it needs a built `xr`, and the bundle intentionally tracks the upstream `dev`
-head ahead of any release artifact CI could download. Run it locally before every bundle pass.
+CI's `contract` job runs `tests/contract.sh` against the release the **Verified against** table names, which
+`tests/pinned-xr.sh` reads and `tests/fetch-xr.sh` downloads and checksum-checks. A PR that breaks a documented
+invocation fails that job. A bundle pass against an unreleased `dev` head has no artifact for CI to download, so that
+run stays local until the release is out and the table names it.
 
 ## Issues
 
