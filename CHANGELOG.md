@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-10-07
+
+### Added
+
+- Add the `-file` secret flags and `--scopes` to the auth reference and the OAuth2 template. Every example pipes a secret in or reads it from a file. by @brettdavies in [#39](https://github.com/brettdavies/xurl-rs-skill/pull/39)
+- Add the media wait to the upload template: `--wait[=<SECS>]`, the 60-second default, the `processing-timeout` reason, and its `resume-wait` step.
+- Add rate-limit recovery: `retry_after_secs`, `retry_at`, the `wait-and-retry` step, and `--wait-on-rate-limit` with `--rate-limit-max-wait`.
+
+### Changed
+
+- Change the documented contract to `xr 4.3.0`: `media upload` and `auth default <app> <user>` answer one document, `--output jsonl` prints one line, `yml` aliases `yaml`, an unsupported `--output` value answers a JSON envelope, a usage error carries a `show-help` step, an unloadable token store carries `inspect-store`, and a list with no results answers an empty `data` list. by @brettdavies in [#39](https://github.com/brettdavies/xurl-rs-skill/pull/39)
+
+### Fixed
+
+- Fix the recovery advice for a token store that could not be read. It named `xr auth clear --all --force`, which leaves such a file as it was; the advice is to repair the file or move it aside. by @brettdavies in [#39](https://github.com/brettdavies/xurl-rs-skill/pull/39)
+- Fix three descriptions the binary contradicted: which raw-mode targets answer `invalid-url`, the page-size floor of `mentions` and `likes`, and `xr auth oauth1` being called a prompt.
+
+**Full Changelog**: [v0.5.0...v0.6.0](https://github.com/brettdavies/xurl-rs-skill/compare/v0.5.0...v0.6.0)
+
 ## [0.5.0] - 2026-10-01
 
 ### Added
