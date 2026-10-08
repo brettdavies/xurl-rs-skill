@@ -85,8 +85,8 @@ The bundle landed the fixes below; verify each as you work and classify it in `#
 
 1. **F1**: the skill's output-contract reference states that a successful list call returns the platform's document with
    **no `status` key**, and the bundled pagination helper streams such pages instead of demanding `status: "ok"`.
-2. **F4**: the skill's flags reference states that `--output jsonl` prints the whole document, not one record per line,
-   and that per-record lines come from a `jaq -c '.data[]?'` filter.
+2. **F4**: the skill's flags reference states that `--output jsonl` prints the whole document on one line, not one line
+   per post, and that per-record lines come from a `jaq -c '.data[]?'` filter.
 3. **F5**: the skill's flags reference lists the muted-users and blocked-users list verbs among the commands that thread
    `--cursor`, and states the `1..=100` page-size clamp.
 4. **F6**: the bundle's write gate documents that `block`, `mute`, and `follow` need no `--force`, while `delete` does;

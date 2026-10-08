@@ -42,7 +42,8 @@ See [`AGENTS.md`](AGENTS.md) for the full producer-side guide and [`RELEASES.md`
 - **markdownlint-clean** for all `.md` files. Config lives at `.markdownlint-cli2.yaml`.
 - **Every claim about what `xr` emits is a row in `tests/contract.sh`.** A PR that documents a flag, a field, an exit
   code, or a stream adds the row and runs the harness against a real build (`XR_BIN=/abs/path/to/xr bash
-  tests/contract.sh`); `bash tests/run.sh` covers the two scripts with the stub and runs in CI.
+  tests/contract.sh`). CI runs the harness against the pinned `xr` release, and `bash tests/run.sh`, which covers the
+  two scripts with the stub.
 
 ## Security
 

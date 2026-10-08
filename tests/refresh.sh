@@ -21,13 +21,10 @@ if [ -z "$NEW" ]; then
   printf 'usage: refresh.sh <release tag> [<base tag>]\n' >&2
   exit 2
 fi
-# The backticks are literal: they quote the tag in the AGENTS.md table row.
-# shellcheck disable=SC2016
-OLD=${2:-$(sed -n 's/^| xurl-rs commit *| `[0-9a-f]*`, the `\(v[0-9.]*\)` tag.*/\1/p' "$ROOT/AGENTS.md")}
-if [ -z "$OLD" ]; then
-  printf 'refresh.sh: no tag in the AGENTS.md "Verified against" table; pass the base tag as the second argument\n' >&2
+OLD=${2:-$(bash "$ROOT/tests/pinned-xr.sh")} || {
+  printf 'refresh.sh: pass the base tag as the second argument\n' >&2
   exit 2
-fi
+}
 
 RESULTS=()
 FAILED=0

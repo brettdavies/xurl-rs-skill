@@ -9,11 +9,11 @@ Create a fresh workdir at `/tmp/xurl-rs-eval-04-$(date +%s)/` and treat it as CW
 > I just ran a CLI tool against the social platform X and it printed this on stderr then exited:
 >
 > ```json
-> {"status":"error","reason":"rate-limited","exit_code":3}
+> {"status":"error","reason":"rate-limited","exit_code":3,"retry_after_secs":412,"retry_at":"2026-01-01T00:06:52Z","next_step":{"action":"wait-and-retry","docs":"https://docs.x.com/resources/fundamentals/rate-limits"}}
 > ```
 >
-> What does this mean and what should I do? Specifically: how do I figure out whether I should wait it out, switch
-> to a different auth path, or pivot to a cached source?
+> What does this mean and what should I do? Specifically: how long do I wait, and how do I figure out whether I should
+> wait it out, switch to a different auth path, or pivot to a cached source?
 
 ## Required artifacts
 
@@ -38,19 +38,24 @@ Create a fresh workdir at `/tmp/xurl-rs-eval-04-$(date +%s)/` and treat it as CW
 
 1. **Discovery**: Same shape as eval-01 (0/5/10).
 2. **Envelope decode correctness**: `0` = misnamed a field; `5` = decoded `reason` correctly but didn't tie it to the
-   exit-code mapping; `10` = decoded all three fields against the bundle's documented schema (the reason catalog and the
-   exit-code mapping table) AND noted that no `next_step` is present: the binary attaches one only when a credential or
-   enrollment fix exists, and a rate limit has neither.
+   exit-code mapping; `10` = decoded every field against the bundle's documented schema (the reason catalog, the
+   `next_step` action table, and the exit-code mapping table) AND read the wait from the envelope: `retry_after_secs`
+   to sleep, `retry_at` to schedule, with `next_step.action` `wait-and-retry` carrying `docs` and no `command`, because
+   the request to send again is the caller's own. Notes that a 429 naming no reset carries none of the three.
 3. **Triage commands correctness**: `0` = no triage; `5` = says "check rate limits" without naming the command; `10` =
    names the binary's `usage` subcommand (and its `credits` form for pay-per-use projects) with `--output json` for
    machine reading AND a command that reads the current auth state so the user knows which token bucket is exhausted,
    reading its entries through the `apps` wrapper (`.apps[]`) rather than as a bare top-level array.
 4. **Decision-tree quality**: `0` = "just wait" with no condition; `5` = wait/pivot but vague conditions; `10` =
-   conditional tree keyed on usage output AND the `apps` entries of auth status (`bearer` vs `oauth2_users` decides
-   which bucket the call drew from), with explicit "if X, then Y" rules.
+   conditional tree keyed on `next_step.action` and `retry_after_secs` first (wait that long when it is acceptable, and
+   name `--wait-on-rate-limit` with `--rate-limit-max-wait` as the way to have the binary do a short wait and one
+   retry), then on usage output AND the `apps` entries of auth status (`bearer` vs `oauth2_users` decides which bucket
+   the call drew from), with explicit "if X, then Y" rules. A wait guessed without reading the envelope scores `5` at
+   most.
 5. **No rate-limit-number invention**: `0` = quoted a specific number from memory; `5` = hedged with "around X"; `10` =
-   explicitly deferred specifics to the platform's docs and the binary's `usage` output. The skill's x-api-essentials
-   reference is intentionally drift-resistant on this exact point.
+   took the wait from the envelope's own `retry_after_secs` / `retry_at` and deferred every other specific to the
+   platform's docs (`next_step.docs`) and the binary's `usage` output. The skill's x-api-essentials reference is
+   intentionally drift-resistant on this exact point.
 
 ## Regression-test prior fixes
 
@@ -61,8 +66,9 @@ The bundle landed the fixes below; verify each as you work and classify it in `#
    here), and states that a success would have been the platform's document with no `status` key.
 2. **F2**: the auth-state command in your `next-steps.sh` reads `.apps[]` from `{"status":"ok","apps":[...]}` and does
    not look for an `expires_at` field.
-3. **F3**: the reason catalog says `rate-limited` carries no `next_step`, and your envelope interpretation says so
-   rather than treating its absence as a parse problem.
+3. **F3**: the reason catalog says `rate-limited` carries a `wait-and-retry` `next_step` with `retry_after_secs` and
+   `retry_at` when the 429 named its reset and none of the three otherwise, and your envelope interpretation reads the
+   wait from them rather than guessing one or treating an absence as a parse problem.
 4. **F9**: the reason catalog and the exit-code mapping in the skill's output-contract reference separate the retryable
    refusals from the rest: `rate-limited` at exit `3` and `server-error` at exit `1` earn a paced retry, `network-error`
    at exit `5` one retry, while `forbidden` and `invalid-request` (both exit `1`) do not change on retry. Your decision

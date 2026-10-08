@@ -29,7 +29,9 @@ xr search "<QUERY>" -n 50 --output json
 
 The answer is the X API document, `{"data":[…],"meta":{"result_count":…,"next_token":…}}`, with no `status` key (see
 [references/output-envelope.md](../references/output-envelope.md)). `-n` is the page size, `10..=100` for search (the
-API's floor is 10; the other list verbs accept `1..=100`).
+API's floor is 10; the other list verbs take `1..=100`, with an API floor of 5 for `mentions` and `likes`). A query
+nothing matches answers `{"data":[],"meta":{"result_count":0}}` at exit 0. X sends that page with no `data` key, which
+is what raw mode prints.
 
 Engagement counters read under the post vocabulary (`public_metrics.repost_count`, never `retweet_count`), and a counter
 X left out of a record prints as `0`. When a missing counter has to stay distinguishable from a real zero, run the
@@ -208,8 +210,8 @@ Useful in CI when fixturing live captures.
 xr search "<QUERY>" -n 10 --output text         # human-readable table on a TTY; the JSON document when piped
 xr search "<QUERY>" -n 10 --output json         # the document, pretty-printed
 xr search "<QUERY>" -n 10 --output json --raw   # the document, compact, one line
-xr search "<QUERY>" -n 10 --output jsonl        # identical to json for a list response
-xr search "<QUERY>" -n 10 --output ndjson       # identical to json --raw
+xr search "<QUERY>" -n 10 --output jsonl        # identical to json --raw: the whole document on one line
+xr search "<QUERY>" -n 10 --output ndjson       # identical to jsonl
 xr search "<QUERY>" -n 10 --output yaml         # YAML serialization
 xr search "<QUERY>" -n 10 --output csv          # flat CSV: data and meta as JSON-stringified cells
 xr search "<QUERY>" -n 10 --output tsv          # flat TSV

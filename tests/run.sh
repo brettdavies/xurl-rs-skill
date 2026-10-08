@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # tests/run.sh: fixture-driven tests for scripts/dry-run-gate.sh and
-# scripts/paginate.sh. Each test sets up a stub `xr` on PATH (fixtures/bin/xr),
-# invokes the script, and asserts on exit code + stdout/stderr substrings.
+# scripts/paginate.sh, and tests of the contract harness's own `check`
+# (tests/contract-lib.sh). Each script test sets up a stub `xr` on PATH
+# (fixtures/bin/xr), invokes the script, and asserts on exit code +
+# stdout/stderr substrings.
 #
 # The stub writes a body with exit 0 to stdout and a body with a non-zero
 # exit to stderr, which is how the real binary splits success documents
@@ -145,6 +147,94 @@ test_surface_diff__reports_no_change() {
 
   assert_exit 0 || return 1
   assert_stdout_contains 'no surface change' || return 1
+}
+
+# --- contract harness `check` tests ----------------------------------------
+
+# Runs one `check` row from tests/contract-lib.sh over a fixed document and
+# prints the row's verdict line (PASS or FAIL) and its diagnostics. Call it
+# in a command substitution: sourcing the scaffolding redefines `run` and the
+# _stdout, _stderr, and _exit this runner uses too.
+#     check_row DOCUMENT ASSERTION...
+check_row() {
+  local document=$1
+  shift
+  # The harness's own state, local so this runner's counters stay its own;
+  # `check`, sourced below, is what reads them.
+  # shellcheck disable=SC2034
+  local WORK PASSED=0 FAILED=0 ASSERTIONS=0
+  WORK=$(mktemp -d)
+  # shellcheck disable=SC2034
+  local REQUEST_LOG="$WORK/requests.log"
+  # shellcheck source=contract-lib.sh disable=SC1091
+  . "$ROOT/tests/contract-lib.sh"
+  check "row" 0 "$@" -- printf '%s\n' "$document" 2>&1
+  rm -rf "$WORK"
+}
+
+test_check__json_field_matches_whatever_the_layout() {
+  local pretty compact reordered
+  pretty=$'{\n  "status": "error",\n  "reason": "auth-required",\n  "exit_code": 77\n}'
+  compact='{"exit_code":77,"reason":"auth-required","status":"error"}'
+  reordered=$'{\n      "exit_code": 77,\n      "reason":   "auth-required"\n}'
+  local document
+  for document in "$pretty" "$compact" "$reordered"; do
+    _stdout=$(check_row "$document" out.json .reason auth-required out.json .exit_code 77)
+    assert_stdout_contains "PASS row" || return 1
+  done
+}
+
+test_check__json_field_fails_where_a_substring_matched_elsewhere() {
+  # The top-level reason is `not-found`. The text `"reason": "auth-required"`
+  # is still in the document, one level down, so a substring needle passes.
+  local document
+  document=$'{\n  "reason": "not-found",\n  "detail": {\n    "reason": "auth-required"\n  }\n}'
+  _stdout=$(check_row "$document" out '"reason": "auth-required"')
+  assert_stdout_contains "PASS row" || return 1
+  _stdout=$(check_row "$document" out.json .reason auth-required)
+  assert_stdout_contains "FAIL row" || return 1
+  assert_stdout_contains "out .reason: expected auth-required, got not-found"
+}
+
+test_check__json_reads_absence_arrays_and_nested_paths() {
+  local document='{"data":{"ids":["1","2"],"count":0},"meta":{"next_token":"T2"}}'
+  _stdout=$(check_row "$document" \
+    out.json 'has("status")' false \
+    out.json .data.ids '["1","2"]' \
+    out.json .data.count 0 \
+    out.json .meta.next_token T2)
+  assert_stdout_contains "PASS row"
+}
+
+test_check__json_fails_on_text_that_is_not_json() {
+  _stdout=$(check_row "Error: not a document" out.json .reason auth-required)
+  assert_stdout_contains "FAIL row" || return 1
+  assert_stdout_contains "out is not JSON"
+}
+
+test_check__shape_names_the_layout() {
+  _stdout=$(check_row '{"a":1}' out.shape compact)
+  assert_stdout_contains "PASS row" || return 1
+  _stdout=$(check_row $'{\n  "a": 1\n}' out.shape pretty)
+  assert_stdout_contains "PASS row" || return 1
+  _stdout=$(check_row $'{"a":1}\n{"a":2}' out.shape lines)
+  assert_stdout_contains "PASS row" || return 1
+  _stdout=$(check_row '{"a":1}' err.shape empty)
+  assert_stdout_contains "PASS row" || return 1
+  _stdout=$(check_row $'{\n  "a": 1\n}' out.shape compact)
+  assert_stdout_contains "FAIL row" || return 1
+  assert_stdout_contains "out shape: expected compact, got pretty"
+}
+
+test_check__text_needles_behave_as_before() {
+  _stdout=$(check_row "Usage: xr post <TEXT>" out 'Usage: xr post' out '!"reason"')
+  assert_stdout_contains "PASS row" || return 1
+  _stdout=$(check_row "Usage: xr post <TEXT>" out 'Usage: xr reply')
+  assert_stdout_contains "FAIL row" || return 1
+  assert_stdout_contains "out missing: Usage: xr reply" || return 1
+  _stdout=$(check_row "Usage: xr post <TEXT>" out '!Usage')
+  assert_stdout_contains "FAIL row" || return 1
+  assert_stdout_contains "out unexpectedly contains: Usage"
 }
 
 # --- dry-run-gate tests ----------------------------------------------------
@@ -529,6 +619,13 @@ run_test test_gate__reject_forbidden_output_flag
 run_test test_gate__reject_forbidden_json_shorthand
 run_test test_gate__refuse_non_tty_without_yes
 run_test test_gate__missing_args
+
+run_test test_check__json_field_matches_whatever_the_layout
+run_test test_check__json_field_fails_where_a_substring_matched_elsewhere
+run_test test_check__json_reads_absence_arrays_and_nested_paths
+run_test test_check__json_fails_on_text_that_is_not_json
+run_test test_check__shape_names_the_layout
+run_test test_check__text_needles_behave_as_before
 
 run_test test_paginate__single_page
 run_test test_paginate__jsonl_env_does_not_conflict

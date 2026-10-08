@@ -149,6 +149,8 @@ X uses cursor-based pagination across every list-style endpoint:
 - The first request returns up to `max_results` records and a `meta.next_token`.
 - The next page is fetched by re-running with `pagination_token=<next_token>` as a query parameter.
 - `meta.next_token` is omitted when there are no more pages.
+- A page with no results is `meta` with `result_count: 0` and no `data` key. The typed list verbs print it with `"data":
+  []`; raw mode prints it as sent, so read it with `.data[]?`.
 
 X **does not support offset pagination** (`page=N`). Tools that expose `--page` for X are always translating to cursors
 internally.
