@@ -17,10 +17,6 @@ on:
 permissions:
   contents: read
 
-env:
-  # Force JavaScript actions to run on Node 24 (per brettdavies repo policy)
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 # The group key leads with a literal token naming the workflow that owns it. A
 # key built only from context (`${{ github.workflow }}`) is one a called
 # reusable also produces, because `github.workflow` resolves to the caller
