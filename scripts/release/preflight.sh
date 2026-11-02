@@ -465,7 +465,9 @@ gate_mechanics() {
         gate_fail "$release_changelog mismatch" "changelog=$changelog_version project=$project_version"
       fi
     fi
-    if grep -q '\[Unreleased\]' "$release_changelog"; then
+    # The placeholder is a section heading. Matched anywhere, the text also hits
+    # a released entry that quotes it, as this repo's 0.1.0 section does.
+    if grep -qE '^## \[Unreleased\]' "$release_changelog"; then
       gate_fail "$release_changelog" "has [Unreleased] placeholder"
     else
       gate_pass "$release_changelog has no [Unreleased] placeholder"
@@ -496,7 +498,7 @@ gate_mechanics() {
     else
       gate_fail "$member_changelog" "top section=${member_top:-none} $name=$member_version; a $name release is pending (regenerate with scripts/generate-changelog.py --crate $name --from-dev-prs --tag $prefix$member_version)"
     fi
-    if grep -q '\[Unreleased\]' "$member_changelog"; then
+    if grep -qE '^## \[Unreleased\]' "$member_changelog"; then
       gate_fail "$member_changelog" "has [Unreleased] placeholder"
     fi
   done < <(release_members)
