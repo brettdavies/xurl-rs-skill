@@ -244,10 +244,13 @@ what a fresh `xr skill install` clones. Keep the window short.
 ## PRs and changelog generation
 
 Every PR **must** follow `.github/pull_request_template.md`. The template has a `## Changelog` section with these
-subsections:
+subsections, in the order `generate-changelog.py` emits them:
 
+- `### Breaking changes`: changes that need consumers to act
 - `### Added`: new user-visible features or capabilities
 - `### Changed`: changes to existing behavior
+- `### Deprecated`: features still present but slated for removal
+- `### Removed`: features taken out
 - `### Fixed`: bug fixes
 - `### Documentation`: documentation-only changes users would notice
 
@@ -267,9 +270,9 @@ edit `CHANGELOG.md` directly.
 Two rulesets are committed under `.github/rulesets/` and applied to the repo via the GitHub API:
 
 - `protect-main.json`: required signatures, linear history, squash-only merges via PR with one approving review,
-  required status checks (`markdownlint`, `shellcheck`, `scripts-tests`, `contract`, `guard-docs /
-  check-forbidden-docs`, `guard-release / check-release-branch-name`, `guard-provenance / check-provenance`),
-  creation/deletion blocked, non-fast-forward blocked.
+  required status checks (`markdownlint`, `shellcheck`, `scripts-tests`, `contract`,
+  `guard-docs / check-forbidden-docs`, `guard-release / check-release-branch-name`,
+  `guard-provenance / check-provenance`), creation/deletion blocked, non-fast-forward blocked.
 - `protect-dev.json`: required signatures, deletion blocked, non-fast-forward blocked. No PR-requirement at the ruleset
   level; the PR-only norm is enforced by convention + `guard-release-branch` on the main side.
 
