@@ -1,0 +1,132 @@
+# The GitHub Release is this pipeline's output, not its trigger. An annotated
+# vX.Y.Z tag pushed on main runs the integrity gate (tag shape, reachable from
+# main, equal to VERSION), then publishes the Release with notes cut from the
+# CHANGELOG.md section that names the tag's version. The bundle has nothing to
+# build or upload: consumers clone main, so the Release is the published record
+# of what each tag contains.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing vX.Y.Z tag to re-run the release for, without cutting a new one
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# The group key leads with a literal token naming the workflow that owns it, so
+# it cannot collide with a key a caller or callee produces from context alone.
+# It never cancels: a run killed part way leaves a half-finished release.
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  integrity:
+    name: Integrity gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve tag
+        id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            TAG="$DISPATCH_TAG"
+          else
+            TAG="$REF_NAME"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      # Everything downstream trusts tag-equals-VERSION once this passes.
+      - name: Verify tag shape, reachability from main, and VERSION
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::tag '$TAG' is not shaped vX.Y.Z"
+            exit 1
+          fi
+          if ! git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
+            echo "::error::tag $TAG not found in this checkout"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$TAG^{commit}" origin/main; then
+            echo "::error::tag $TAG is not reachable from origin/main"
+            exit 1
+          fi
+          FILE_VERSION=$(git show "$TAG:VERSION" | tr -d '[:space:]')
+          if [[ "$FILE_VERSION" != "${TAG#v}" ]]; then
+            echo "::error::tag $TAG does not match VERSION $FILE_VERSION at that commit"
+            exit 1
+          fi
+          echo "integrity gate passed: $TAG == VERSION $FILE_VERSION, reachable from main"
+
+  release:
+    name: Create GitHub Release
+    needs: integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.integrity.outputs.tag }}
+          persist-credentials: false
+
+      # Anchors on the tag's version string, never on file position: an
+      # `## [Unreleased]` heading above the release section, or a tag cut out of
+      # sequence, makes positional extraction ship another version's notes.
+      - name: Extract release notes from CHANGELOG.md
+        env:
+          TAG: ${{ needs.integrity.outputs.tag }}
+        run: |
+          awk -v ver="${TAG#v}" '
+            /^## \[/ {
+              if (in_section) exit
+              if (index($0, "[" ver "]") > 0) in_section = 1
+            }
+            in_section { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
+          if [[ ! -s "$RUNNER_TEMP/release-notes.md" ]]; then
+            echo "::warning::CHANGELOG.md has no section for [${TAG#v}]; the Release falls back to generated notes"
+          fi
+
+      # `gh release edit` has no --generate-notes, so a re-run over an existing
+      # Release replaces its notes only when CHANGELOG.md has a section.
+      - name: Create or update the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.integrity.outputs.tag }}
+        run: |
+          NOTES="$RUNNER_TEMP/release-notes.md"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            if [[ -s "$NOTES" ]]; then
+              gh release edit "$TAG" --title "$TAG" --notes-file "$NOTES"
+            else
+              echo "::warning::$TAG already has a Release and CHANGELOG.md has no section to replace its notes with"
+            fi
+          elif [[ -s "$NOTES" ]]; then
+            gh release create "$TAG" --title "$TAG" --verify-tag --notes-file "$NOTES"
+          else
+            gh release create "$TAG" --title "$TAG" --verify-tag --generate-notes
+          fi
