@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# Canonical version: 2026.11.02 (generic)
+#
+# Local CI mirror: the whole-repo pre-push gate. Runs the same checks as the
+# GitHub Actions CI pipeline, so a push that survives the hook passes CI and a
+# push that fails the hook would have failed CI anyway, just slower. This is
+# the compensating control for CI trigger topology thinned to one run per
+# change (pull_request-only): it reproduces CI's verdict before the network
+# round-trip, and it is the only remote-equivalent check for any code that
+# never opens a PR. Its fast, staged-file-scoped companion is
+# scripts/hooks/pre-commit.
+#
+# Every shared check comes from scripts/hooks/_lib.sh, which both hooks source.
+# The two hooks differ in scope, not in what a check means: pre-push passes the
+# tracked set, pre-commit passes the staged set. Every step below maps to a
+# ci.yml job, plus the workflow lints CI has no job for.
+#
+# Activate per clone via: git config core.hooksPath scripts/hooks
+# core.hooksPath is machine-local git config: it does NOT travel with the
+# clone and is not enforced by cloning. An unset core.hooksPath is the single
+# most common reason a tracked hook never fires (a fleet audit found it unset
+# in 9 of 11 checkouts). Run the command above once per fresh clone, and state
+# it as a setup step in README/CONTRIBUTING next to the clone instructions.
+#
+# Defensive no-ops, but never silent: each optional step guards on its tool
+# being present and skips cleanly when absent, so the hook never blocks a push
+# on a machine without the full toolchain. The library announces every such
+# skip, and a skipped check never prints a pass line: a silent skip is
+# indistinguishable from a passing check. Never gate a step on `ls file1 file2`
+# (fails closed when any one file is absent, silently disabling the step); test
+# each file with `[ -f "$f" ]` or enumerate with `git ls-files`, which is what
+# the library's `tracked` helper does.
+#
+# Failures aggregate. One run reports every failing step rather than stopping
+# at the first, so a push is fixed in one pass instead of one step at a time.
+#
+# Heavy suites (browser e2e, full package builds) stay CI-only by design; when
+# one is omitted here, say so in a comment rather than leaving the gap for a
+# reader to infer.
+#
+# Exit codes: 0 = all pass, 1 = failure
+#
+# Requires bash >= 4.4 (mapfile, and empty-array expansion under `set -u`). The
+# guard re-execs under Homebrew's bash when `#!/usr/bin/env bash` found an older
+# one, such as the macOS /bin/bash 3.2, and otherwise stops with the install hint.
+if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
+  for b in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    [ -x "$b" ] && exec "$b" "$0" "$@"
+  done
+  echo "ERROR: needs bash >= 4.4 (running $BASH_VERSION); install it with: brew install bash" >&2
+  exit 1
+fi
+
+# A linked worktree can find core.hooksPath set to the main checkout's
+# absolute path (worktree tooling writes it), and git then runs the main
+# checkout's copy of this hook with the worktree as its working directory.
+# Hand off to the copy that worktree has checked out, so a push or commit is
+# gated by the hook its own branch carries.
+hook_self_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
+hook_worktree_root=$(pwd -P)
+hook_own_copy="$hook_worktree_root/scripts/hooks/$(basename "${BASH_SOURCE[0]}")"
+if [[ "$hook_worktree_root" != "$hook_self_root" && -x "$hook_own_copy" ]]; then
+  exec "$hook_own_copy" "$@"
+fi
+
+# From a linked worktree git exports GIT_DIR, which sends a tool's git calls in
+# any directory to this repository: cargo-deny 0.19.1 through 0.19.5 reset the
+# pushed branch during the advisory fetch (fixed in 0.19.6,
+# https://github.com/EmbarkStudios/cargo-deny/pull/858). Pre-push has no
+# temporary index, and discovery from the hook's cwd (the worktree root) finds
+# the same repository.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY \
+  GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX GIT_NAMESPACE
+
+set -uo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root" || exit 1
+# shellcheck source=scripts/hooks/_lib.sh
+. ./scripts/hooks/_lib.sh || exit 1
+
+if push_only_deletes; then
+  echo "Nothing to check: the push only deletes."
+  exit 0
+fi
+
+# A real push passes the remote's name and URL. With no ref lines after them,
+# no ref would update, so there is nothing to check. A hand run passes neither
+# and checks everything.
+if [ "$#" -ge 2 ] && [ -z "${HOOK_PUSH_REFS:-}" ]; then
+  echo "pre-push: nothing to push"
+  exit 0
+fi
+
+fail=0
+
+banner "Running local CI checks..."
+
+# Every step only reads files, so they all run together and the slowest, the
+# contract harness, sets the wall-clock. The harness's stub API server listens
+# on STUB_PORT (default 18099), which no other step uses.
+
+# ci.yml markdownlint job: every tracked doc, over CI's globs.
+step_bg "markdownlint" "markdownlint-cli2 '**/*.md' '#node_modules'" check_markdown_all
+
+# ci.yml shellcheck job: every tracked script, the hooks and the stub xr
+# included, at CI's style severity. shfmt adds the layout check CI does not run.
+step_bg "shellcheck" "shellcheck --severity=style" check_shell_all
+step_bg "shfmt" "shfmt -i 2 -ci -bn -d" check_shfmt_all
+
+# Workflow lint over every tracked workflow file.
+step_bg "actionlint" "actionlint" check_actionlint_all
+step_bg "concurrency namespacing" "scripts/check-workflow-concurrency.sh" check_workflow_concurrency_all
+
+# ci.yml scripts-tests job: no tracked test resets a core environment variable
+# and no allowlist entry has gone stale, then the fixture-driven tests.
+step_bg "core-env guard" "tests/core-env-guard.sh" check_core_env_all
+step_bg "fixture tests" "bash tests/run.sh" check_fixture_tests
+
+# ci.yml contract job: every documented invocation against the xr release
+# AGENTS.md pins.
+step_bg "contract" "XR_BIN=\$(bash tests/fetch-xr.sh \$(bash tests/pinned-xr.sh)) bash tests/contract.sh" check_contract
+
+step_wait || fail=1
+
+[ "$fail" -eq 0 ] || {
+  echo "pre-push checks failed (see CONTRIBUTING.md § Git hooks)." >&2
+  exit 1
+}
+
+banner "All checks passed."
