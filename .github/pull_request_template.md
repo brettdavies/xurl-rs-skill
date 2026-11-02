@@ -1,3 +1,4 @@
+<!-- Canonical version: 2026.10.22 (generic) -->
 ## Summary
 
 <!-- Provide a brief overview of the changes in this PR. What feature/fix/improvement does this introduce?
@@ -35,16 +36,30 @@
      RULES:
 - 1-5 bullets per PR. Fewer is better. One-line fixes get one bullet.
 - Delete empty ### sections entirely; don't leave blank categories.
+- Keep the sections in this order, the one generate-changelog.py emits: Breaking changes, Added, Changed, Deprecated,
+  Removed, Fixed, Documentation.
 - Each bullet starts with a verb: Add, Fix, Change, Remove, Deprecate.
 - Don't duplicate the PR title; expand on it or provide context.
 - If the PR has NO user-facing changes (pure refactor, test-only, CI), leave this section empty or omit it. The PR still
   appears in git history; it just won't clutter the changelog. -->
+
+### Breaking changes
+
+-
 
 ### Added
 
 -
 
 ### Changed
+
+-
+
+### Deprecated
+
+-
+
+### Removed
 
 -
 

@@ -1,3 +1,5 @@
+# Canonical version: 2026.09.08 (generic)
+#
 # Source repo guard-main-provenance wrapper that calls the fleet's reusable workflow.
 # Copy to .github/workflows/guard-main-provenance.yml in repos with the dev→main pattern.
 #
