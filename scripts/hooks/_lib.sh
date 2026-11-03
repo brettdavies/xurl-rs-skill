@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Canonical version: 2026.11.01 (generic)
+# Canonical version: 2026.11.03 (generic)
 #
 # Shared helpers for the git hook pair. Sourced by scripts/hooks/pre-commit and
 # scripts/hooks/pre-push, never executed directly.
@@ -29,9 +29,9 @@
 #
 # This repo ships a skill bundle with no cargo workspace, so the Rust helpers
 # and the cargo push-scope classifier are gone. Its own checks mirror ci.yml:
-# style-severity ShellCheck over CI's paths, markdownlint over CI's globs, the
-# core-env guard at tests/core-env-guard.sh, the fixture tests, and the
-# contract harness against the xr release AGENTS.md pins.
+# style-severity ShellCheck over CI's paths, markdownlint over every tracked
+# doc, the core-env guard at tests/core-env-guard.sh, the fixture tests, and
+# the contract harness against the xr release AGENTS.md pins.
 
 # Require bash >= 4.4: mapfile, and safe empty-array expansion under `set -u`.
 # Sourced, so return rather than exit, which would kill an interactive shell;
@@ -217,6 +217,33 @@ push_only_deletes() {
   [ "$rc" -le 128 ] && [ "$deletes" -gt 0 ] && [ "$others" -eq 0 ]
 }
 
+# push_only_known_commits REMOTE: true when every ref line push_only_deletes
+# kept in HOOK_PUSH_REFS deletes or names a commit a REMOTE remote-tracking
+# branch already reaches, as a tag or a new branch at a pushed commit does, and
+# at least one line names a commit. rev-list peels an annotated tag to its
+# commit. False, so the checks run, with no REMOTE (the hook run by hand) and
+# with no line that names a commit. A push to a URL instead of a remote name
+# matches no remote-tracking branch, so every commit it carries counts as new.
+push_only_known_commits() {
+  local remote="${1:-}" local_sha known=0
+  [ -n "$remote" ] || return 1
+  while read -r _ local_sha _; do
+    [ -n "${local_sha:-}" ] || continue
+    [[ "$local_sha" =~ ^0+$ ]] && continue
+    brings_new_commits "$remote" "$local_sha" && return 1
+    known=$((known + 1))
+  done <<<"${HOOK_PUSH_REFS:-}"
+  [ "$known" -gt 0 ]
+}
+
+# brings_new_commits REMOTE SHA: true when SHA reaches a commit no REMOTE
+# remote-tracking branch reaches, and when git cannot read SHA.
+brings_new_commits() {
+  local out
+  out=$(git rev-list -n 1 "$2" --not --remotes="$1" 2>/dev/null) || return 0
+  [ -n "$out" ]
+}
+
 # ---------------------------------------------------------------------------
 # File selection
 # ---------------------------------------------------------------------------
@@ -240,12 +267,28 @@ tracked() {
 # Shell
 # ---------------------------------------------------------------------------
 
-# Correctness, at style severity: ci.yml's shellcheck job runs style, and the
-# whole tracked shell set is clean there.
+# The release scripts copied byte for byte from github-repo-setup, which
+# ci.yml's shellcheck job does not reach. They hold the template's own bar,
+# warning severity: an info finding in one is the template's to fix, and an
+# edit here would fail the canonical drift check.
+SHELL_VERBATIM=('scripts/release/_lib.sh' 'scripts/release/cut-release-branch.sh' 'scripts/release/drift.sh'
+  'scripts/release/guarded-paths.sh' 'scripts/release/postflight.sh')
+
+# Correctness, at style severity, which ci.yml's shellcheck job runs, for every
+# file but the SHELL_VERBATIM copies, which run at warning.
 check_shell() {
   [ "$#" -gt 0 ] || return "$HOOK_SKIPPED"
   have shellcheck || skip "shellcheck" "install via \`brew install shellcheck\`" || return
-  shellcheck --severity=style "$@"
+  local f v rc=0 style=() verbatim=()
+  for f in "$@"; do
+    for v in "${SHELL_VERBATIM[@]}"; do
+      [ "$f" = "$v" ] && verbatim+=("$f") && continue 2
+    done
+    style+=("$f")
+  done
+  [ "${#style[@]}" -eq 0 ] || shellcheck --severity=style "${style[@]}" || rc=1
+  [ "${#verbatim[@]}" -eq 0 ] || shellcheck --severity=warning "${verbatim[@]}" || rc=1
+  return "$rc"
 }
 
 # Layout. shfmt owns formatting, shellcheck owns correctness. -d reports a diff
@@ -360,28 +403,40 @@ check_workflow_concurrency_all() {
   check_workflow_concurrency "${files[@]}"
 }
 
-# Markdown syntax. Refuses to run when the repo's markdownlint config sets
-# `fix: true`, because markdownlint-cli2 then rewrites every file it reads, with
-# or without --fix. A gate that mutates the tree mid-commit stages content
-# nobody reviewed, and it corrupts any file whose bytes are load-bearing: a
-# vendored upstream copy, a fixture, anything with a recorded checksum. A repo
-# that wants the edit-time auto-fix ergonomic keeps `fix: true` and loses this
-# check, which is the trade the notice states out loud.
+# Markdown syntax, judged on the staged content in a scratch tree.
+# markdownlint-cli2 rewrites every file it reads when any config on the path
+# sets `fix: true` (the canonical config does), with or without --fix, and a
+# --config base cannot turn that off because a directory config overrides it.
+# So the tree holds each passed file's staged blob and every tracked
+# markdownlint config at its own relative path with `fix` flipped off: the
+# root ignores and any nested config apply exactly as they do in CI, and
+# nothing in the checkout is written. `git show :path` reads the index git
+# names in GIT_INDEX_FILE, which is the temporary one during `commit -a` and
+# `commit <paths>`.
 check_markdown() {
   [ "$#" -gt 0 ] || return "$HOOK_SKIPPED"
   have markdownlint-cli2 || skip "markdownlint" "install via \`brew install markdownlint-cli2\`" || return
-  local cfg
-  for cfg in .markdownlint-cli2.yaml .markdownlint-cli2.yml .markdownlint-cli2.jsonc .markdownlint-cli2.json; do
-    [ -f "$cfg" ] || continue
-    if grep -Eq '^[[:space:]]*"?fix"?[[:space:]]*:[[:space:]]*true' "$cfg"; then
-      skip "markdownlint" "$cfg sets fix: true, which would rewrite files mid-commit" || return
-    fi
+  local tree f rc=0
+  tree="$(mktemp -d)" || return 1
+  while IFS= read -r f; do
+    mkdir -p "$tree/$(dirname "$f")"
+    git show ":$f" | sed -E 's/^([[:space:]]*"?fix"?[[:space:]]*:[[:space:]]*)true/\1false/' >"$tree/$f"
+  done < <(git ls-files -- ':(glob)**/.markdownlint*')
+  for f in "$@"; do
+    mkdir -p "$tree/$(dirname "$f")"
+    git show ":$f" >"$tree/$f" || rc=1
   done
-  markdownlint-cli2 "$@"
+  if [ "$rc" -eq 0 ]; then
+    (cd "$tree" && markdownlint-cli2 "$@") || rc=$?
+  fi
+  rm -rf "$tree"
+  return "$rc"
 }
 
-# The whole-repo sweep over ci.yml's markdownlint globs. A bare
-# `markdownlint-cli2 .` lints only the root's files.
+# The whole-repo sweep: every tracked doc, which ci.yml's `**/*.md` glob
+# reaches, with the config's ignores applied as CI applies them.
 check_markdown_all() {
-  check_markdown '**/*.md' '#node_modules'
+  local files
+  mapfile -t files < <(tracked '*.md')
+  check_markdown "${files[@]}"
 }

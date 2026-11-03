@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Canonical version: 2026.11.02 (generic)
+# Canonical version: 2026.11.03 (generic)
 #
 # Local CI mirror: the whole-repo pre-push gate. Runs the same checks as the
 # GitHub Actions CI pipeline, so a push that survives the hook passes CI and a
@@ -33,6 +33,9 @@
 #
 # Failures aggregate. One run reports every failing step rather than stopping
 # at the first, so a push is fixed in one pass instead of one step at a time.
+#
+# A commit any remote-tracking branch of the pushed remote reaches counts as
+# already checked, so a tag or new branch at one runs nothing.
 #
 # Heavy suites (browser e2e, full package builds) stay CI-only by design; when
 # one is omitted here, say so in a comment rather than leaving the gap for a
@@ -76,7 +79,8 @@ set -uo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root" || exit 1
-# shellcheck source=scripts/hooks/_lib.sh
+# A CI action that checks one file at a time without -x reports SC1091 here.
+# shellcheck source=scripts/hooks/_lib.sh disable=SC1091
 . ./scripts/hooks/_lib.sh || exit 1
 
 if push_only_deletes; then
@@ -92,6 +96,13 @@ if [ "$#" -ge 2 ] && [ -z "${HOOK_PUSH_REFS:-}" ]; then
   exit 0
 fi
 
+# A tag, or a new branch, at a commit the remote already has brings no commit
+# for any check to read.
+if push_only_known_commits "${1:-}"; then
+  echo "Nothing to check: every pushed commit is already on $1."
+  exit 0
+fi
+
 fail=0
 
 banner "Running local CI checks..."
@@ -100,8 +111,8 @@ banner "Running local CI checks..."
 # contract harness, sets the wall-clock. The harness's stub API server listens
 # on STUB_PORT (default 18099), which no other step uses.
 
-# ci.yml markdownlint job: every tracked doc, over CI's globs.
-step_bg "markdownlint" "markdownlint-cli2 '**/*.md' '#node_modules'" check_markdown_all
+# ci.yml markdownlint job: every tracked doc, which CI's `**/*.md` glob reaches.
+step_bg "markdownlint" "markdownlint-cli2 <tracked *.md>" check_markdown_all
 
 # ci.yml shellcheck job: every tracked script, the hooks and the stub xr
 # included, at CI's style severity. shfmt adds the layout check CI does not run.
@@ -124,7 +135,7 @@ step_bg "contract" "XR_BIN=\$(bash tests/fetch-xr.sh \$(bash tests/pinned-xr.sh)
 step_wait || fail=1
 
 [ "$fail" -eq 0 ] || {
-  echo "pre-push checks failed (see CONTRIBUTING.md § Git hooks)." >&2
+  echo "pre-push checks failed: rerun the command each failing line names (checks: scripts/hooks/pre-push)." >&2
   exit 1
 }
 
