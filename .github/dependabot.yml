@@ -1,3 +1,5 @@
+# Canonical version: 2026.11.03 (generic)
+#
 # Dependabot configuration.
 #
 # This repo is a markdown skill bundle with no package manifest, so the only
@@ -16,9 +18,10 @@
 # option on a block that carries `target-branch`, so the trailing block has
 # no target-branch, `open-pull-requests-limit: 0` so it never opens version
 # updates there, and a group with `applies-to: security-updates` that batches
-# minor and patch fixes per run. Cooldown and the majors ignore are absent
-# from it on purpose: cooldown is a version-update option, and the ignore
-# would suppress a fix that resolves outside the current range.
+# minor and patch fixes per run. A fix that needs a major stays its own PR.
+# Cooldown and the majors ignore are absent from it on purpose: cooldown is a
+# version-update option, and the ignore would suppress a fix that resolves
+# outside the current range.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -32,8 +35,6 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 3
-    reviewers:
-      - brettdavies
     labels:
       - dependencies
       - github-actions

@@ -35,15 +35,38 @@ PRs.
 
 See [`AGENTS.md`](AGENTS.md) for the full producer-side guide and [`RELEASES.md`](RELEASES.md) for the release model.
 
+## Git hooks
+
+Turn the tracked hooks on once per clone, right after cloning:
+
+```bash
+git config core.hooksPath scripts/hooks
+```
+
+`core.hooksPath` is local git config, so it does not travel with the clone; `git config --get core.hooksPath` printing
+`scripts/hooks` is how to tell the hooks are live. Keep the value relative: a linked worktree then runs the hooks its
+own branch carries.
+
+| Hook                       | Runs                                                                                                                                                                                                                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/hooks/pre-commit` | On the staged files only: ShellCheck at style severity and shfmt on shell scripts (the hooks and `fixtures/bin/xr` included), the core-env guard on test scripts, actionlint and the concurrency-namespacing check on workflows, markdownlint on docs except `CHANGELOG.md`. |
+| `scripts/hooks/pre-push`   | The local mirror of `ci.yml` over the whole tree: markdownlint on every tracked doc, ShellCheck and shfmt, actionlint and the concurrency check, the core-env guard, `tests/run.sh`, and `tests/contract.sh` against the `xr` release AGENTS.md pins.                        |
+
+Both share `scripts/hooks/_lib.sh`, report every failing check in one run, and skip a check whose tool is missing with a
+line saying so, never silently. The contract step downloads the pinned `xr` with `gh` on first use and caches it outside
+the repo. The markdownlint step lints each doc's staged copy in a scratch tree with `fix` turned off, so the canonical
+`.markdownlint-cli2.yaml`'s `fix: true` never rewrites the checkout. A push that carries only commits the remote already
+has, such as a tag, runs no checks.
+
 ## House rules
 
 - **Pin third-party Actions by SHA**, never by mutable tag. Trailing comment names the version.
 - **ShellCheck-clean** (`--severity=style`) for `scripts/`, `tests/`, and `fixtures/bin/`.
 - **markdownlint-clean** for all `.md` files. Config lives at `.markdownlint-cli2.yaml`.
 - **Every claim about what `xr` emits is a row in `tests/contract.sh`.** A PR that documents a flag, a field, an exit
-  code, or a stream adds the row and runs the harness against a real build (`XR_BIN=/abs/path/to/xr bash
-  tests/contract.sh`). CI runs the harness against the pinned `xr` release, and `bash tests/run.sh`, which covers the
-  two scripts with the stub.
+  code, or a stream adds the row and runs the harness against a real build
+  (`XR_BIN=/abs/path/to/xr bash tests/contract.sh`). CI runs the harness against the pinned `xr` release, and
+  `bash tests/run.sh`, which covers the two scripts with the stub.
 
 ## Security
 
