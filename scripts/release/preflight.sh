@@ -180,7 +180,7 @@ gate_smoke() {
     return
   }
 
-  local pinned latest pinned_bin
+  local pinned latest pinned_bin why
   if ! pinned=$(bash "$REPO_ROOT/tests/pinned-xr.sh" 2>/dev/null); then
     gate_fail "pinned xr" "the AGENTS.md \"Verified against\" table names no xr tag"
     return
@@ -188,9 +188,12 @@ gate_smoke() {
   smoke_contract "$pinned" "pinned"
   pinned_bin=$SMOKE_XR_BIN
 
-  latest=$(gh release view --repo "$XR_REPO" --json tagName --jq .tagName 2>/dev/null || true)
-  if [[ -z "$latest" ]]; then
-    gate_skip "contract vs newest xr" "gh release view found no latest $XR_REPO release"
+  # The pinned tag is a release of this repo, so no tag back is a gh error
+  # (auth, network, rate limit), never a repo without releases.
+  if ! latest=$(gh release view --repo "$XR_REPO" --json tagName --jq .tagName 2>/dev/null) || [[ -z "$latest" ]]; then
+    why=$(gh release view --repo "$XR_REPO" --json tagName 2>&1 >/dev/null | paste -sd " " - || true)
+    gate_fail "contract vs newest xr" "gh release view --repo $XR_REPO returned no tag: ${why:-empty answer}
+    fix: check \`gh auth status\` and the network, then rerun scripts/release/preflight.sh smoke"
   elif [[ "$latest" == "$pinned" ]]; then
     gate_pass "newest $XR_REPO release is the pinned $pinned"
   else

@@ -146,7 +146,8 @@ make.
   `brettdavies/xurl-rs` release is not the pinned one, the gate runs the same harness against it. A failure means the
   bundle documents behavior the current `xr` no longer has; run the refresh loop in
   [`AGENTS.md` § Refreshing the bundle against a new `xr`](AGENTS.md#refreshing-the-bundle-against-a-new-xr) first, or
-  report the regression upstream when the binary is wrong.
+  report the regression upstream when the binary is wrong. When `gh` cannot read the newest release (auth, network, a
+  rate limit), the row fails with `gh`'s error rather than skipping, since a skip would pass preflight without it.
 - [ ] **Negative control: `scripts/dry-run-gate.sh` refuses a write whose preflight fails.** The gate runs the shipped
   dry-run gate against the pinned `xr` with an empty post, under `tests/xr-sandbox.sh`'s isolation, and requires exit 1
   with the gate's own `would NOT succeed ... reason=empty-body` line. `xr`'s live call refuses an empty post with exit 1
