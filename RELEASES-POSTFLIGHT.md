@@ -52,8 +52,18 @@ Run once `release.yml` finishes for the tag.
   `scripts/release/postflight.sh make-latest` for the automated check.
 - [ ] **The Release notes are this version's `CHANGELOG.md` section.** `gh release view vX.Y.Z --json body --jq .body`
   opens on `## [X.Y.Z]`. A run that found no section warned in its log (`::warning::CHANGELOG.md has no section`) and
-  published generated notes instead; fix the changelog through the normal flow, then re-run
-  `gh workflow run release.yml -f tag=vX.Y.Z`, which replaces the notes.
+  published generated notes instead. Re-running `release.yml` cannot fix that: it reads the tagged commit's
+  `CHANGELOG.md`, and the tag never moves. Fix the changelog through the normal flow, then, once the section is on
+  `main`, cut it with the workflow's own match and apply it to the Release:
+
+  ```bash
+  git fetch origin main
+  git show origin/main:CHANGELOG.md \
+    | awk -v ver=X.Y.Z '/^## \[/ { if (in_section) exit; if (index($0, "[" ver "]") > 0) in_section = 1 } in_section { print }' \
+    > /tmp/release-notes-vX.Y.Z.md
+  gh release edit vX.Y.Z --notes-file /tmp/release-notes-vX.Y.Z.md
+  ```
+
 - [ ] **A fresh install resolves the release.** Install into a scratch skills directory so the real one is untouched,
   and confirm the clone carries the new version:
 

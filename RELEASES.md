@@ -277,8 +277,9 @@ A failed run is retried against the existing tag, without cutting a new one:
 gh workflow run release.yml -f tag=v<version>
 ```
 
-The retry recreates nothing that exists: over an existing Release it replaces the notes from `CHANGELOG.md`, or leaves
-them when there is no section to replace them with.
+The retry recreates nothing that exists: over an existing Release it replaces the notes from the tagged commit's
+`CHANGELOG.md`, or leaves them when there is no section to replace them with. A section that lands on `main` after the
+tag is applied by hand ([`RELEASES-POSTFLIGHT.md`](./RELEASES-POSTFLIGHT.md)).
 
 → Rationale: [`RELEASES-RATIONALE.md` § Release pipeline](./RELEASES-RATIONALE.md#release-pipeline).
 
@@ -321,9 +322,9 @@ After the commit, when the sync carried `CHANGELOG.md` and `git-cliff` is instal
 reason line (a PR body edited after the release, or a difference in line wrapping only). The warning does not block the
 backport.
 
-Merge the PR once CI is green; the postflight backport gate looks for its `chore(release): sync dev after <tag>`
-subject on `dev`. Never merge `main` into `dev` or push to `dev` directly: the squash-merged histories share no recent
-ancestry, so the merge conflicts on every file both sides touched, and a direct push bypasses `dev`'s required checks.
+Merge the PR once CI is green; the postflight backport gate looks for its `chore(release): sync dev after <tag>` subject
+on `dev`. Never merge `main` into `dev` or push to `dev` directly: the squash-merged histories share no recent ancestry,
+so the merge conflicts on every file both sides touched, and a direct push bypasses `dev`'s required checks.
 
 After it merges, confirm the branches actually converged. This is what catches a contested path nobody resolved:
 
