@@ -1,4 +1,4 @@
-<!-- Canonical version: 2026.11.02 (generic) -->
+<!-- Canonical version: 2026.11.03 (generic) -->
 # Pre-release verification: `xurl-rs-skill`
 
 Operational pre-flight checklist. Walk it before step 1 of
@@ -37,15 +37,15 @@ as the manual fallback when running by hand.
 
 Sub-commands let you re-run one section in isolation:
 
-| Sub-command          | What it checks                                                                                                                                       | Source of truth                                                        |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `drift`              | Commits on `main` since the last release whose changes `dev` lacks, `.github/` parity, lockfile packages `main` resolves newer                       | `scripts/release/drift.sh`                                             |
-| `surface`            | Commits since the last release reached `dev`, files changed since the last tag, breaking markers                                                     | `git log`, `git diff`                                                  |
-| `smoke`              | The contract harness against the pinned `xr` and the newest `xr` release, and a negative control on `scripts/dry-run-gate.sh`                        | `tests/contract.sh`, `tests/fetch-xr.sh`, `tests/xr-sandbox.sh`        |
-| `mechanics`          | `VERSION`, the changelog's top section, the documented `xr` version, leak check, unguarded docs added to `main`, diff-B vs `origin/dev`              | `VERSION`, `CHANGELOG.md`, `SKILL.md`, `AGENTS.md`, `guarded-paths.sh` |
-| `changelog-sections` | No PR this release carries leaves its changelog entry to its title for want of a section                                                             | `generate-changelog.py`, `gh`                                          |
-| `semver`             | Skips: no `Cargo.toml`                                                                                                                               | `cargo semver-checks`                                                  |
-| `all`                | Every above sequentially, drift first. No `surface-smoke`: the bundle has no deployed surface, so `scripts/release/surface-smoke.sh` is not vendored |                                                                        |
+| Sub-command          | What it checks                                                                                                                                                    | Source of truth                                                        |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `drift`              | Commits on `main` since the last release whose changes `dev` lacks, `.github/` parity, lockfile packages `main` resolves newer                                    | `scripts/release/drift.sh`                                             |
+| `surface`            | Commits since the last release reached `dev`, files changed since the last tag, breaking markers                                                                  | `git log`, `git diff`                                                  |
+| `smoke`              | The contract harness against the pinned `xr` and the newest `xr` release, and a negative control on `scripts/dry-run-gate.sh`                                     | `tests/contract.sh`, `tests/fetch-xr.sh`, `tests/xr-sandbox.sh`        |
+| `mechanics`          | `VERSION`, the changelog's top section, the documented `xr` version, the 1.0+ migration guide, leak check, unguarded docs added to `main`, diff-B vs `origin/dev` | `VERSION`, `CHANGELOG.md`, `SKILL.md`, `AGENTS.md`, `guarded-paths.sh` |
+| `changelog-sections` | No PR this release carries leaves its changelog entry to its title for want of a section                                                                          | `generate-changelog.py`, `gh`                                          |
+| `semver`             | Skips: no `Cargo.toml`                                                                                                                                            | `cargo semver-checks`                                                  |
+| `all`                | Every above sequentially, drift first. No `surface-smoke`: the bundle has no deployed surface, so `scripts/release/surface-smoke.sh` is not vendored              |                                                                        |
 
 Flags:
 
@@ -83,7 +83,9 @@ between the sync commit before that one and this one, and leaves out every PR `C
 generated section is the complete list, and a breaking PR merged in that gap appears in its `### Breaking changes`
 rather than in the tally.
 
-Every `!:` commit drives the major-version decision and gets a row in the release's `### Breaking changes` section.
+A `!:` commit is a cross-check hint only: the PRs' changelog sections set the bump
+([`RELEASES.md` § Versioning](./RELEASES.md#versioning)). A `!:` commit whose PR filed no `### Breaking changes` bullet
+is a question for its author, not a major on its own.
 
 ## Checklist
 
@@ -97,18 +99,27 @@ Dependabot raises the same fix again.
 
 <!-- canonical:begin drift-gate -->
 
-- [ ] The previous release's own bookkeeping reached `dev` (gate 0: the version carriers and `CHANGELOG.md` as the
-  release left them). It fails when a backport never ran; run `scripts/sync-dev-after-release.sh v<previous>`, merge its
-  PR, and rerun.
-- [ ] Every commit on `main` since the last release has its changes on `dev` (gate 1 lists the ones that do not, as
-  `differs` or `missing`). Backport them by PR into `dev` first, merge, and rerun.
-- [ ] Nothing under `.github/` on `main` is missing from `dev` (gate 2). `.github/` reaches `main` through the release,
-  so config that has reached `dev` and not `main` is what this release delivers, and the gate counts it. The gate fails
-  on the other direction, where `main` holds workflow or ruleset config `dev` never received, and names each path as
-  `missing` or `differs`.
-- [ ] No lockfile package resolves newer on `main` than on `dev` (gate 3, which reads `package-lock.json`, `bun.lock`,
-  and `Cargo.lock`). The one benign case is a version still inside the local package manager's release-age window when
-  the advisory is already patched at `dev`'s version.
+- [ ] The previous release's own bookkeeping reached `dev` (gate 0).
+
+  Gate 0 checks the version carriers and `CHANGELOG.md` as the release left them. It fails when a backport never ran;
+  run `scripts/sync-dev-after-release.sh v<previous>`, merge its PR, and rerun.
+
+- [ ] Every commit on `main` since the last release has its changes on `dev` (gate 1).
+
+  Gate 1 lists each commit that does not, as `differs` or `missing`. Backport them by PR into `dev` first, merge, and
+  rerun.
+
+- [ ] Nothing under `.github/` on `main` is missing from `dev` (gate 2).
+
+  `.github/` reaches `main` through the release, so config that has reached `dev` and not `main` is what this release
+  delivers, and the gate counts it. The gate fails on the other direction, where `main` holds workflow or ruleset
+  config `dev` never received, and names each path as `missing` or `differs`.
+
+- [ ] No lockfile package resolves newer on `main` than on `dev` (gate 3).
+
+  Gate 3 reads `package-lock.json`, `bun.lock`, and `Cargo.lock`. The one benign case is a version still inside the
+  local package manager's release-age window when the advisory is already patched at `dev`'s version.
+
 - [ ] `dev`-newer packages are the routine updates this release ships; the gate counts them and does not list them.
 
 <!-- canonical:end drift-gate -->
@@ -149,6 +160,14 @@ These items duplicate steps in `RELEASES.md` deliberately: easy to skip, expensi
 
 - [ ] `VERSION` bumped to the new tag value (`release.yml`'s integrity gate enforces this; catch early).
 - [ ] `CHANGELOG.md`'s top section names that version and holds no `[Unreleased]` placeholder.
+- [ ] **The version is the one the changelog sections call for.** `scripts/release/cut-release-branch.sh` prints the
+  version `scripts/generate-changelog.py --bump` computes beside the one it was given
+  ([`RELEASES.md` § Versioning](./RELEASES.md#versioning)); a difference is the maintainer's call, made before the
+  release commit.
+- [ ] **A 1.0+ release that keeps its major ships a migration guide for its breaking changes.**
+  `scripts/release/preflight.sh mechanics` fails a release whose changelog carries `### Breaking changes` when it keeps
+  the previous tag's major and has no `docs/migrating/v<version>.md` opening with a line that names the small-break
+  exception. A 0.x release needs no guide.
 - [ ] `SKILL.md`'s contract sentence ("This bundle describes the `xr X.Y.Z` contract") names the release the AGENTS.md
   "Verified against" table pins. Those are the two places a bundle pass updates, and the gate fails when they disagree.
 - [ ] No PR this release carries leaves its changelog entry to its title. Swept, not sampled, by

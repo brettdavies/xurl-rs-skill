@@ -1,4 +1,4 @@
-<!-- Canonical version: 2026.10.22 (generic) -->
+<!-- Canonical version: 2026.11.03 (generic) -->
 # Post-release verification: `xurl-rs-skill`
 
 Operational post-flight checklist. Runs **after** the `release/v<version> → main` PR merges and you push the tag
@@ -19,17 +19,17 @@ The script (`scripts/release/postflight.sh`) is a verbatim copy from the `github
 pipeline the fleet runs (`release.yml` → Homebrew tap → `finalize-release.yml` → crates.io). It reads the tag from
 `VERSION` and adjusts to what a repo has, so on this bundle three gates check and the rest skip with a reason:
 
-| Sub-command     | Here                                                                                                           |
-| --------------- | -------------------------------------------------------------------------------------------------------------- |
-| `release`       | Checks: the tag's `release.yml` run concluded `"success"`                                                      |
-| `tap`           | Skips: nothing dispatches to `brettdavies/homebrew-tap`, so no tap run follows `release.yml`                   |
-| `finalize`      | Skips: no tap calls back, so no `finalize-release.yml` run                                                     |
-| `make-latest`   | Checks: the GitHub Release is non-draft and non-prerelease, and `releases/latest` resolves to it               |
-| `crates`        | Skips: no `Cargo.toml`                                                                                         |
-| `tags`          | Skips: no `Cargo.toml`                                                                                         |
-| `backport`      | Checks: a merged PR to `dev` carries the tag in its title, the one `scripts/sync-dev-after-release.sh` opens   |
-| `surface-smoke` | Prints nothing: `scripts/release/surface-smoke.sh` is not vendored, because the bundle has no deployed surface |
-| `all`           | Every above                                                                                                    |
+| Sub-command     | Here                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `release`       | Checks: the tag's `release.yml` run concluded `"success"`                                                                                  |
+| `tap`           | Skips: nothing dispatches to `brettdavies/homebrew-tap`, so no tap run follows `release.yml`                                               |
+| `finalize`      | Skips: no tap calls back, so no `finalize-release.yml` run                                                                                 |
+| `make-latest`   | Checks: the GitHub Release is non-draft and non-prerelease, and `releases/latest` resolves to it                                           |
+| `crates`        | Skips: no `Cargo.toml`                                                                                                                     |
+| `tags`          | Skips: no `Cargo.toml`                                                                                                                     |
+| `backport`      | Checks: `dev` carries the backport's `chore(release): sync dev after <tag>` subject, from the PR `scripts/sync-dev-after-release.sh` opens |
+| `surface-smoke` | Prints nothing: `scripts/release/surface-smoke.sh` is not vendored, because the bundle has no deployed surface                             |
+| `all`           | Every above                                                                                                                                |
 
 Flags this repo uses:
 
@@ -69,9 +69,9 @@ Run once `release.yml` finishes for the tag.
   incident pressure, so a rollback is a single command ([`RELEASES.md` § Rollback](./RELEASES.md#rollback)).
 - [ ] **Rollback path confirmed.** If this release is bad, roll back at the surface first, then land a `fix` or `revert`
   through the normal `dev` to `release/*` to `main` flow so `main` reconverges with what is live.
-- [ ] **Backport `main` → `dev`** via a **merged PR to `dev` with the version in its title.** Bring the release-only
-  changes (`VERSION`, `CHANGELOG.md`, and anything the release branch edited on `main` that never round-tripped to
-  `dev`) across with `scripts/sync-dev-after-release.sh`, which opens that PR
+- [ ] **Backport `main` → `dev`** via the PR `scripts/sync-dev-after-release.sh` opens, merged to `dev`. Bring the
+  release-only changes (`VERSION`, `CHANGELOG.md`, and anything the release branch edited on `main` that never
+  round-tripped to `dev`) across with `scripts/sync-dev-after-release.sh`, which opens that PR
   ([`RELEASES.md` § After publish](./RELEASES.md#after-publish-sync-dev-with-the-release)). It keeps the next release's
   drift and `diff-B` checks quiet, so a real missed change stands out instead of hiding in expected divergence.
 
@@ -79,9 +79,11 @@ Run once `release.yml` finishes for the tag.
   scripts/sync-dev-after-release.sh vX.Y.Z
   ```
 
-  The gate (`scripts/release/postflight.sh backport`) searches merged PRs to `dev` by the tag (the search index
-  tokenizes `v1.2.0` as one word, so a bare `1.2.0` misses it) and accepts either spelling in the title. Its SKIP and
-  FAIL name the sync command to run.
+  The gate (`scripts/release/postflight.sh backport`) looks for the subject the script gives the backport,
+  `chore(release): sync dev after <tag>` (its PR title and squash commit) or
+  `chore(release): backport <tag> artifacts to dev` (its commit), first on `dev`'s first-parent history, so a backport
+  committed without a PR counts, then among merged PRs to `dev`. A feature PR that only mentions the version does not
+  count. Its SKIP and FAIL name the sync command to run.
 
 ## Related docs
 

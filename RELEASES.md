@@ -1,4 +1,5 @@
-<!-- Canonical version: 2026.10.22 (generic) -->
+<!-- Canonical version: 2026.11.03 (generic) -->
+<!-- canonical: version-scheme semver -->
 # Releasing `xurl-rs-skill`
 
 Operational runbook. Rationale lives in [`RELEASES-RATIONALE.md`](./RELEASES-RATIONALE.md). Pre-cut go/no-go checklist
@@ -74,10 +75,10 @@ optional: fill `## Breaking Changes` on a major, delete the rest when they do no
   intermediate state, or release mechanics.
 - **Zero verification artifacts in the body.** No diff stats, leak-check output, pre-push gate results, CI status, or
   prose-scrub findings. Anomalies get fixed before push, not audit-trailed.
-- **Changelog** subsections (`### Breaking changes` / `### Added` / `### Changed` / `### Deprecated` / `### Removed` /
-  `### Fixed` / `### Documentation`): 1-5 bullets each, delete empty subsections, each bullet starts with a verb. A
-  `## Changelog` heading left standing with no bullets under it says the PR ships nothing user-facing, and
-  `generate-changelog.py` adds nothing for it, whatever the PR title says.
+- **Changelog** subsections (`### Breaking changes` / `### Added` / `### Changed` / `### Deprecated` / `### Fixed` /
+  `### Documentation`, the six headings of [§ Versioning](#versioning)): 1-5 bullets each, delete empty subsections,
+  each bullet starts with a verb. A `## Changelog` heading left standing with no bullets under it says the PR ships
+  nothing user-facing, and `generate-changelog.py` adds nothing for it, whatever the PR title says.
 - **Type of Change**: one checkbox. Prefer `feat`/`fix` over `chore` for any user-observable change.
 - **Related Issues/Stories**: four labels (`Story:` / `Issue:` / `Architecture:` / `Related PRs:`). All four required
   even when empty (`- None.` / `n/a`).
@@ -87,6 +88,81 @@ optional: fill `## Breaking Changes` on a major, delete the rest when they do no
 - **No hard line wraps**: one logical line per paragraph or bullet.
 
 → Rationale: [`RELEASES-RATIONALE.md` § PR body conventions](./RELEASES-RATIONALE.md#pr-body-conventions).
+
+## Versioning
+
+The marked lines below are github-repo-setup's SemVer section of `references/versioning.md`, which the drift check
+compares, and line 2 declares the scheme. A site, a CalVer repo, or one that ships no version changes the declaration
+and copies that scheme's section in their place.
+
+<!-- canonical:begin versioning-semver -->
+
+This repo follows [SemVer 2.0.0](https://semver.org/). Its version comes from its changelog: every PR files each
+user-facing change under one of the six headings below, and a release takes the highest bump any of its PRs calls for.
+The rules cover only the surfaces § What the contract is names.
+
+### What the contract is
+
+<!-- canonical:repo-begin contract -->
+
+The bundle's contract is what an agent reading an installed copy relies on:
+
+- **Skill identity:** `SKILL.md`'s frontmatter `name`, `xurl-rs`, which names the directory `xr skill install` writes
+  and the skill a host activates.
+- **Bundle layout:** the paths an agent opens by name: `SKILL.md`, `getting-started.md`, each `references/<topic>.md`,
+  each `templates/<recipe>.md`, and `scripts/dry-run-gate.sh` and `scripts/paginate.sh` with the `scripts/_common.sh`
+  they source.
+- **The shipped scripts:** each script's usage line, flags, exit codes, and which stream carries what, as its header and
+  [`scripts/README.md`](./scripts/README.md) state them.
+- **The documented `xr` contract:** the `xr` release `SKILL.md` names, and each invocation, envelope field, and exit
+  code the bundle states for it, every one checked by `tests/contract.sh`.
+
+The wording of the docs, the frontmatter `description` included, is not contract, and neither are the producer files:
+`scripts/release/`, `scripts/generate-changelog.py`, `scripts/sync-dev-after-release.sh`, `tests/`, `fixtures/`,
+`evals/`, the runbooks, `AGENTS.md`, and `CONTRIBUTING.md`.
+
+<!-- canonical:repo-end -->
+
+### The six headings
+
+| Heading            | Holds                                                                   | Bump  |
+| ------------------ | ----------------------------------------------------------------------- | ----- |
+| `Breaking changes` | a contract surface removed, renamed, or retyped, or its meaning changed | major |
+| `Added`            | a new contract surface                                                  | minor |
+| `Changed`          | a visible change outside the contract                                   | patch |
+| `Deprecated`       | a contract surface marked for removal                                   | minor |
+| `Fixed`            | behavior brought back to the documented contract                        | patch |
+| `Documentation`    | documentation only                                                      | patch |
+
+`generate-changelog.py` writes them in this order and any other heading after them. A contract removal is a
+`Breaking changes` bullet that starts with "Remove"; a removal outside the contract goes under `Changed`, or is left
+out. Removals ship when they are ready, with no deprecation schedule. A `type!:` commit is a prompt to check the PR's
+sections, never the bump itself.
+
+### The bump
+
+`scripts/generate-changelog.py --bump` prints the next version from the PRs merged since the last release, and
+`cut-release-branch.sh` prints it beside the version the cut is given:
+
+- The highest heading among their sections sets the bump.
+- A `rust-version` raised since the last tag is a minor-level change, so it lifts a patch to a minor. A Rust repo's
+  `rust-version` equals the toolchain `rust-toolchain.toml` pins, and CI's MSRV job builds on exactly that version.
+- Before 1.0, a major or a minor moves the middle number and a patch moves the last: `0.4.2` becomes `0.5.0` or `0.4.3`.
+  This is stricter than Cargo's convention on purpose: an addition never ships as a last-number bump, so a `^0.y`
+  dependent receives only fixes until it opts in.
+- From 1.0, when the sections call for a major, the release agent asks the maintainer: a major, or a minor under the
+  small-break exception. A minor ships `docs/migrating/v<version>.md`, whose first line names the exception, and
+  preflight fails a 1.0+ release that keeps its major and carries `### Breaking changes` without that guide.
+
+### Overrides
+
+<!-- canonical:repo-begin overrides -->
+
+None. A repo that departs from the bump, the pre-1.0 rule, or the MSRV rule states the rule it follows here.
+
+<!-- canonical:repo-end -->
+
+<!-- canonical:end versioning-semver -->
 
 ## Releasing dev to main
 
@@ -245,9 +321,9 @@ After the commit, when the sync carried `CHANGELOG.md` and `git-cliff` is instal
 reason line (a PR body edited after the release, or a difference in line wrapping only). The warning does not block the
 backport.
 
-Merge the PR once CI is green; the postflight backport gate looks for that merged PR. Never merge `main` into `dev` or
-push to `dev` directly: the squash-merged histories share no recent ancestry, so the merge conflicts on every file both
-sides touched, and a direct push bypasses `dev`'s required checks.
+Merge the PR once CI is green; the postflight backport gate looks for its `chore(release): sync dev after <tag>`
+subject on `dev`. Never merge `main` into `dev` or push to `dev` directly: the squash-merged histories share no recent
+ancestry, so the merge conflicts on every file both sides touched, and a direct push bypasses `dev`'s required checks.
 
 After it merges, confirm the branches actually converged. This is what catches a contested path nobody resolved:
 
