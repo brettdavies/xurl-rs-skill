@@ -10,7 +10,7 @@ Consumer-side instructions (how an agent should *use* the bundle once installed)
 | xurl-rs commit      | `b102cbc`, the `v4.5.2` tag (2026-11-03)                                                                                                                                                    |
 | Binary self-report  | `xr 4.5.2` (`xdk-rs 0.4.2`), the `x86_64-unknown-linux-gnu` asset of the `v4.5.2` GitHub release                                                                                            |
 | Contract documented | 4.5.2: dry runs that check the credential, the file, and reads; `rule` on validation refusals; `xr schema` in command words; five more `next_step` actions; the store at `~/.xurl/auth.yml` |
-| Harness result      | `tests/contract.sh`: 281 checks (437 assertions) passing against that binary                                                                                                                |
+| Harness result      | `tests/contract.sh`: 287 checks (452 assertions) passing against that binary                                                                                                                |
 
 The bundle documents the contract of the `xr` release it ships beside: the upstream `dev` head when a release is being
 cut from it, or the released artifact once it is out. A release that changes nothing the bundle documents (only the

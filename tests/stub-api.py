@@ -49,6 +49,13 @@ STUCK_CATEGORY = '"dm_video"'
 # it has finished with.
 PENDING_MEDIA_ID = "9002"
 PENDING_CATEGORY = '"dm_gif"'
+# A media id X fails after processing: FINALIZE reports it pending, and its
+# status then reports the failure. An upload in the DM image category is given it.
+FAILED_MEDIA_ID = "9003"
+FAILED_CATEGORY = '"dm_image"'
+# A handle X knows no account for: the batch lookup leaves it out of `data`
+# and names it under `errors`, as X does.
+UNKNOWN_HANDLE = "nosuchuser"
 # Seconds until the reset a 429 names: far enough out that a default wait
 # does not fit one, near enough that `ratelimitonce` is waited out, and
 # already behind the clock for `ratelimitpast`.
@@ -133,7 +140,17 @@ class Handler(BaseHTTPRequestHandler):
         match = BY_USERNAMES.match(path)
         if match:
             names = unquote(match.group(1)).split(",")
-            return self._reply({"data": [{"id": "7", "username": name, "name": "U"} for name in names]})
+            known = [{"id": "7", "username": name, "name": "U"} for name in names if name != UNKNOWN_HANDLE]
+            missing = [
+                {"value": name, "detail": "Could not find user with usernames: [%s]." % name, "title": "Not Found Error",
+                 "resource_type": "user", "parameter": "usernames",
+                 "type": "https://api.twitter.com/2/problems/resource-not-found"}
+                for name in names if name == UNKNOWN_HANDLE
+            ]
+            body = {"data": known} if known else {}
+            if missing:
+                body["errors"] = missing
+            return self._reply(body)
         match = BY_USERNAME.match(path)
         if match:
             return self._reply({"data": {"id": "7", "username": match.group(1), "name": "U"}})
@@ -152,6 +169,11 @@ class Handler(BaseHTTPRequestHandler):
         status = {"id": media_id, "media_key": "7_" + media_id}
         if media_id == STUCK_MEDIA_ID:
             status["processing_info"] = {"state": "in_progress", "check_after_secs": 1, "progress_percent": 50}
+        elif media_id == FAILED_MEDIA_ID:
+            status["processing_info"] = {
+                "state": "failed",
+                "error": {"code": 1, "name": "InvalidMedia", "message": "Unsupported media encoding"},
+            }
         elif media_id != PENDING_MEDIA_ID:
             status["processing_info"] = {"state": "succeeded", "progress_percent": 100}
         return status
@@ -184,10 +206,12 @@ class Handler(BaseHTTPRequestHandler):
                 media_id = STUCK_MEDIA_ID
             elif PENDING_CATEGORY in body:
                 media_id = PENDING_MEDIA_ID
+            elif FAILED_CATEGORY in body:
+                media_id = FAILED_MEDIA_ID
             else:
                 media_id = "m1"
             data = {"id": media_id, "media_key": "3_" + media_id, "expires_after_secs": 3600}
-            if phase and phase.group(2) == "finalize" and media_id == PENDING_MEDIA_ID:
+            if phase and phase.group(2) == "finalize" and media_id in (PENDING_MEDIA_ID, FAILED_MEDIA_ID):
                 data["processing_info"] = {"state": "pending", "check_after_secs": 1}
             return self._reply({"data": data})
         if self.path.startswith("/2/tweets"):

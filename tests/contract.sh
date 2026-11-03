@@ -266,6 +266,9 @@ check "schema broadcasts moderators add: the data view; moderator_user_ids" 0 \
   out.json .command 'broadcasts moderators add' \
   out.json '.properties | has("moderator_user_ids")' true \
   -- "$X" schema broadcasts moderators add --output json
+check "schema post --full: the complete schema with its \$defs" 0 out.json "has(\"\$defs\")" true -- "$X" schema post --full --output json
+check "schema post --path: one node into the data" 0 out.json '.properties | has("retweet_count") or has("repost_count") or has("like_count")' true -- "$X" schema post --path public_metrics --output json
+check "schema --common: the wrapper's data, meta, includes, errors" 0 out.json '.properties | keys' '["data","errors","includes","meta"]' -- "$X" schema --common --output json
 check "schema dm: dm_event_id" 0 out.json '[.. | objects | .properties? // empty | has("dm_event_id")] | any' true -- "$X" schema dm --output json
 check "schema block: positional" 0 out.json '[.. | objects | .properties? // empty | has("blocking")] | any' true -- "$X" schema block --output json
 check "validate --schema block" 0 out.json .valid true -- bash -c "printf '%s' '{\"data\":{\"blocking\":true}}' | '$X' validate --schema block --output json"
@@ -455,6 +458,8 @@ check "auth status: per-app fields; oauth2_users; bearer_source; no token values
   out.json '.apps[0].client_id_hint' abcdefgh \
   out.json '.apps[0].oauth2_users' '["alice"]' \
   out.json '.apps[0].bearer_source' store \
+  out.json '.apps[0].oauth2_accounts[0].user_id' 42 \
+  out.json '.apps[0].oauth2_accounts[0].username' alice \
   out.json '[.. | strings | select(contains("fakeaccess"))] | length' 0 \
   -- "$X" auth status --output json
 check "post --dry-run with a token: would_succeed; auth names the app, scheme, and login; nothing sent" 0 \
@@ -553,7 +558,19 @@ check "post: 201 body; typed post: edit_history_post_ids; typed post: no legacy 
   out.json '.data.edit_history_post_ids' '["777"]' \
   out.json '.data | has("edit_history_tweet_ids")' false \
   -- "$X" post "hello" --output json
-check "block: lookup then POST /blocking" 0 log '"path": "/2/users/42/blocking"' -- "$X" block @spammer --output json
+check "block: one batch lookup, then POST /blocking" 0 \
+  log '/2/users/by?usernames=spammer&' \
+  log '"path": "/2/users/42/blocking"' \
+  -- "$X" block @spammer --output json
+check "block <all-digit id>: a user id, sent with no lookup" 0 \
+  log '{"target_user_id":"7"}' \
+  log '!/2/users/by' \
+  -- "$X" block 7 --output json
+check "block @handle X knows no account for: not-found exit 4; account; fix-input" 4 \
+  err.json .reason not-found \
+  err.json .account nosuchuser \
+  err.json .next_step.action fix-input \
+  -- "$X" block @nosuchuser --output json
 check "unblock: DELETE /blocking/<target>" 0 log '/2/users/42/blocking/7' -- "$X" unblock spammer --output json
 check "delete --force: DELETE /2/tweets/<id>" 0 log '"path": "/2/tweets/123"' -- "$X" delete 123 --force --output json
 check "HTTP 429, no reset named: rate-limited exit 3; no next_step, no retry keys" 3 \
@@ -626,6 +643,12 @@ check "media upload GIF X reports as still processing: waited for; no state left
   out.json '.data | has("processing_info")' false \
   log 'command=STATUS&media_id=9002' \
   -- "$X" media upload "$WORK/tiny.gif" --media-type image/gif --category dm_gif --output json
+check "media upload X fails after processing: invalid-request exit 1, media_id; stdout keeps FINALIZE's document" 1 \
+  err.json .reason invalid-request \
+  err.json .media_id 9003 \
+  err.json '.message | contains("Unsupported media encoding")' true \
+  out.json .data.processing_info.state pending \
+  -- "$X" media upload "$WORK/tiny.png" --media-type image/png --category dm_image --output json
 check "media upload --wait=false on media still processing: FINALIZE's pending state, unread" 0 \
   out.json .data.processing_info.state pending \
   -- "$X" media upload "$WORK/tiny.gif" --media-type image/gif --category dm_gif --wait=false --output json
