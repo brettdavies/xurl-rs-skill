@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Canonical version: 2026.11.01 (generic)
+# Canonical version: 2026.11.03 (generic)
 #
 # Run release preflight gates against the current checkout.
 #
@@ -123,10 +123,12 @@ gate_surface() {
   # set: dev carries engineering docs that never ship.
   local guarded
   guarded=$("$(dirname "$0")/guarded-paths.sh" 2>/dev/null) || guarded='^$'
-  commits=$(git log "$window" --oneline | wc -l)
-  files=$(git diff "$last_tag" "$head_ref" --name-only | { grep -Ev "$guarded" || true; } | wc -l)
+  # BSD wc pads its count to eight columns, so each count drops its whitespace
+  # before it reaches the pass line.
+  commits=$(git log "$window" --oneline | wc -l | tr -d '[:space:]')
+  files=$(git diff "$last_tag" "$head_ref" --name-only | { grep -Ev "$guarded" || true; } | wc -l | tr -d '[:space:]')
   # Scoped markers count too: `feat(api)!:` is breaking as much as `feat!:`.
-  breaking=$(git log "$window" --grep '^[a-z]\+\(([^)]*)\)\?!:' --oneline | wc -l)
+  breaking=$(git log "$window" --grep '^[a-z]\+\(([^)]*)\)\?!:' --oneline | wc -l | tr -d '[:space:]')
   gate_pass "LAST_TAG = $last_tag  ($commits commits, $files files, $breaking breaking${anchor:+, counted from its backport ${anchor:0:12} on $head_ref})"
 }
 
@@ -330,10 +332,12 @@ gate_semver() {
 
 # One cargo-semver-checks run for gate_semver: the package to check (empty for a
 # single-package repo), the tag whose version the release type was read
-# against, and that release type.
+# against, and that release type. The tag is the baseline too: without
+# --baseline-rev the tool compares with the crate's newest registry release,
+# which a crate never published lacks and a published one can trail or lead.
 semver_check() {
   local label=$1 package=$2 baseline=$3 release_type=$4
-  local args=(check-release --release-type "$release_type")
+  local args=(check-release --baseline-rev "$baseline" --release-type "$release_type")
   [[ -z "$package" ]] || args+=(--package "$package")
   local out rc
   out=$(cargo semver-checks "${args[@]}" 2>&1) && rc=0 || rc=$?
@@ -403,6 +407,32 @@ gate_changelog_sections() {
   done
 }
 
+# migration_guide_check CHANGELOG VERSION: a 1.0+ release that keeps its major
+# and carries `### Breaking changes` takes the small-break exception of
+# github-repo-setup's references/versioning.md, so it ships
+# docs/migrating/v<VERSION>.md, whose first line names the exception. A 0.x
+# release, a major, and a first release need no guide.
+migration_guide_check() {
+  local changelog=$1 version=$2 major previous guide
+  [[ "$version" =~ ^([0-9]+)\.[0-9]+\.[0-9]+$ ]] || return 0
+  major=${BASH_REMATCH[1]}
+  [[ "$major" -ge 1 ]] || return 0
+  # The match runs inside awk: a `grep -q` after a pipe would stop reading at the
+  # first match, and under pipefail the writer's SIGPIPE on a large section
+  # would read as no breaking changes.
+  awk '/^## \[/ { if (seen) exit; seen = 1 } seen && /^### Breaking changes/ { found = 1; exit } END { exit !found }' \
+    "$changelog" || return 0
+  previous=$(git tag --list 'v[0-9]*' --sort=-version:refname | grep -vxF "v$version" | head -n 1 || true)
+  [[ "$previous" =~ ^v([0-9]+)\. && "${BASH_REMATCH[1]}" -eq "$major" ]] || return 0
+  guide="docs/migrating/v$version.md"
+  if [[ -f "$guide" ]] && head -n 1 "$guide" | grep -qi 'small-break exception'; then
+    gate_pass "$guide opens by naming the small-break exception ($version keeps major $major over $previous with ### Breaking changes)"
+  else
+    gate_fail "migration guide" "$version keeps major $major over $previous, its changelog carries ### Breaking changes, and $guide $([[ -f "$guide" ]] && echo "does not name the small-break exception on its first line" || echo "does not exist")
+    fix: release $((major + 1)).0.0, or, when the maintainer takes the small-break exception, write $guide opening with a line that names it (references/versioning.md in github-repo-setup shows one)"
+  fi
+}
+
 gate_mechanics() {
   header "Release mechanics sanity"
   local project_version changelog_version
@@ -465,8 +495,8 @@ gate_mechanics() {
         gate_fail "$release_changelog mismatch" "changelog=$changelog_version project=$project_version"
       fi
     fi
-    # The placeholder is a section heading. Matched anywhere, the text also hits
-    # a released entry that quotes it, as this repo's 0.1.0 section does.
+    migration_guide_check "$release_changelog" "$project_version"
+    # The heading, not the text: a released section may quote `[Unreleased]`.
     if grep -qE '^## \[Unreleased\]' "$release_changelog"; then
       gate_fail "$release_changelog" "has [Unreleased] placeholder"
     else
