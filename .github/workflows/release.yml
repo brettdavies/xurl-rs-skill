@@ -34,6 +34,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       tag: ${{ steps.resolve.outputs.tag }}
+      sha: ${{ steps.verify.outputs.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -55,8 +56,10 @@ jobs:
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      # Everything downstream trusts tag-equals-VERSION once this passes.
+      # Everything downstream trusts tag-equals-VERSION once this passes, and
+      # reads the commit it verified rather than the tag's name.
       - name: Verify tag shape, reachability from main, and VERSION
+        id: verify
         env:
           TAG: ${{ steps.resolve.outputs.tag }}
         run: |
@@ -77,6 +80,7 @@ jobs:
             echo "::error::tag $TAG does not match VERSION $FILE_VERSION at that commit"
             exit 1
           fi
+          echo "sha=$(git rev-parse "refs/tags/$TAG^{commit}")" >> "$GITHUB_OUTPUT"
           echo "integrity gate passed: $TAG == VERSION $FILE_VERSION, reachable from main"
 
   release:
@@ -87,10 +91,13 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout the tag
+      # The commit, not the tag's name: actions/checkout resolves a bare name to
+      # a branch of that name before the tag, and that branch never passed the
+      # integrity gate.
+      - name: Checkout the verified tag commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.integrity.outputs.tag }}
+          ref: ${{ needs.integrity.outputs.sha }}
           persist-credentials: false
 
       # Anchors on the tag's version string, never on file position: an
