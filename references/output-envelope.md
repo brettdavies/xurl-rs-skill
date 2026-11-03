@@ -15,10 +15,11 @@ Two exceptions to the stream rule:
 
 - The `skill install` / `skill update` verbs write their error envelope to **stdout** with the non-zero exit
   (`missing-host` and `destination-not-empty` verified). Feature-detect on `status == "error"` there.
-- An invalid `--output` value (`--output toml`) is a plain usage message on stderr at exit `2` (`Error: invalid value
-  'toml' for '--output <OUTPUT>'`, ending `Try 'xr <cmd> --help'.`), because no structured mode was resolved. Every
-  other flag-parsing failure (an unknown flag, a missing positional, a bad `--timeout`) is an `invalid-args` envelope
-  whose `message` carries the parser's text without an `error:` prefix, ending with the same `Try '… --help'.` line.
+- An invalid `--output` value (`--output toml`) is a plain usage message on stderr at exit `2`
+  (`Error: invalid value 'toml' for '--output <OUTPUT>'`, ending `Try 'xr <cmd> --help'.`), because no structured mode
+  was resolved. Every other flag-parsing failure (an unknown flag, a missing positional, a bad `--timeout`) is an
+  `invalid-args` envelope whose `message` carries the parser's text without an `error:` prefix, ending with the same
+  `Try '… --help'.` line.
 
 Capture both streams when you intend to branch on the result: `RESPONSE=$(xr whoami --output json 2>&1)`. Capturing
 stdout alone leaves the variable empty on exactly the path a script wants to inspect.
@@ -29,9 +30,9 @@ Verify the envelope variants against the bundled schema:
 xr schema --envelope --output json        # declares the ok / dry_run / error variants and every error key
 ```
 
-The schema's `ok` variant describes the local verbs. API-backed successes do not carry `status`, so `xr validate
---schema envelope` rejects them (`validation-failed`, "missing required string field `status`"); validate those against
-the verb's own schema instead (`xr validate --schema posts`, `--schema user`, …). See
+The schema's `ok` variant describes the local verbs. API-backed successes do not carry `status`, so
+`xr validate --schema envelope` rejects them (`validation-failed`, "missing required string field `status`"); validate
+those against the verb's own schema instead (`xr validate --schema posts`, `--schema user`, …). See
 [Validating documents](#validating-documents).
 
 ## The four kinds
@@ -46,9 +47,9 @@ the verb's own schema instead (`xr validate --schema posts`, `--schema user`, �
 
 Every verb that calls the X API (`post`, `reply`, `quote`, `delete`, `read`, `search`, `whoami`, `user`, `timeline`,
 `mentions`, `like` … `unbookmark`, `bookmarks`, `likes`, `follow` … `followers`, `mute` / `unmute` / `muted`, `block` /
-`unblock` / `blocked`, `dm`, `dms`, `broadcasts moderators list` / `add` / `remove`, `usage`, `usage credits`, `media
-upload`, `media status`, `media alt-text`, `media subtitles add` / `remove`, and raw mode) prints the X API document:
-`data` (an object for lookups and writes, an array for list verbs), and `includes`, `meta` (`next_token`,
+`unblock` / `blocked`, `dm`, `dms`, `broadcasts moderators list` / `add` / `remove`, `usage`, `usage credits`,
+`media upload`, `media status`, `media alt-text`, `media subtitles add` / `remove`, and raw mode) prints the X API
+document: `data` (an object for lookups and writes, an array for list verbs), and `includes`, `meta` (`next_token`,
 `result_count`), `errors` (partial failures beside valid data) when present. Typed verbs deserialize the body into the
 shape `xr schema <verb>` declares before printing, so a body the type cannot hold is a `serialization` error, not a
 partial document.
@@ -58,21 +59,22 @@ Typed output is that shape, not the bytes X sent, in two ways that matter when r
 - **Post vocabulary.** X still answers some endpoints with its pre-rename field names. Typed verbs print the name the
   spec uses and keep X's value: `edit_history_tweet_ids` reads as `edit_history_post_ids`,
   `public_metrics.retweet_count` as `repost_count`. Read the current names in typed output (the rename table comes from
-  the vendored spec; a legacy spelling that is also a current name elsewhere in the spec is left as sent). Raw mode (`xr
-  /2/...`) prints exactly what X sent, legacy names included. Text-mode `--verbose` prints one line per renamed key on
-  stderr (`info: X sent edit_history_tweet_ids; read as edit_history_post_ids (array, length 1)`); structured output and
-  `--quiet` suppress it.
+  the vendored spec; a legacy spelling that is also a current name elsewhere in the spec is left as sent). Raw mode
+  (`xr /2/...`) prints exactly what X sent, legacy names included. Text-mode `--verbose` prints one line per renamed key
+  on stderr (`info: X sent edit_history_tweet_ids; read as edit_history_post_ids (array, length 1)`); structured output
+  and `--quiet` suppress it.
 - **Counters are filled.** Inside `public_metrics`, every counter the typed shape declares is printed, so one X did not
   send reads as `0`; optional fields X omitted elsewhere (`created_at`, `author_id`, …) stay absent. When "absent" and
   "zero" must differ for a counter, fetch the resource in raw mode (`xr /2/tweets/<id>`).
 
-Six write verbs answer a confirmation object rather than the resource: `dm` prints `{"data":{"dm_conversation_id":
-"…","dm_event_id":"…"}}` (the schema `dm` validates exactly that); `broadcasts moderators add` / `remove` print
-`{"data":{"moderator_user_ids":["…"]}}`, the moderator set after the change (schema `moderators`); `media alt-text`
-prints `{"data":{"id":"…","associated_metadata":{…}}}`, the metadata X now holds for the media (schema `alt-text`);
-`media subtitles add` prints `{"data":{"id":"…","media_category":"AmplifyVideo","associated_subtitles":{…}}}` (schema
-`subtitles`); and `media subtitles remove` prints `{"data":{"deleted":true}}` (schema `delete`). `broadcasts moderators
-list` is a plain user list (`{"data":[{id, username, name, …}]}`, schema `users`).
+Six write verbs answer a confirmation object rather than the resource: `dm` prints
+`{"data":{"dm_conversation_id": "…","dm_event_id":"…"}}` (the schema `dm` validates exactly that);
+`broadcasts moderators add` / `remove` print `{"data":{"moderator_user_ids":["…"]}}`, the moderator set after the change
+(schema `moderators`); `media alt-text` prints `{"data":{"id":"…","associated_metadata":{…}}}`, the metadata X now holds
+for the media (schema `alt-text`); `media subtitles add` prints
+`{"data":{"id":"…","media_category":"AmplifyVideo","associated_subtitles":{…}}}` (schema `subtitles`); and
+`media subtitles remove` prints `{"data":{"deleted":true}}` (schema `delete`). `broadcasts moderators list` is a plain
+user list (`{"data":[{id, username, name, …}]}`, schema `users`).
 
 The record shapes are the API's; read the per-verb schema rather than hand-coding field paths:
 
@@ -99,14 +101,15 @@ Verbs that never touch the API answer `status: "ok"` with their own keys beside 
 | `skill install <host>`, `skill update <host>`                                                   | the per-host install record (`legacy_install_dir` when an old copy exists) |
 | `skill install --all`, `skill update --all`                                                     | `action`, `installations`, `exit_code`                                     |
 
-`auth default <app> <user>` answers one document whose `message` names the app and the user, and saves both or
-neither: a user the app does not hold, or an app that is not registered, fails with `reason: "token-store"`, nothing on
-stdout, and the defaults as they were.
+`auth default <app> <user>` answers one document whose `message` names the app and the user, and saves both or neither:
+a user the app does not hold, or an app that is not registered, fails with `reason: "token-store"`, nothing on stdout,
+and the defaults as they were.
 
-`xr version` is local but carries no `status`: under `--output json` it prints `{"name":"xr","version":"<semver>",
-"xdk_rs":"<semver>"}` (the CLI version beside the `xdk-rs` library it links), `--output yaml` the same keys, and text
-mode the line `xr <semver>`, or `xr <semver> (xdk-rs <semver>)` with `--verbose`. `xr --version` is the plain clap line.
-Read `.version`; `xr validate --schema envelope` rejects the document for the missing `status`.
+`xr version` is local but carries no `status`: under `--output json` it prints
+`{"name":"xr","version":"<semver>", "xdk_rs":"<semver>"}` (the CLI version beside the `xdk-rs` library it links),
+`--output yaml` the same keys, and text mode the line `xr <semver>`, or `xr <semver> (xdk-rs <semver>)` with
+`--verbose`. `xr --version` is the plain clap line. Read `.version`; `xr validate --schema envelope` rejects the
+document for the missing `status`.
 
 **`auth status` and `auth apps list` wrap the array**: the shape is `{"status":"ok","apps":[...]}`, never a bare
 top-level array. Every jq path into it starts at `.apps[]`:
@@ -140,13 +143,14 @@ Mandatory fields:
 The inputs the verb validated sit beside them: `command` (the verb name; `media-upload`, `media-alt-text`,
 `media-subtitles-add`, `media-subtitles-remove` for the media verbs, `broadcasts-moderators-add` /
 `broadcasts-moderators-remove` for the moderator verbs), `body`, `media_ids`, `post_id`, `target_username`, `file`,
-`media_type`, `category`, `media_id`, `text`, `video_id`, `subtitles_id`, `language`, `name`. Check `would_succeed:
-true` AND `exit_code: 0` before re-running without `--dry-run`.
+`media_type`, `category`, `media_id`, `text`, `video_id`, `subtitles_id`, `language`, `name`. Check
+`would_succeed: true` AND `exit_code: 0` before re-running without `--dry-run`.
 
 A preflight whose inputs fail a check is still a `dry_run` envelope on stdout at **exit `0`**: `would_succeed: false`,
-the `exit_code` the live call would return (`1`), and a `reason` naming the check:
+the `exit_code` the live call would return (`1`), `reason: "validation"`, a `rule` naming the check, the rule's sentence
+in `message`, and the `next_step` the live call's error names:
 
-| `reason`                | Verbs                                 | Check                                                          |
+| `rule`                  | Verbs                                 | Check                                                          |
 | ----------------------- | ------------------------------------- | -------------------------------------------------------------- |
 | `empty-body`            | `post`, `reply`, `quote`, `dm`        | The text is empty (whitespace alone passes)                    |
 | `alt-text-too-long`     | `media alt-text`                      | More than 1000 characters (characters, not bytes)              |
@@ -154,29 +158,33 @@ the `exit_code` the live call would return (`1`), and a `reason` naming the chec
 | `invalid-media-id`      | `media alt-text`, `media subtitles …` | A media, video, or subtitles id that is not 1 to 19 digits     |
 | `invalid-language-code` | `media subtitles add` / `remove`      | `--language` is not two letters, either case (`en`, not `eng`) |
 
-The live call refuses the same input before any request as an error envelope: `reason: "validation"`, exit `1`, with the
-check's name as the `message` (`"message": "alt-text-too-long"`). A refused preflight exits `0`, so read `would_succeed`
-and `exit_code` in the envelope, never the process exit code, to learn whether the live call would pass.
+The live call refuses the same input before any request as an error envelope: `reason: "validation"`, exit `1`, `rule`
+naming the check, and its sentence as the `message` (`"rule": "alt-text-too-long"`,
+`"message": "Alt text is at most 1000 characters."`). Branch on `rule`, never on the sentence. A refused preflight exits
+`0`, so read `would_succeed` and `exit_code` in the envelope, never the process exit code, to learn whether the live
+call would pass.
 
-Dry-run validates **inputs** and nothing else:
+The dry run checks what the live call checks before it sends anything:
 
-- It does not check credentials: an empty store still answers `would_succeed: true` for `xr post`. Confirm auth
-  separately with `xr auth status --output json` before the live call.
-- It does not read the filesystem: `xr media upload ./missing.png --dry-run` answers `would_succeed: true`; the live
-  call answers `reason: "io"`, exit `5`.
-- It echoes arguments as given: `xr reply <status URL> … --dry-run` reports the URL as `post_id`, and `xr block @handle
-  --dry-run` reports `target_username: "@handle"`; the live request carries the extracted id and looks the handle up at
-  `/2/users/by/username/handle` without the `@`.
-- It runs **after** the verb's own confirmation gate: `delete`, `auth clear`, and `auth apps remove` answer `reason:
-  "confirmation-required"`, exit `1`, when they cannot prompt, even under `--dry-run`. Pass `--force` for the preflight
-  and the live call both (`--no-interactive` does not stand in for it: the verb still answers `confirmation-required`).
-  No other write verb takes `--force`; `xr block @x --force` and `xr broadcasts moderators add @x --force` are
-  `invalid-args`.
+- The credential: `auth` names the stored credential the request would go out under (`app`, `scheme`, and for an OAuth2
+  login `username` and `token_expired`). With none that fits, `would_succeed` is `false` with `reason: "auth-required"`
+  (`exit_code` `77`) or `"auth-method-mismatch"` (`2`) and the `next_step` the live call names.
+- The file: `xr media upload ./missing.png --dry-run` answers `would_succeed: false`, `reason: "io"`, `exit_code` `5`.
+- The confirmation: `delete`, `auth clear`, `auth apps remove`, and the other commands that ask first answer without
+  `--force` and report `confirmation_required: true`; the live call then needs `--force` when it cannot prompt
+  (`--no-interactive` does not stand in for it). No other write verb takes `--force`; `xr block @x --force` and
+  `xr broadcasts moderators add @x --force` are `invalid-args`.
+- It echoes arguments as given: `xr reply <status URL> … --dry-run` reports the URL as `post_id`, and
+  `xr block @handle --dry-run` reports `target_username: "@handle"`; the live request carries the extracted id and looks
+  every handle of the command up in one `GET /2/users/by?usernames=…`. An argument made only of digits is a numeric user
+  id, sent with no lookup (`xr block 1234`); prefix an all-digit handle with `@`.
 
-Emitted by every write op when `--dry-run` is set. Read ops ignore `--dry-run` and run for real. The `dry_run` variant's
-description in `xr schema --envelope` says the extra context "lives in `payload`"; the envelope is flat, as shown above,
-and there is no `payload` key. That variant also declares only `status`, `would_succeed`, and `exit_code`, so the
-refusal `reason` values in the table above come from the binary's answers, not from the schema.
+Emitted by every command that talks to the API when `--dry-run` is set, reads and raw requests included; nothing is
+sent. A local command (`auth status`, `version`) ignores `--dry-run` and runs. The `dry_run` variant's description in
+`xr schema --envelope` says the extra context "lives in `payload`"; the envelope is flat, as shown above, and there is
+no `payload` key. That variant also declares only `status`, `would_succeed`, `exit_code`, and `response_schema`, so
+`reason`, `rule`, `message`, `next_step`, `auth`, and `confirmation_required` come from the binary's answers, not from
+the schema.
 
 ### Failure: `status: "error"`
 
@@ -229,49 +237,54 @@ An error that knows how to recover carries a `next_step` object:
 
 A step carries **either** `command` (runnable verbatim by a non-TTY caller) **or** `template` (angle-bracket
 placeholders only the caller can fill), never both. A step whose recovery is not an `xr` invocation carries only `docs`:
-`enroll-app`, `wait-and-retry`, and `inspect-store` when a store command is what failed (`reason: "token-store"`),
-because the command that reports on the store is the one that just failed. The `register-app` template opens with
-`<secret-command>`: any command that prints the client secret (`op read …`, `cat <file>`), piped so the secret never
-reaches the argument list.
+`enroll-app`, `wait-and-retry`, `retry`, `fix-input` (but for the two below), `report-issue`, and `inspect-store` when a
+store command is what failed (`reason: "token-store"`), because the command that reports on the store is the one that
+just failed. The `register-app` template opens with `<secret-command>`: any command that prints the client secret
+(`op read …`, `cat <file>`), piped so the secret never reaches the argument list.
 
-The eight actions below are every one the documented contract emits, and `xr schema --envelope` lists the same eight. A
-newer `xr` can add one without a major version bump, so give every branch on `action` a default: an action you do not
-recognize means "read `message` and show the user the step", never "ignore it" and never "run its `command` unread". The
-same holds for `reason` (see [Reason catalog](#reason-catalog)).
+The thirteen actions below are every one the documented contract emits, and `xr schema --envelope` lists the same
+thirteen. A newer `xr` can add one without a major version bump, so give every branch on `action` a default: an action
+you do not recognize means "read `message` and show the user the step", never "ignore it" and never "run its `command`
+unread". The same holds for `reason` (see [Reason catalog](#reason-catalog)).
 
-| `action`         | Meaning                                                 | Do                                                                                             |
-| ---------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `register-app`   | No app carries client credentials                       | Fill the `template` with real values and run it                                                |
-| `sign-in`        | The target app has credentials but no token             | Run `command` verbatim; it is the headless two-step form                                       |
-| `select-app`     | A different registered app is the one to use            | Run `command` verbatim (it names the app with `--app`)                                         |
-| `inspect-store`  | `~/.xurl` exists but could not be read or parsed        | Run `command` when it carries one; the `message` names the file, `docs` says how to recover it |
-| `enroll-app`     | X refused the app: a 403 naming enrollment              | Open `docs`; the fix is in the developer portal, not the CLI                                   |
-| `show-help`      | `unknown-command` or `invalid-args`: the help to read   | Run `command`; it prints the help to read before retrying                                      |
-| `resume-wait`    | `processing-timeout`: a media wait reached its deadline | Run `command`; it waits on the same upload for twice as long                                   |
-| `wait-and-retry` | `rate-limited`, and the 429 named its reset             | Wait `retry_after_secs` (or until `retry_at`), then send your own request again                |
+| `action`         | Meaning                                                                                                                             | Do                                                                                                                                                          |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `register-app`   | No app carries client credentials                                                                                                   | Fill the `template` with real values and run it                                                                                                             |
+| `sign-in`        | The target app has credentials but no token                                                                                         | Run `command` verbatim; it is the headless two-step form                                                                                                    |
+| `select-app`     | A different registered app is the one to use                                                                                        | Run `command` verbatim (it names the app with `--app`)                                                                                                      |
+| `inspect-store`  | `~/.xurl/auth.yml` exists but could not be read or parsed                                                                           | Run `command` when it carries one; the `message` names the file, `docs` says how to recover it                                                              |
+| `enroll-app`     | X refused the app: a 403 naming enrollment                                                                                          | Open `docs`; the fix is in the developer portal, not the CLI                                                                                                |
+| `show-help`      | `unknown-command` or `invalid-args`: the help to read                                                                               | Run `command`; it prints the help to read before retrying                                                                                                   |
+| `resume-wait`    | `processing-timeout`: a media wait reached its deadline                                                                             | Run `command`; it waits on the same upload for twice as long                                                                                                |
+| `wait-and-retry` | `rate-limited`, and the 429 named its reset                                                                                         | Wait `retry_after_secs` (or until `retry_at`), then send your own request again                                                                             |
+| `retry`          | `network-error`, `server-error`, `git-clone-failed`: nothing was wrong with the request                                             | Send it again, once; `docs` names X's page on response codes when X answered                                                                                |
+| `fix-input`      | The input, or the local state it read, is what failed: `not-found`, `invalid-request`, `io`, a `validation` the help does not cover | Fix the input; run `command` only when it carries one: `-u`, `--auth`, or `-t` moved after the command word, or the `xr schema` invocation in command words |
+| `confirm`        | `confirmation-required`: a command that asks first could not                                                                        | Show the user the `template`, the same invocation plus `--force`, and run it only once they agree                                                           |
+| `run-command`    | `not-installed`, `destination-not-empty`: one other command repairs it                                                              | Run `command` (`xr skill install <host>`, `xr skill update <host>`)                                                                                         |
+| `report-issue`   | `internal`, `serialization`, `api-error`: the fault is in `xr` or its library                                                       | Stop and report it; `docs` is the issue tracker                                                                                                             |
 
 `enroll-app` rides on `reason: "forbidden"` only when the 403 body contains `client-not-enrolled` or `client-forbidden`;
-any other 403 is a bare `forbidden` with no `next_step`. `show-help` names the help of the nearest command (`xr auth
-statsu` → `xr auth status --help`), of the family the word was typed under when nothing is close (`xr auth zzz` → `xr
-auth --help`), or the root help (`xr --help`); the help is read-only, so running it needs no confirmation. On `reason:
-"invalid-args"` it names the help of the command the usage error belongs to (`xr post hi --bogus` → `xr post --help`),
-the same page the `message` closes on.
+any other 403 is a bare `forbidden` with no `next_step`. `show-help` names the help of the nearest command
+(`xr auth statsu` → `xr auth status --help`), of the family the word was typed under when nothing is close
+(`xr auth zzz` → `xr auth --help`), or the root help (`xr --help`); the help is read-only, so running it needs no
+confirmation. On `reason: "invalid-args"` it names the help of the command the usage error belongs to
+(`xr post hi --bogus` → `xr post --help`), the same page the `message` closes on.
 
 `resume-wait` rides on `reason: "processing-timeout"` (exit `1`), from `media upload` and `media status --wait`. The
 upload is intact; the envelope names it in `media_id`, and `command` is `xr media status <media_id> --wait=<SECS>` with
 twice the wait that just ended. `wait-and-retry` rides on `reason: "rate-limited"` only when the 429 named its reset.
 The envelope then carries `retry_after_secs` (seconds until the reset, `0` once it has passed) and `retry_at` (the same
-moment, RFC 3339 UTC); the step has no `command` because the request to send again is the caller's own. A 429 that
-names no reset carries neither key and no `next_step`. `--wait-on-rate-limit` has `xr` do the wait and one retry itself
-when the wait fits `--rate-limit-max-wait`; see [agent-flags.md](agent-flags.md).
+moment, RFC 3339 UTC); the step has no `command` because the request to send again is the caller's own. A 429 that names
+no reset carries neither key and no `next_step`. `--wait-on-rate-limit` has `xr` do the wait and one retry itself when
+the wait fits `--rate-limit-max-wait`; see [agent-flags.md](agent-flags.md).
 
 `next_step` also appears on one **success** envelope: `xr auth apps add` answers `status: "ok"` with a `sign-in` step so
 the next command is already spelled out.
 
 Not every failure carries one. `not-found`, `invalid-request`, `server-error`, and `api-error` never do, and
-`rate-limited` does only when the 429 named its reset;
-`auth-required` from a forced `--auth app` with no bearer staged does not either, and neither does the `auth-required`
-an HTTP 401 produces. Treat an absent `next_step` as "read `message`, then decide", never as a parse error.
+`rate-limited` does only when the 429 named its reset; `auth-required` from a forced `--auth app` with no bearer staged
+does not either, and neither does the `auth-required` an HTTP 401 produces. Treat an absent `next_step` as "read
+`message`, then decide", never as a parse error.
 
 ## Exit 77 recipe
 
@@ -308,11 +321,11 @@ if [ "$(printf '%s' "$RESPONSE" | jaq -r '.status // ""')" = "error" ] &&
 fi
 ```
 
-`xr auth status` on a store that could not be loaded answers `reason: "token-store"`, exit 77, with `next_step.action:
-"inspect-store"` carrying `docs` and no `command`. The `message` names the file. `xr` writes nothing to a store it could
-not load, and `xr auth clear --all --force` reports `ok` there while leaving the file as it was, so repair the file or
-move it aside, then re-run the auth flow. `token-store` is also the reason for a name the store does not hold (`xr auth
-default <app>`); the file loaded, so that envelope carries no step.
+`xr auth status` on a store that could not be loaded answers `reason: "token-store"`, exit 77, with
+`next_step.action: "inspect-store"` carrying `docs` and no `command`. The `message` names the file. `xr` writes nothing
+to a store it could not load, and `xr auth clear --all --force` reports `ok` there while leaving the file as it was, so
+repair the file or move it aside, then re-run the auth flow. `token-store` is also the reason for a name the store does
+not hold (`xr auth default <app>`); the file loaded, so that envelope carries no step.
 
 ## Reason catalog
 
@@ -320,39 +333,39 @@ Every reason the documented contract emits, with the exit code it emits it at. A
 major version bump, so a script that branches on `reason` needs a default branch; the exit code still classifies an
 unknown reason coarsely (`2` local usage, `3` back off, `77` credentials, `1` / `5` read `message`).
 
-| `reason`                                                                            | `exit_code`             | What it means                                                                                                                                                                                               | First response                                                                                                                         |
-| ----------------------------------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth-required`                                                                     | 77                      | No usable credential for the verb, or HTTP 401                                                                                                                                                              | Follow `next_step` (recipe above); absent, read `message`                                                                              |
-| `token-store`                                                                       | 77                      | `~/.xurl` exists but could not be loaded, or a name the store does not hold (`auth default <app>`)                                                                                                          | Unloadable: follow `next_step` (`inspect-store`), then repair the file or move it aside. Unknown name: `xr auth status` lists the apps |
-| `auth-method-mismatch`                                                              | 2                       | `--auth X` (or the app's only scheme) is rejected by the endpoint                                                                                                                                           | Read `supported` / `other_apps_with_creds`; change `--auth` or `--app`                                                                 |
-| `client-credentials-missing`                                                        | 2                       | `auth oauth2` on an app with no client id                                                                                                                                                                   | Follow `next_step` (`register-app` when no app has one, `select-app` when another does)                                                |
-| `invalid-args`                                                                      | 2                       | Flag parsing failed (unknown flag, missing positional, bad value)                                                                                                                                           | Run `next_step.command` (`show-help`); fix the call                                                                                    |
-| `unknown-command`                                                                   | 2                       | Mistyped verb, including `xr <word> --help` / `--version` when the word names no command                                                                                                                    | Run `next_step.command` (`show-help`); `suggestion` names the nearest verb when one is close                                           |
-| `missing-host`                                                                      | 2                       | `skill install` / `skill update` without `<host>` or `--all` (on stdout)                                                                                                                                    | Pick from `known_hosts`                                                                                                                |
-| `rate-limited`                                                                      | 3                       | HTTP 429                                                                                                                                                                                                    | Wait `retry_after_secs` when present (see [`next_step`](#next_step)); else `xr usage --output json` → wait or pivot to caching         |
-| `processing-timeout`                                                                | 1                       | A media wait (`media upload`, `media status --wait`) reached its deadline with the job still running                                                                                                        | Run `next_step.command`; the upload is intact, named in `media_id`                                                                     |
-| `not-found`                                                                         | 4                       | HTTP 404                                                                                                                                                                                                    | Verify the post/user ID; some hits are normal                                                                                          |
-| `forbidden`                                                                         | 1                       | HTTP 403                                                                                                                                                                                                    | Read `message`; when it names enrollment the envelope carries an `enroll-app` `next_step`, open its `docs`                             |
-| `invalid-request`                                                                   | 1                       | HTTP 400 or 422: X rejected the request body or parameters                                                                                                                                                  | Read the API's problem document in `message`; fix the input, do not retry as-is                                                        |
-| `server-error`                                                                      | 1                       | HTTP 5xx                                                                                                                                                                                                    | Re-try once after a pause; if it persists, stop and report with the text-mode `--verbose` capture                                      |
-| `api-error`                                                                         | 1                       | Any other HTTP failure status                                                                                                                                                                               | Read the status and body in `message`                                                                                                  |
-| `network-error`                                                                     | 5                       | The request never got an answer: DNS, TCP, TLS, timeout                                                                                                                                                     | Re-try once; check `--timeout` on slow networks                                                                                        |
-| `invalid-method`                                                                    | 1                       | Wrong HTTP verb for an endpoint (raw mode)                                                                                                                                                                  | Check the endpoint docs                                                                                                                |
-| `invalid-url`                                                                       | 1                       | A raw-mode `http(s)://` URL that does not parse: a malformed host or IPv6 literal                                                                                                                           | Fix the URL                                                                                                                            |
-| `invalid-path-param`                                                                | 1                       | A path placeholder could not be substituted                                                                                                                                                                 | Fix the argument                                                                                                                       |
-| `validation`                                                                        | 1                       | A local check failed: `auth clear` without a selector, `xr schema` on an untyped or unknown name, a write verb's input check, a raw-mode target that is neither an `http(s)://` URL nor a `/`-prefixed path | Read `message`: for `schema` it lists the valid names; for a write verb it names the check                                             |
-| `serialization`                                                                     | 1                       | A success body did not deserialize into the verb's typed shape                                                                                                                                              | A write most likely landed: do not retry it. A read: request its path (shown by `--verbose`) in raw mode                               |
-| `io`                                                                                | 5 (`1` from `validate`) | Local file or pipe error (a missing `media upload` path)                                                                                                                                                    | Check the path / pipe / permissions                                                                                                    |
-| `internal`                                                                          | 1                       | Unexpected runtime state                                                                                                                                                                                    | File upstream with the text-mode `--verbose` output                                                                                    |
-| `confirmation-required`                                                             | 1                       | `delete` / `auth clear` / `auth apps remove` could not prompt and had no `--force`                                                                                                                          | Re-run with `--force` after the user confirms (also needed under `--dry-run`)                                                          |
-| `no-tty`                                                                            | 1                       | A prompt was needed and stdin is not a terminal                                                                                                                                                             | Pass the value as a flag, or `--no-interactive`                                                                                        |
-| `unsupported-pagination`                                                            | 1                       | `--page` was passed; X has no offset paging                                                                                                                                                                 | Use `--cursor` from `meta.next_token`                                                                                                  |
-| `invalid-json`                                                                      | 1                       | `validate` input is not JSON                                                                                                                                                                                | Fix the input                                                                                                                          |
-| `unknown-schema`                                                                    | 1                       | `validate --schema` names nothing bundled                                                                                                                                                                   | Pick from `known_schemas`                                                                                                              |
-| `validation-failed`                                                                 | 1                       | `validate` input does not match the schema                                                                                                                                                                  | Read `message` for the field-level error                                                                                               |
-| `home-not-set`                                                                      | 1                       | `skill` verb could not expand `~`: neither `XURL_SKILL_HOME` nor `HOME` is set                                                                                                                              | Set `XURL_SKILL_HOME` (or `HOME`), or the host's config-directory variable                                                             |
-| `remove-failed`                                                                     | 1                       | `skill update` could not clear the install dir                                                                                                                                                              | Check permissions on `install_dir`; remove it by hand                                                                                  |
-| `destination-not-empty`, `destination-is-file`, `git-not-found`, `git-clone-failed` | 1                       | `skill install` preconditions (on stdout)                                                                                                                                                                   | Read `install_dir` / `command_preview`; fix the destination or install `git`                                                           |
+| `reason`                                                                            | `exit_code`             | What it means                                                                                                                                                                                | First response                                                                                                                                 |
+| ----------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth-required`                                                                     | 77                      | No usable credential for the verb, or HTTP 401                                                                                                                                               | Follow `next_step` (recipe above); absent, read `message`                                                                                      |
+| `token-store`                                                                       | 77                      | `~/.xurl/auth.yml` (or `XURL_TOKEN_STORE`'s file) exists but could not be loaded, or a name the store does not hold (`auth default <app>`); `xr` writes nothing to a store it could not load | Unloadable: follow `next_step` (`inspect-store`), then repair the file or move it aside. Unknown name: `xr auth status` lists the apps         |
+| `auth-method-mismatch`                                                              | 2                       | `--auth X` (or the app's only scheme) is rejected by the endpoint                                                                                                                            | Read `supported` / `other_apps_with_creds`; change `--auth` or `--app`                                                                         |
+| `client-credentials-missing`                                                        | 2                       | `auth oauth2` on an app with no client id                                                                                                                                                    | Follow `next_step` (`register-app` when no app has one, `select-app` when another does)                                                        |
+| `invalid-args`                                                                      | 2                       | Flag parsing failed (unknown flag, missing positional, bad value)                                                                                                                            | Run `next_step.command` (`show-help`); fix the call                                                                                            |
+| `unknown-command`                                                                   | 2                       | Mistyped verb, including `xr <word> --help` / `--version` when the word names no command, and `xr schema <word>`                                                                             | Run `next_step.command` (`show-help`); `suggestion` names the nearest verb when one is close                                                   |
+| `missing-host`                                                                      | 2                       | `skill install` / `skill update` without `<host>` or `--all` (on stdout)                                                                                                                     | Pick from `known_hosts`                                                                                                                        |
+| `rate-limited`                                                                      | 3                       | HTTP 429                                                                                                                                                                                     | Wait `retry_after_secs` when present (see [`next_step`](#next_step)); else `xr usage --output json` → wait or pivot to caching                 |
+| `processing-timeout`                                                                | 1                       | A media wait (`media upload`, `media status --wait`) reached its deadline with the job still running                                                                                         | Run `next_step.command`; the upload is intact, named in `media_id`                                                                             |
+| `not-found`                                                                         | 4                       | HTTP 404, or a handle X knows no account for (`account` names it)                                                                                                                            | Verify the post/user ID or handle; some hits are normal                                                                                        |
+| `forbidden`                                                                         | 1                       | HTTP 403                                                                                                                                                                                     | Read `message`; when it names enrollment the envelope carries an `enroll-app` `next_step`, open its `docs`                                     |
+| `invalid-request`                                                                   | 1                       | HTTP 400 or 422: X rejected the request body or parameters                                                                                                                                   | Read the API's problem document in `message`; fix the input, do not retry as-is                                                                |
+| `server-error`                                                                      | 1                       | HTTP 5xx                                                                                                                                                                                     | Re-try once after a pause; if it persists, stop and report with the text-mode `--verbose` capture                                              |
+| `api-error`                                                                         | 1                       | Any other HTTP failure status                                                                                                                                                                | Read the status and body in `message`                                                                                                          |
+| `network-error`                                                                     | 5                       | The request never got an answer: DNS, TCP, TLS, timeout                                                                                                                                      | Re-try once; check `--timeout` on slow networks                                                                                                |
+| `invalid-method`                                                                    | 1                       | Wrong HTTP verb for an endpoint (raw mode)                                                                                                                                                   | Check the endpoint docs                                                                                                                        |
+| `invalid-url`                                                                       | 1                       | A raw-mode target that is neither an absolute `http(s)://` URL nor a `/`-prefixed path, or an `http(s)://` URL that does not parse (a malformed host or IPv6 literal)                        | Fix the URL                                                                                                                                    |
+| `invalid-path-param`                                                                | 1                       | A path placeholder could not be substituted                                                                                                                                                  | Fix the argument                                                                                                                               |
+| `validation`                                                                        | 1                       | A local check failed, named in `rule`: `auth clear` without a selector, `xr schema` on a command with no typed response (`no-typed-response`), a write verb's input check                    | Branch on `rule`; `message` is its sentence, and `value` the offending input when the rule names one                                           |
+| `serialization`                                                                     | 1                       | A success body did not deserialize into the verb's typed shape                                                                                                                               | A write most likely landed: do not retry it. A read: request its path (shown by `--verbose`) in raw mode                                       |
+| `io`                                                                                | 5 (`1` from `validate`) | Local file or pipe error (a missing `media upload` path)                                                                                                                                     | Check the path / pipe / permissions                                                                                                            |
+| `internal`                                                                          | 1                       | Unexpected runtime state                                                                                                                                                                     | File upstream with the text-mode `--verbose` output                                                                                            |
+| `confirmation-required`                                                             | 1                       | A command that asks first (`delete`, `auth clear`, `auth apps remove`, …) could not prompt and had no `--force`                                                                              | Show the user `next_step.template` (`confirm`: the same call plus `--force`) and run it once they agree; the dry run answers without `--force` |
+| `no-tty`                                                                            | 1                       | A prompt was needed and stdin is not a terminal                                                                                                                                              | Pass the value as a flag, or `--no-interactive`                                                                                                |
+| `unsupported-pagination`                                                            | 1                       | `--page` was passed; X has no offset paging                                                                                                                                                  | Use `--cursor` from `meta.next_token`                                                                                                          |
+| `invalid-json`                                                                      | 1                       | `validate` input is not JSON                                                                                                                                                                 | Fix the input                                                                                                                                  |
+| `unknown-schema`                                                                    | 1                       | `validate --schema` names nothing bundled                                                                                                                                                    | Pick from `known_schemas`                                                                                                                      |
+| `validation-failed`                                                                 | 1                       | `validate` input does not match the schema                                                                                                                                                   | Read `message` for the field-level error                                                                                                       |
+| `home-not-set`                                                                      | 1                       | `skill` verb could not expand `~`: neither `XURL_SKILL_HOME` nor `HOME` is set                                                                                                               | Set `XURL_SKILL_HOME` (or `HOME`), or the host's config-directory variable                                                                     |
+| `remove-failed`                                                                     | 1                       | `skill update` could not clear the install dir                                                                                                                                               | Check permissions on `install_dir`; remove it by hand                                                                                          |
+| `destination-not-empty`, `destination-is-file`, `git-not-found`, `git-clone-failed` | 1                       | `skill install` preconditions (on stdout)                                                                                                                                                    | Read `install_dir` / `command_preview`; fix the destination or install `git`                                                                   |
 
 `skill update --all` also emits per-host entries with `status: "skipped"` and `reason: "not-installed"` at exit code 0.
 Those are not errors: `update` refreshes what exists and passes over the rest.

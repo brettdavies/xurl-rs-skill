@@ -12,9 +12,9 @@ Walk these in order. Stop at the first one that answers the question.
    `command` is the right help page to read.
 2. **`xr examples`**: curated invocation gallery, every major workflow with two-or-three lines per case. When the
    question is "what does the canonical pattern look like?", this is the answer.
-3. **`xr schema --list`**: every typed response shape, one row per verb (`<name> <Rust type>`). When the question is
-   "what does this response look like?" or "which fields can I rely on?", this is the answer. A verb the list omits
-   answers `schema not available`.
+3. **`xr schema --list`**: every typed response shape, one row per command (its words, then its Rust type). When the
+   question is "what does this response look like?" or "which fields can I rely on?", this is the answer. A command the
+   list omits answers `schema not available`.
 4. **`xr schema <name> --output json`**: JSON Schema for one response type. Drop it into a generator or feed it back
    through `xr validate`.
 5. **`xr schema --envelope --output json`**: the canonical agent-native envelope (`ok` / `dry_run` / `error`). When
@@ -47,11 +47,12 @@ Walk these in order. Stop at the first one that answers the question.
 
 This rule has two carve-outs so it doesn't over-constrain:
 
-- **Read-only probes are always fine** without asking the user: `xr --help`, `xr <cmd> --help`, `xr examples`, `xr
-  schema ...`, `xr validate < file.json`, `xr auth status`, `xr usage`, `xr usage credits`, `xr version`, fetching a
+- **Read-only probes are always fine** without asking the user: `xr --help`, `xr <cmd> --help`, `xr examples`,
+  `xr schema ...`, `xr validate < file.json`, `xr auth status`, `xr usage`, `xr usage credits`, `xr version`, fetching a
   docs page from `docs.x.com/.../<page>.md`. Run them as needed.
 - **The CLI's own contract** (output formats, exit codes, env vars, dry-run envelope shape, pagination flags) is fine to
-  cite from `xr --help` and this bundle. Those are stable per `xr` major version.
+  cite from `xr --help` and this bundle. This bundle states them for the `xr` release it was verified against; on a
+  newer `xr`, its own `--help` wins where the two differ.
 
 ## Halt vs continue
 
@@ -91,8 +92,8 @@ Done at step 1; the lookup short-circuits.
    is set.
 2. Check whether the user passed `--limit` globally; the per-command `-n` wins when both are set, per `xr --help`'s
    `--limit` description. (`search` also floors the value at 10, the X API's minimum, so `-n 3` sends 10.)
-3. If both are set and the result count is still capped, the API itself may have been the cap. Check `xr usage --output
-   json` to confirm we aren't tier-limited.
+3. If both are set and the result count is still capped, the API itself may have been the cap. Check
+   `xr usage --output json` to confirm we aren't tier-limited.
 4. If still puzzled, the answer is at <https://docs.x.com/x-api/posts/search/introduction.md>; fetch it.
 
 ### "The JSON from `xr timeline --output json` has no `status` field. Did it fail?"

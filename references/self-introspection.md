@@ -46,29 +46,34 @@ when nothing is close). `xr help --help` prints the `help` command's own page.
 ### 3. `xr schema`: typed response shapes
 
 ```bash
-xr schema --list                            # one row per response shape: <name>  <Rust type>
-xr schema post --output json                # JSON Schema for the `post` response
-xr schema whoami --output json              # JSON Schema for the `whoami` response
-xr schema blocked --output json             # JSON Schema for the `blocked` list
+xr schema --list                            # one row per command: its words and its Rust type
+xr schema post --output json                # the schema of the `post` response's data
+xr schema broadcasts moderators add --output json   # a command of several words, named in its words
+xr schema post --full --output json         # the complete schema, wrapper and every $def
+xr schema post --path public_metrics        # one node at a dot path into the data
+xr schema --common --output json            # the wrapper every API document shares (data, meta, includes, errors)
 xr schema --envelope --output json          # the agent-native envelope (oneOf ok/dry_run/error)
-xr schema --all --output json               # every schema in one document
+xr schema --all --output json               # every command's default view in one document
 ```
 
-The command name is a positional (`xr schema <name>`), matching the names `--list` prints. Output is a JSON Schema
-2020-12 document. Feed it into a typed-codegen tool, drop it into a planning artifact, or diff it against an expected
-shape.
+A command is named in its own words (`xr schema broadcasts moderators add`), as `--list` prints them. The default
+output is a JSON Schema 2020-12 document for the command's `data`, every reference resolved, labelled with `command`,
+`data_cardinality`, `data_type`, and `common_schema`; `--full` prints the complete schema. Feed it into a typed-codegen
+tool, drop it into a planning artifact, or diff it against an expected shape. A hyphen-joined name
+(`xr schema broadcasts-moderators-add`) is refused at exit `2` with `reason: "invalid-args"` and a `fix-input` step
+whose `command` is the words form.
 
-`--list` is a two-column text table. Under `--output json` each row becomes a `{"message":"<row>"}` object holding the
-row's text rather than structured fields, so the reliable way to read the names is the text form:
+`--list` is a two-column text table; under `--output json` it is one record per command with `command`, `type`, and
+`file`, and it has no `envelope` row:
 
 ```bash
-xr schema --list | awk '{print $1}'         # auth-apps-list auth-status block blocked … whoami envelope
+xr schema --list --output json | jaq -r '.[].command'   # analytics, articles draft, … whoami
 ```
 
-Not every command has a typed response. `xr schema validate` (and any other command `--list` omits, `media-upload` among
-them) answers `reason: "validation"`, exit `1`, with the message `schema not available for '<name>' (no typed
-response)`; a name that is not a command at all answers the same `reason` with the valid names listed in `message`.
-Neither is `unknown-command`; that reason belongs to the top-level parser.
+Not every command has a typed response. `xr schema validate` (and any other command `--list` omits, `media upload` and
+`skill install` among them) answers `reason: "validation"`, `rule: "no-typed-response"`, exit `1`, with the message
+`schema not available for '<command>': it has no typed response.` A word that names no command answers `reason:
+"unknown-command"`, exit `2`, with a `show-help` step, as the top-level parser does.
 
 The `--envelope` document is the one to read for the error contract: its `error` variant declares every key the runtime
 can emit, including `next_step`, and its `reason` and `action` descriptions list every value the release emits and say a
@@ -109,11 +114,12 @@ xr auth status --output json
 xr auth status --output json | jaq -r '.apps[] | select(.default) | .name'
 ```
 
-No API calls. Reads `~/.xurl` and answers `{"status":"ok","apps":[...]}`: one entry per registered app with `name`,
-`client_id_hint`, `default`, `oauth2_users` (names only), `oauth1` / `bearer` presence booleans, `bearer_source`, and
-the effective `redirect_uri` with its source. Read it through `.apps[]`; an empty store answers `"apps": []`. Use it
-before any verb that needs a specific auth mode to confirm the right credential is staged. Full field list and the
-exit-77 recovery recipe: [auth-modes.md](auth-modes.md).
+No API calls. Reads `~/.xurl/auth.yml` (or the file `XURL_TOKEN_STORE` names) and answers
+`{"status":"ok","apps":[...]}`: one entry per registered app with `name`, `client_id_hint`, `default`, `oauth2_users`
+(names only), `oauth2_accounts` (each login's `user_id`, `username`, and `display_name` as the store holds them),
+`oauth1` / `bearer` presence booleans, `bearer_source`, and the effective `redirect_uri` with its source. Read it
+through `.apps[]`; an empty store answers `"apps": []`. Use it before any verb that needs a specific auth mode to
+confirm the right credential is staged. Full field list and the exit-77 recovery recipe: [auth-modes.md](auth-modes.md).
 
 ## Adjacent helpers worth knowing
 

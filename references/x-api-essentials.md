@@ -202,7 +202,7 @@ When a page moves, <https://docs.x.com/x-api/llms.txt> lists the current path un
 The broadcast chat moderator endpoints (`/2/broadcasts/chat/moderators`, which `xr broadcasts moderators` wraps) are in
 the X API spec the documented `xr` vendors, tagged `Broadcasts`, but no docs page for them was indexed in
 `x-api/llms.txt` on the verified date. Look for a `Broadcasts` heading there before citing a URL; until one exists, `xr
-broadcasts moderators <verb> --help` and `xr schema broadcasts-moderators-list --output json` are the only shape
+broadcasts moderators <verb> --help` and `xr schema broadcasts moderators list --output json` are the only shape
 references.
 
 When `xr` does not ship a shortcut for an endpoint, the raw-mode pattern is:

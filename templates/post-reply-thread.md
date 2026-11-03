@@ -153,8 +153,9 @@ Destructive. Always confirm scope with the user before running, even on a dry-ru
 ```
 
 `--force` is the binary's own confirmation flag: `xr delete` prompts on a TTY and answers `reason:
-"confirmation-required"`, exit `1`, when it cannot, **before** it considers `--dry-run`. The gate is the confirmation
-step, so pass `--force` through it; without it the gate's own preflight is refused.
+"confirmation-required"`, exit `1`, when it cannot. Its dry run answers without `--force` and reports
+`confirmation_required: true`. The gate is the confirmation step, so pass `--force` through it; without it the gate
+refuses after the preflight, before any live call.
 
 Manual path:
 
@@ -176,8 +177,8 @@ If a live call returns `status: "error"`:
   verb needs wasn't granted.
 - `reason: "auth-method-mismatch"` (exit `2`) → only a Bearer is staged, or `--auth` names a scheme the endpoint
   rejects; `supported` lists what it accepts.
-- `reason: "confirmation-required"` (exit `1`) → the verb could not prompt; re-run with `--force` after the user
-  confirms.
+- `reason: "confirmation-required"` (exit `1`) → the verb could not prompt; `next_step` is `confirm`, a `template` of
+  the same call plus `--force`: run it only after the user confirms.
 - `reason: "invalid-args"` (exit `2`) → re-read `xr post --help` (or `xr reply --help`), fix the call.
 - `reason: "invalid-request"` (exit `1`) → X rejected the post itself (HTTP 400 / 422: too long, a duplicate, a bad
   `--media-id`); `message` carries X's problem document. Fix the input; the same call will not pass on retry.

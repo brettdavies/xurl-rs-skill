@@ -151,10 +151,10 @@ text that appears in the image, and whatever detail the post depends on. Leave o
 announces an image). When you cannot see the media yourself, ask the user for the description rather than inventing one;
 a wrong description is worse than none.
 
-The preflight checks the inputs and nothing else: a media id of 1 to 19 digits, and text that is not blank and at most
-1000 characters. A refusal arrives as `would_succeed: false` with `reason: "invalid-media-id"`, `"empty-alt-text"`, or
-`"alt-text-too-long"`, and the gate prints that reason. The live answer is the X API document, `{"data":{"id":"<media
-id>","associated_metadata":{…}}}`, which `xr validate --schema alt-text` checks.
+The preflight checks the inputs (a media id of 1 to 19 digits, and text that is not blank and at most 1000 characters)
+and the credential. An input refusal arrives as `would_succeed: false` with `reason: "validation"` and `rule:
+"invalid-media-id"`, `"empty-alt-text"`, or `"alt-text-too-long"`, and the gate prints both. The live answer is the X
+API document, `{"data":{"id":"<media id>","associated_metadata":{…}}}`, which `xr validate --schema alt-text` checks.
 
 Text that starts with `-` (`-5°C at the start`) is read as a flag and answers `invalid-args`; put it after `--`: `xr
 media alt-text "$MEDIA_ID" -- "-5°C at the start"`. The gate takes the same form and adds its own flags before the `--`.
@@ -189,8 +189,9 @@ The answer is `{"data":{"id":"<video id>","media_category":"AmplifyVideo","assoc
   xr media subtitles remove "$VIDEO_ID" --language en --category amplify_video
 ```
 
-That answers `{"data":{"deleted":true}}` (schema `delete`). Neither verb takes `--force`. Preflight refusals are
-`invalid-media-id` (an id that is not 1 to 19 digits) and `invalid-language-code`.
+That answers `{"data":{"deleted":true}}` (schema `delete`). Neither verb takes `--force`. Preflight refusals carry
+`reason: "validation"` and the `rule` `invalid-media-id` (an id that is not 1 to 19 digits) or
+`invalid-language-code`.
 
 Endpoint reference: <https://docs.x.com/x-api/media/create-media-subtitles.md> and
 <https://docs.x.com/x-api/media/delete-media-subtitles.md>.
@@ -227,22 +228,22 @@ X enforces per-post attachment limits (typically up to 4 images, or 1 video, or 
 
 ## Errors and retries
 
-| Symptom                                  | Likely cause                                                         | Fix                                                                                 |
-| ---------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `reason: "auth-method-mismatch"`         | Bearer-only is staged; need OAuth1 / OAuth2                          | Re-auth with [oauth2-setup.md](oauth2-setup.md)                                     |
-| `reason: "auth-required"`, exit `77`     | No credential staged at all                                          | Follow the envelope's `next_step`                                                   |
-| `reason: "io"`, exit `5`                 | The file path does not exist or is unreadable                        | Fix the path; `--dry-run` does not catch this                                       |
-| `reason: "network-error"`, exit `5`      | No answer from X (DNS, TCP, TLS, timeout); same exit as `io`         | Branch on `reason`, not the exit code; retry once, bump `--timeout`                 |
-| `reason: "invalid-request"`, exit `1`    | X rejected the INIT or FINALIZE body (400 / 422)                     | Read `message`; fix `--media-type` / `--category` for the file                      |
-| `reason: "invalid-args"`, exit `2`       | A flag was mistyped (`--wait false`, an unknown option)              | `xr media upload --help`; a `--wait` value follows `=`                              |
-| `reason: "processing-timeout"`, exit `1` | The wait ended with the video still processing; the upload is intact | Run `next_step.command`; it waits twice as long                                     |
-| Upload succeeds; `processing failed`     | File doesn't meet X's spec (size, codec, duration)                   | Inspect `processing_info.error`; transcode if needed                                |
-| `reason: "rate-limited"`                 | Per-user media cap hit                                               | Wait `retry_after_secs` when the envelope carries it; else `xr usage --output json` |
-| Attach to post fails after upload        | `media_id` not yet ready                                             | Let the upload's wait finish, or `xr media status <id> --wait`                      |
-| Repeated retries for same file           | Network truncation; retry doesn't resume the same upload             | New upload starts a new `media_id`; chain through the new id                        |
-| Preflight `would_succeed: false`         | An input check failed; `reason` names it                             | Fix the id, the text, or `--language`; see the two sections above                   |
-| `reason: "validation"`, exit `1`         | The same input check on a live `alt-text` / `subtitles` call         | `message` names the check; no request was sent                                      |
-| `invalid-args` on `media subtitles`      | `--category` outside the two values, or no `--language`              | `--category amplify_video` or `tweet_video`; pass `--language xx`                   |
+| Symptom                                         | Likely cause                                                                                                          | Fix                                                                                 |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `reason: "auth-method-mismatch"`                | Bearer-only is staged; need OAuth1 / OAuth2                                                                           | Re-auth with [oauth2-setup.md](oauth2-setup.md)                                     |
+| `reason: "auth-required"`, exit `77`            | No credential staged at all                                                                                           | Follow the envelope's `next_step`                                                   |
+| `reason: "io"`, exit `5`                        | The file path does not exist or is unreadable                                                                         | Fix the path; `--dry-run` does not catch this                                       |
+| `reason: "network-error"`, exit `5`             | No answer from X (DNS, TCP, TLS, timeout); same exit as `io`                                                          | Branch on `reason`, not the exit code; retry once, bump `--timeout`                 |
+| `reason: "invalid-request"`, exit `1`           | X rejected the INIT or FINALIZE body (400 / 422)                                                                      | Read `message`; fix `--media-type` / `--category` for the file                      |
+| `reason: "invalid-args"`, exit `2`              | A flag was mistyped (`--wait false`, an unknown option)                                                               | `xr media upload --help`; a `--wait` value follows `=`                              |
+| `reason: "processing-timeout"`, exit `1`        | The wait ended with the video still processing; the upload is intact                                                  | Run `next_step.command`; it waits twice as long                                     |
+| `reason: "invalid-request"` naming a `media_id` | X failed the media after processing it (size, codec, duration)                                                        | Read X's detail in `message`; transcode, then upload again                          |
+| `reason: "rate-limited"`                        | Per-user media cap hit                                                                                                | Wait `retry_after_secs` when the envelope carries it; else `xr usage --output json` |
+| Attach to post fails after upload               | `media_id` not yet ready                                                                                              | Let the upload's wait finish, or `xr media status <id> --wait`                      |
+| Repeated retries for same file                  | Network truncation; retry doesn't resume the same upload                                                              | New upload starts a new `media_id`; chain through the new id                        |
+| Preflight `would_succeed: false`                | An input check (`reason: "validation"`, `rule` names it), the credential (`auth-required`), or the file (`io`) failed | Fix the id, the text, or `--language`; see the two sections above                   |
+| `reason: "validation"`, exit `1`                | The same input check on a live `alt-text` / `subtitles` call                                                          | `rule` names the check, `message` gives its sentence; no request was sent           |
+| `invalid-args` on `media subtitles`             | `--category` outside the two values, or no `--language`                                                               | `--category amplify_video` or `tweet_video`; pass `--language xx`                   |
 
 ## Cleanup
 
