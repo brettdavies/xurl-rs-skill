@@ -55,15 +55,13 @@ own branch carries.
 Both share `scripts/hooks/_lib.sh`, report every failing check in one run, and skip a check whose tool is missing with a
 line saying so, never silently. The contract step downloads the pinned `xr` with `gh` on first use and caches it outside
 the repo. The markdownlint step lints each doc's staged copy in a scratch tree with `fix` turned off, so the canonical
-`.markdownlint-cli2.yaml`'s `fix: true` never rewrites the checkout. ShellCheck runs at style severity, as CI does,
-except on the five release scripts copied verbatim from github-repo-setup, which hold the template's warning bar. A push
-that carries only commits the remote already has, such as a tag, runs no checks.
+`.markdownlint-cli2.yaml`'s `fix: true` never rewrites the checkout. A push that carries only commits the remote already
+has, such as a tag, runs no checks.
 
 ## House rules
 
 - **Pin third-party Actions by SHA**, never by mutable tag. Trailing comment names the version.
-- **ShellCheck-clean** (`--severity=style`) for `scripts/`, `tests/`, and `fixtures/bin/`, apart from the verbatim
-  release scripts under `scripts/release/`, which are clean at `--severity=warning`.
+- **ShellCheck-clean** (`--severity=style`) for `scripts/`, `tests/`, and `fixtures/bin/`.
 - **markdownlint-clean** for all `.md` files. Config lives at `.markdownlint-cli2.yaml`.
 - **Every claim about what `xr` emits is a row in `tests/contract.sh`.** A PR that documents a flag, a field, an exit
   code, or a stream adds the row and runs the harness against a real build

@@ -267,28 +267,12 @@ tracked() {
 # Shell
 # ---------------------------------------------------------------------------
 
-# The release scripts copied byte for byte from github-repo-setup, which
-# ci.yml's shellcheck job does not reach. They hold the template's own bar,
-# warning severity: an info finding in one is the template's to fix, and an
-# edit here would fail the canonical drift check.
-SHELL_VERBATIM=('scripts/release/_lib.sh' 'scripts/release/cut-release-branch.sh' 'scripts/release/drift.sh'
-  'scripts/release/guarded-paths.sh' 'scripts/release/postflight.sh')
-
-# Correctness, at style severity, which ci.yml's shellcheck job runs, for every
-# file but the SHELL_VERBATIM copies, which run at warning.
+# Correctness, at style severity: ci.yml's shellcheck job runs style, and the
+# whole tracked shell set is clean there.
 check_shell() {
   [ "$#" -gt 0 ] || return "$HOOK_SKIPPED"
   have shellcheck || skip "shellcheck" "install via \`brew install shellcheck\`" || return
-  local f v rc=0 style=() verbatim=()
-  for f in "$@"; do
-    for v in "${SHELL_VERBATIM[@]}"; do
-      [ "$f" = "$v" ] && verbatim+=("$f") && continue 2
-    done
-    style+=("$f")
-  done
-  [ "${#style[@]}" -eq 0 ] || shellcheck --severity=style "${style[@]}" || rc=1
-  [ "${#verbatim[@]}" -eq 0 ] || shellcheck --severity=warning "${verbatim[@]}" || rc=1
-  return "$rc"
+  shellcheck --severity=style "$@"
 }
 
 # Layout. shfmt owns formatting, shellcheck owns correctness. -d reports a diff
