@@ -3,8 +3,10 @@
 #
 # Runs the verb with `--dry-run --output json --quiet` first. Refuses to
 # proceed unless the envelope reports `status=dry_run`, `would_succeed=true`,
-# and `exit_code=0`. Prompts for confirmation on a TTY, or honors `--yes`,
-# then re-runs without `--dry-run` so the response lands on stdout.
+# and `exit_code=0`, and, when it reports `confirmation_required`, unless
+# `--force` is among the verb's args. Prompts for confirmation on a TTY, or
+# honors `--yes`, then re-runs without `--dry-run` so the response lands on
+# stdout.
 #
 # xr writes error envelopes to stderr with a non-zero exit; the gate captures
 # that stream during the preflight so the refusal names the `reason`. The
@@ -17,10 +19,11 @@
 #
 # Exit codes:
 #     0   live call succeeded (verb's own 0)
-#     1   dry-run rejected (would_succeed=false, error envelope, or non-zero
-#         exit from the dry-run call itself)
-#     2   usage error (missing args, forbidden flag, read-op verb, or
-#         XURL_DRY_RUN set, which would turn the live call into a dry run)
+#     1   dry-run rejected (would_succeed=false, confirmation_required
+#         without --force, error envelope, or non-zero exit from the dry-run
+#         call itself)
+#     2   usage error (missing args, forbidden flag, a verb with no dry run,
+#         or XURL_DRY_RUN set, which would turn the live call into a dry run)
 #     3   refused (non-TTY without --yes)
 #     4   user declined at the prompt
 #     *   verb's own non-zero exit code on the live call
@@ -49,9 +52,10 @@ Options:
     -h, --help   This help.
 
 The gate adds --dry-run and --output json itself; do NOT pass either in args.
-Verbs that carry their own confirmation gate (delete, auth clear, auth apps
-remove) need --force in args: xr answers confirmation-required before the
-dry-run otherwise, and the gate is the confirmation step.
+Verbs that ask for confirmation (delete, auth clear, auth apps remove, and
+the other removes) need --force in args: their dry run reports
+confirmation_required, the live call refuses without --force, and the gate
+is the confirmation step.
 
 Text that starts with "-" goes after the verb's own "--"; the gate adds its
 flags before that separator.
@@ -166,9 +170,6 @@ if [ "$EC" -ne 0 ]; then
   if [ -n "$DRY_OUTPUT" ]; then
     printf '%s\n' "$DRY_OUTPUT" >&2
   fi
-  if [ "$REASON" = "confirmation-required" ]; then
-    printf '%s: this verb gates itself; pass --force in the verb args (the gate is the confirmation).\n' "$PROG" >&2
-  fi
   exit 1
 fi
 
@@ -184,16 +185,31 @@ case "$STATUS" in
     EXIT_CODE=$(printf '%s' "$DRY_OUTPUT" | "$JQ_BIN" -r '.exit_code')
     if [ "$WOULD" != "true" ] || [ "$EXIT_CODE" != "0" ]; then
       REASON=$(printf '%s' "$DRY_OUTPUT" | "$JQ_BIN" -r '.reason // "unstated"')
-      printf '%s: dry-run says the live call would NOT succeed (would_succeed=%s, exit_code=%s, reason=%s).\n' \
-        "$PROG" "$WOULD" "$EXIT_CODE" "$REASON" >&2
+      # A validation refusal names its check in `rule`; `reason` is `validation`.
+      RULE=$(printf '%s' "$DRY_OUTPUT" | "$JQ_BIN" -r '.rule // ""')
+      printf '%s: dry-run says the live call would NOT succeed (would_succeed=%s, exit_code=%s, reason=%s%s).\n' \
+        "$PROG" "$WOULD" "$EXIT_CODE" "$REASON" "${RULE:+, rule=$RULE}" >&2
       printf '%s\n' "$DRY_OUTPUT" >&2
       exit 1
+    fi
+    CONFIRM=$(printf '%s' "$DRY_OUTPUT" | "$JQ_BIN" -r '.confirmation_required // false')
+    if [ "$CONFIRM" = "true" ]; then
+      FORCED=0
+      for arg in "${VERB[@]}"; do
+        [ "$arg" = "--force" ] && FORCED=1
+      done
+      if [ "$FORCED" != "1" ]; then
+        printf '%s: the dry run reports confirmation_required, and the live call refuses without --force.\n' "$PROG" >&2
+        printf '%s\n' "$DRY_OUTPUT" >&2
+        printf '%s: pass --force in the verb args; the gate is the confirmation.\n' "$PROG" >&2
+        exit 1
+      fi
     fi
     ;;
   "" | ok)
     printf '%s: the preflight answered a plain response (status=%s), not a dry_run envelope.\n' \
       "$PROG" "${STATUS:-absent}" >&2
-    printf '%s: this is a READ op (reads ignore --dry-run and already ran). Run it directly.\n' "$PROG" >&2
+    printf '%s: this verb has no dry run, so it already ran (a local read such as xr auth status). Run it directly.\n' "$PROG" >&2
     exit 2
     ;;
   error)

@@ -150,8 +150,8 @@ make.
   rate limit), the row fails with `gh`'s error rather than skipping, since a skip would pass preflight without it.
 - [ ] **Negative control: `scripts/dry-run-gate.sh` refuses a write whose preflight fails.** The gate runs the shipped
   dry-run gate against the pinned `xr` with an empty post, under `tests/xr-sandbox.sh`'s isolation, and requires exit 1
-  with the gate's own `would NOT succeed ... reason=empty-body` line. `xr`'s live call refuses an empty post with exit 1
-  as well, so the line, not the exit code, is what shows the gate still runs the preflight.
+  with the gate's own `would NOT succeed ... reason=validation, rule=empty-body` line. `xr`'s live call refuses an empty
+  post with exit 1 as well, so the line, not the exit code, is what shows the gate still runs the preflight.
 
 ### Release mechanics sanity
 
