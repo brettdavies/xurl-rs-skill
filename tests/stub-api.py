@@ -14,6 +14,7 @@ import re
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import unquote
 
 PORT = int(sys.argv[1])
 LOG = sys.argv[2]
@@ -31,6 +32,10 @@ SUBTITLES = {
 LEGACY_POST_KEYS = {"edit_history_tweet_ids": ["777"], "public_metrics": {"retweet_count": 3}}
 SINGLE_POST = re.compile(r"^/2/tweets/(\d+)(\?|$)")
 BY_USERNAME = re.compile(r"^/2/users/by/username/([^/?]+)")
+# xr resolves every handle of a command in one request: /2/users/by?usernames=a,b.
+BY_USERNAMES = re.compile(r"^/2/users/by\?(?:.*&)?usernames=([^&]+)")
+# The caller's own account, not a list under it such as /2/users/me/followers.
+USERS_ME = re.compile(r"^/2/users/me(\?|$)")
 PAGINATION_TOKEN = re.compile(r"pagination_token=T(\d+)")
 MEDIA_STATUS = re.compile(r"^/2/media/upload\?.*media_id=([^&]+)")
 MEDIA_PHASE = re.compile(r"^/2/media/upload/([^/]+)/(append|finalize)")
@@ -123,8 +128,12 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return None
-        if path.startswith("/2/users/me"):
+        if USERS_ME.match(path):
             return self._reply({"data": USER})
+        match = BY_USERNAMES.match(path)
+        if match:
+            names = unquote(match.group(1)).split(",")
+            return self._reply({"data": [{"id": "7", "username": name, "name": "U"} for name in names]})
         match = BY_USERNAME.match(path)
         if match:
             return self._reply({"data": {"id": "7", "username": match.group(1), "name": "U"}})
