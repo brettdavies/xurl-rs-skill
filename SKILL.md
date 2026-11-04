@@ -74,10 +74,11 @@ to), `resume-wait` on `processing-timeout` (a media wait reached its deadline wi
 `command`), and `wait-and-retry` on a `rate-limited` whose 429 named its reset (wait the envelope's `retry_after_secs`,
 then send the request again). Five cover the rest: `retry` (send the same request again), `fix-input` (the input or
 local state is wrong; run its `command` when it carries one), `confirm` (a `template`: the destructive rerun with
-`--force`, for the user to approve), `run-command` (one other command repairs it), and `report-issue` (a fault in `xr`).
-A `command` is safe to run verbatim while a `template` needs values or a decision only the user has. A newer `xr` can
-add a `reason` or an `action`, so every branch needs a default that reads `message` and shows the user the step rather
-than acting on it:
+`--force`, for the user to approve), `run-command` (one other command repairs it; on `destination-not-empty` it replaces
+the occupied install directory, so ask the user first), and `report-issue` (a fault in `xr`). A `command` is safe to run
+verbatim, that one aside, while a `template` needs values or a decision only the user has. A newer `xr` can add a
+`reason` or an `action`, so every branch needs a default that reads `message` and shows the user the step rather than
+acting on it:
 
 ```bash
 xr auth status --output json                 # {"status":"ok","apps":[...]}; each entry carries client_id_hint and bearer

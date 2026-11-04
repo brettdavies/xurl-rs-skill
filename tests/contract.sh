@@ -245,6 +245,11 @@ check "skill install no host: error on STDOUT; known_hosts" 2 \
   out.json .reason missing-host \
   out.json '.known_hosts | index("opencode") != null' true \
   -- "$X" skill install --output json
+check "skill install over a non-empty install dir: destination-not-empty; run-command names skill update" 1 \
+  out.json .reason destination-not-empty \
+  out.json .next_step.action run-command \
+  out.json .next_step.command 'xr skill update claude_code' \
+  -- bash -c "mkdir -p '$WORK/occupied/.claude/skills/xurl-rs' && printf 'mine\n' >'$WORK/occupied/.claude/skills/xurl-rs/notes.txt' && XURL_SKILL_HOME='$WORK/occupied' '$X' skill install claude_code --output json"
 check "skill install --dry-run: command_preview" 0 out.json '.command_preview | startswith("git clone --depth 1 ")' true -- "$X" skill install claude_code --dry-run --output json
 check "skill update --all --dry-run: installations; not-installed" 0 \
   out.json '.installations | length > 0' true \
