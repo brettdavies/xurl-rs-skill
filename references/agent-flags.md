@@ -180,10 +180,11 @@ xr <list-cmd> --page <n>                # NOT supported by X; returns reason: "u
 Commands that thread `--cursor` through as `pagination_token`: `search`, `timeline`, `mentions`, `bookmarks`, `likes`,
 `following`, `followers`, `muted`, `blocked`, `dms`. Every other command ignores `--cursor` and `--limit`.
 
-Every user-scoped list verb (`timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`, `muted`, `blocked`)
-reads the caller's account id from the token store, so a page costs one request, as `search` and `dms` do. `xr` stores
-the id at sign-in, on `xr whoami`, and on the first command that needs it, which is the one run that also asks
-`/2/users/me`. Budget `--max-pages` against a rate-limit window accordingly.
+Every user-scoped list verb costs one request a page, as `search` and `dms` do: `timeline`, `mentions`, `bookmarks`,
+`likes`, `muted`, and `blocked` read the caller's account id from the token store, and `following` and `followers` read
+`/2/users/me/following` and `/2/users/me/followers` directly. `xr` stores the id at sign-in, on `xr whoami`, and on the
+first command that needs it, which is the one run that also asks `/2/users/me`. Budget `--max-pages` against a
+rate-limit window accordingly.
 
 `broadcasts moderators list` is not a paged verb: it sends one `GET /2/broadcasts/chat/moderators` with no `max_results`
 and no `pagination_token`, whatever `--limit` or `--cursor` say (its `--help` lists the global flags, whose text names

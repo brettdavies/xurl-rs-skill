@@ -447,6 +447,9 @@ apps:
 default_app: demo
 EOF
 export XURL_TOKEN_STORE="$WORK/user.yaml"
+# The staged login before any command stores its account id; the warm-up
+# whoami below writes the id into user.yaml.
+cp "$WORK/user.yaml" "$WORK/user-noid.yaml"
 export API_BASE_URL="http://127.0.0.1:$STUB_PORT"
 
 PYTHONDONTWRITEBYTECODE=1 python3 -B "$ROOT/tests/stub-api.py" "$STUB_PORT" "$REQUEST_LOG" &
@@ -554,6 +557,29 @@ check "muted reads the stored account id: one request, no /2/users/me" 0 \
   log '"path": "/2/users/42/muting?' \
   log '!/2/users/me' \
   -- "$X" muted --output json
+for pair in timeline:/2/users/42/timelines/reverse_chronological? mentions:/2/users/42/mentions? \
+  bookmarks:/2/users/42/bookmarks? likes:/2/users/42/liked_tweets? blocked:/2/users/42/blocking?; do
+  check "${pair%%:*} reads the stored account id: one request, no /2/users/me" 0 \
+    log "\"path\": \"${pair#*:}" \
+    log '!"path": "/2/users/me?' \
+    -- "$X" "${pair%%:*}" --output json
+done
+check "following reads /2/users/me/following directly: one request" 0 \
+  log '"path": "/2/users/me/following?' \
+  log '!"path": "/2/users/me?' \
+  -- "$X" following --output json
+check "followers reads /2/users/me/followers directly: one request" 0 \
+  log '"path": "/2/users/me/followers?' \
+  log '!"path": "/2/users/me?' \
+  -- "$X" followers --output json
+check "first use, no stored account id: muted asks /2/users/me once, then reads its id" 0 \
+  log '"path": "/2/users/me?' \
+  log '"path": "/2/users/42/muting?' \
+  -- bash -c "cp '$WORK/user-noid.yaml' '$WORK/firstuse.yaml' && XURL_TOKEN_STORE='$WORK/firstuse.yaml' '$X' muted --output json"
+check "after first use: the stored id; no /2/users/me" 0 \
+  log '!"path": "/2/users/me?' \
+  log '"path": "/2/users/42/muting?' \
+  -- env XURL_TOKEN_STORE="$WORK/firstuse.yaml" "$X" muted --output json
 check "user @handle: @ stripped in lookup" 0 log '/2/users/by/username/streamsoup_promo?' -- "$X" user @streamsoup_promo --output json
 check "reply <url>: id extracted" 0 log '"in_reply_to_tweet_id":"1585341984679469056"' -- "$X" reply "https://x.com/u/status/1585341984679469056" "hi" --output json
 check "quote <url>: id extracted" 0 log '"quote_tweet_id":"1585341984679469056"' -- "$X" quote "https://x.com/u/status/1585341984679469056" "hi" --output json
