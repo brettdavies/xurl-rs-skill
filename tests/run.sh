@@ -573,7 +573,8 @@ test_paginate__reject_forbidden_cursor_flag() {
   run_script "$ROOT/scripts/paginate.sh" -- xr search "rust" --cursor TOKEN
 
   assert_exit 2 || return 1
-  assert_stderr_contains "do not pass --cursor" || return 1
+  assert_stderr_contains "do not pass --cursor in the verb args" || return 1
+  assert_stderr_contains 'pass --cursor TOKEN before "--"' || return 1
 }
 
 test_paginate__reject_forbidden_output_flag() {
