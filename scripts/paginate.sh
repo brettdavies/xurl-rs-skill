@@ -115,7 +115,7 @@ fi
 for arg in "$@"; do
   case "$arg" in
     --cursor | --cursor=* | --after | --after=* | --page | --page=*)
-      printf '%s: do not pass %s; pass --cursor to the script instead.\n' "$PROG" "$arg" >&2
+      printf '%s: do not pass %s in the verb args; to start from a cursor, pass --cursor TOKEN before "--".\n' "$PROG" "$arg" >&2
       exit 2
       ;;
     --output | --output=* | --json | --jsonl | --dry-run | --dry-run=*)

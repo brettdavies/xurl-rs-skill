@@ -92,9 +92,9 @@ Branch on `next_step.action`:
 - `sign-in`: the app has client credentials but no token. `next_step.command` is the headless two-step form (`xr auth
   oauth2 --no-browser --step 1`); run it verbatim, then step 2.
 - `select-app`: another registered app is the one to use. `next_step.command` names it with `--app`; run verbatim.
-- `inspect-store`: `~/.xurl` exists but could not be read. `next_step.command` is `xr auth status`, whose `message`
-  names the file, and `next_step.docs` says how to recover it. Repair the file or move it aside, then re-run the flow;
-  `xr auth clear` does not rewrite a store it could not load.
+- `inspect-store`: `~/.xurl/auth.yml` exists but could not be read. `next_step.command` is `xr auth status`, whose
+  `message` names the file, and `next_step.docs` says how to recover it. Repair the file or move it aside, then re-run
+  the flow; `xr auth clear` does not rewrite a store it could not load.
 
 Every message-shaped auth verb (`apps add`, `apps update`, `apps remove`, `default`, `clear`, `app --bearer-token`)
 answers `{"status":"ok","message":"…"}` under `--output json`; `apps add` also carries `default` (whether the new app
@@ -108,11 +108,11 @@ xr auth oauth2
 ```
 
 `xr` opens the browser, the user grants scopes, the loopback callback finalizes the exchange, the access and refresh
-tokens land in `~/.xurl`. Done.
+tokens land in `~/.xurl/auth.yml`. Done.
 
 The sign-in asks for every scope `xr` can use. `--scopes tweet.read,users.read` asks for those alone plus
 `offline.access`, which is always added so the login can refresh; on the headless flow the flag goes on step 1. A scope
-X does not define is `reason: "validation"`, exit `1`, with the valid names in `message`.
+X does not define is `reason: "validation"`, exit `1`, with the valid names in `message` (`The scopes are: …`).
 
 If multiple apps are registered, `xr` uses the default app unless `--app <name>` is passed. Set the default with `xr
 auth default <name>` (or run `xr auth default` for an interactive picker).
@@ -158,8 +158,8 @@ secrets comes from its `-file` flag (a path, or `-` for stdin on one of them) or
 without `-file`.
 
 Required when a verb hits a v1.1 endpoint or one of the few v2 paths the API still gates behind OAuth1 (some media, some
-legacy read paths). Tokens persist in `~/.xurl` under the active app. The CLI auto-selects OAuth1 when the endpoint
-requires it; pass `--auth oauth1` to force it.
+legacy read paths). Tokens persist in `~/.xurl/auth.yml` under the active app. The CLI auto-selects OAuth1 when the
+endpoint requires it; pass `--auth oauth1` to force it.
 
 ## Bearer (app-only)
 
@@ -207,7 +207,8 @@ xr auth apps redirect-uri set my-app ""                         # clear the stor
 ## Clearing tokens
 
 `xr auth clear` needs a selector; without one it answers `reason: "validation"`, exit `1`. Destructive, so it prompts on
-a TTY; pass `--force` when running unattended.
+a TTY; pass `--force` when running unattended. On a store it could not load it answers `reason: "token-store"`, exit
+`77`, and leaves the file as it was.
 
 ```bash
 xr auth clear --all --force --output json                       # every credential on the active app
@@ -221,11 +222,16 @@ Use this before re-running a flow when `xr auth status` shows an entry you no lo
 
 ## Token store
 
-YAML at `~/.xurl` (override the path with `XURL_TOKEN_STORE`). Multi-app, with transparent format migration on every
-load. Every write is atomic, created `0600`, and serialized across concurrent `xr` processes by an OS file lock at
-`~/.xurl.lock`, so two agents refreshing a token at once cannot truncate the store or drop a rotated refresh token.
-Don't hand-edit it; use `xr auth ...` commands. If the file is corrupt, `xr auth status` answers `reason: "token-store"`
-(exit `77`) naming the path; back it up, move it aside, and run a fresh `xr auth apps add` + `xr auth oauth2`.
+YAML at `~/.xurl/auth.yml`, the file Go `xurl` 1.3.0 and later use, so the two tools share one store (override the path
+with `XURL_TOKEN_STORE`). A single-file store at `~/.xurl`, where an older `xr` kept it, is moved into the directory by
+the first command that opens it; the move is one-way, and the older releases cannot read the directory (`SKILL.md` names
+them), so upgrade every copy of `xr` that shares the store. Multi-app, with transparent format migration on every load.
+Beside each login the store keeps the X account id it belongs to, which the commands that act as you read in place of
+asking `/2/users/me`. Every write is atomic, created `0600`, and serialized across concurrent `xr` processes by an OS
+file lock at `<store>.lock` (`~/.xurl/auth.yml.lock`), so two agents refreshing a token at once cannot truncate the
+store or drop a rotated refresh token. Don't hand-edit it; use `xr auth ...` commands. If the file is corrupt, `xr auth
+status` answers `reason: "token-store"` (exit `77`) naming the path; back it up, move it aside, and run a fresh `xr auth
+apps add` + `xr auth oauth2`.
 
 ## Where to find scope and grant details
 

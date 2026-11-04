@@ -210,11 +210,11 @@ gate_smoke() {
   local out code=0
   out=$(XR_BIN="$(command -v bash)" bash "$REPO_ROOT/tests/xr-sandbox.sh" \
     "$REPO_ROOT/scripts/dry-run-gate.sh" --yes -- "$pinned_bin" post "" 2>&1) || code=$?
-  if [[ $code -eq 1 ]] && grep -qF 'would NOT succeed (would_succeed=false, exit_code=1, reason=empty-body)' <<<"$out"; then
-    gate_pass "negative control: dry-run-gate.sh refuses an empty post (exit 1, reason empty-body)"
+  if [[ $code -eq 1 ]] && grep -qF 'would NOT succeed (would_succeed=false, exit_code=1, reason=validation, rule=empty-body)' <<<"$out"; then
+    gate_pass "negative control: dry-run-gate.sh refuses an empty post (exit 1, rule empty-body)"
   else
     gate_fail "negative control" \
-      "dry-run-gate.sh on an empty post exited $code without its would-NOT-succeed refusal; expected exit 1 and reason=empty-body"
+      "dry-run-gate.sh on an empty post exited $code without its would-NOT-succeed refusal; expected exit 1 and reason=validation, rule=empty-body"
   fi
 }
 

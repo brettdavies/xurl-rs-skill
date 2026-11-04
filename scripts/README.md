@@ -27,12 +27,14 @@ envelope on stderr with a non-zero exit. Each script captures stderr during its 
 What it does:
 
 1. Runs the verb with `--dry-run --output json --quiet`, capturing stderr, and parses the envelope.
-2. Refuses unless `status=dry_run`, `would_succeed=true`, `exit_code=0`. A read op (which ignores `--dry-run` and
-   answers its document with no `status`, or `status=ok` for a local verb) is rejected with a "run it directly" note at
-   exit `2`. A non-zero preflight exit is reported with the envelope's `reason` at exit `1`; when that reason is
-   `confirmation-required`, the message says to pass `--force`. A preflight that exits `0` with `would_succeed=false`
-   (an input check failed) is refused at exit `1` with the check named as `reason=…` (`empty-body`, `alt-text-too-long`,
-   `invalid-media-id`, …), followed by the envelope.
+2. Refuses unless `status=dry_run`, `would_succeed=true`, `exit_code=0`. A verb with no dry run (a local read such as
+   `xr auth status`, which ignores `--dry-run`, answers `status=ok`, and has already run) is rejected with a "run it
+   directly" note at exit `2`; a read of the API dry-runs like a write and goes live through the gate. A non-zero
+   preflight exit is reported with the envelope's `reason` at exit `1`. A preflight that exits `0` with
+   `would_succeed=false` is refused at exit `1` with its `reason=…` and, for an input check, `rule=…` (`empty-body`,
+   `alt-text-too-long`, `invalid-media-id`, …), followed by the envelope. A preflight that reports
+   `confirmation_required: true` is refused at exit `1` unless `--force` is among the verb's args, before any live
+   call.
 3. Echoes the accepted `dry_run` envelope on **stderr** (stdout is reserved for the live response), so capture `2>&1`
    when you want to keep it. On a TTY, prompts `[y/N]`. Off a TTY, requires `--yes` or refuses at exit `3`.
 4. `exec`s the verb again with `--output json` (no `--dry-run`): the API document lands on stdout, a failure envelope on
@@ -41,8 +43,9 @@ What it does:
 Do NOT pass `--dry-run`, `--output`, `--json`, or `--jsonl` to the gated verb; the script controls them and refuses any
 of them that appears before the verb's own `--`. Text that starts with `-` goes after that `--` (`-- xr media alt-text
 <id> -- "-5°C at the start"`): the gate inserts its flags before the separator and does not inspect what follows it. DO
-pass `--force` for `delete`, `auth clear`, and `auth apps remove`: the binary's own confirmation gate runs before
-`--dry-run`, so without it the preflight itself is refused. The gate is the confirmation step.
+pass `--force` for `delete`, `auth clear`, `auth apps remove`, and any other command whose dry run reports
+`confirmation_required`: the live call refuses without it when it cannot prompt, so the gate refuses first. The gate is
+the confirmation step.
 
 The environment counts too. With `XURL_DRY_RUN` set to a true value, the live call would only dry-run, so the gate
 refuses at exit `2` before the preflight; unset it to go live. `XURL_JSON` and `XURL_JSONL` act as `--json` / `--jsonl`,
@@ -85,9 +88,9 @@ controls them. The script refuses if they appear in args.
 
 Defaults:
 
-- `--max-pages 20`: safety cap to keep runaway queries from burning tweet caps. A user-scoped list verb resolves
-  `/2/users/me` before each page, so 20 pages of `timeline` or `muted` is up to 40 requests; `search` and `dms` cost one
-  per page.
+- `--max-pages 20`: safety cap to keep runaway queries from burning tweet caps. Every list verb costs one request per
+  page: a user-scoped one (`timeline`, `muted`, …) reads the caller's account id from the token store, so 20 pages is
+  20 requests, plus one `/2/users/me` the first time a login needs the id.
 - `--sleep 0`: no delay between pages. Bump on rate-limit risk.
 
 Examples:

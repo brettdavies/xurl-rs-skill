@@ -264,15 +264,15 @@ test_gate__reject_would_not_succeed() {
 }
 
 test_gate__reject_would_not_succeed_names_reason() {
-  # A preflight that fails an input check answers exit 0 with the check's name
-  # in `reason`; the live call would answer reason "validation" instead.
-  XR_STUB_DRYRUN_BODY='{"status":"dry_run","would_succeed":false,"exit_code":1,"command":"media-alt-text","reason":"alt-text-too-long"}'
+  # A preflight that fails an input check answers exit 0 with reason
+  # "validation" and the check's name in `rule`.
+  XR_STUB_DRYRUN_BODY='{"status":"dry_run","would_succeed":false,"exit_code":1,"command":"media-alt-text","reason":"validation","rule":"alt-text-too-long"}'
   export XR_STUB_DRYRUN_BODY
 
   run_script "$ROOT/scripts/dry-run-gate.sh" --yes -- xr media alt-text 1 "too long"
 
   assert_exit 1 || return 1
-  assert_stderr_contains "reason=alt-text-too-long" || return 1
+  assert_stderr_contains "reason=validation, rule=alt-text-too-long" || return 1
   assert_stderr_not_contains "running live" || return 1
 }
 
@@ -330,7 +330,7 @@ test_gate__json_env_does_not_conflict() {
 }
 
 test_gate__reject_read_op_api_document() {
-  # A read op ignores --dry-run and answers the X API document: no status key.
+  # A verb with no dry run answers its document as it would live: no status key.
   XR_STUB_DRYRUN_BODY='{"data":{"id":"42","username":"alice"}}'
   export XR_STUB_DRYRUN_BODY
 
@@ -338,7 +338,7 @@ test_gate__reject_read_op_api_document() {
 
   assert_exit 2 || return 1
   assert_stderr_contains "status=absent" || return 1
-  assert_stderr_contains "READ op" || return 1
+  assert_stderr_contains "has no dry run" || return 1
 }
 
 test_gate__reject_read_op_local_verb() {
@@ -350,7 +350,7 @@ test_gate__reject_read_op_local_verb() {
 
   assert_exit 2 || return 1
   assert_stderr_contains "status=ok" || return 1
-  assert_stderr_contains "READ op" || return 1
+  assert_stderr_contains "has no dry run" || return 1
 }
 
 test_gate__reject_error_envelope_on_stderr() {
@@ -368,16 +368,28 @@ test_gate__reject_error_envelope_on_stderr() {
 }
 
 test_gate__confirmation_required_names_force() {
-  # `xr delete` off a TTY without --force refuses before the dry-run runs.
-  XR_STUB_DRYRUN_BODY='{"status":"error","reason":"confirmation-required","exit_code":1,"command":"delete","post_id":"123"}'
-  XR_STUB_DRYRUN_EXIT=1
-  export XR_STUB_DRYRUN_BODY XR_STUB_DRYRUN_EXIT
+  # `xr delete --dry-run` passes without --force and reports
+  # confirmation_required; the live call would refuse off a TTY, so the gate
+  # refuses before it.
+  XR_STUB_DRYRUN_BODY='{"status":"dry_run","would_succeed":true,"exit_code":0,"command":"delete","post_id":"123","confirmation_required":true}'
+  export XR_STUB_DRYRUN_BODY
 
   run_script "$ROOT/scripts/dry-run-gate.sh" --yes -- xr delete 123
 
   assert_exit 1 || return 1
-  assert_stderr_contains "reason=confirmation-required" || return 1
+  assert_stderr_contains "confirmation_required" || return 1
   assert_stderr_contains "pass --force" || return 1
+  assert_stderr_not_contains "running live" || return 1
+}
+
+test_gate__confirmation_required_with_force_goes_live() {
+  XR_STUB_DRYRUN_BODY='{"status":"dry_run","would_succeed":true,"exit_code":0,"command":"delete","post_id":"123","confirmation_required":true}'
+  export XR_STUB_DRYRUN_BODY
+
+  run_script "$ROOT/scripts/dry-run-gate.sh" --yes -- xr delete 123 --force
+
+  assert_exit 0 || return 1
+  assert_stderr_contains "running live" || return 1
 }
 
 test_gate__error_envelope_on_stdout() {
@@ -561,7 +573,8 @@ test_paginate__reject_forbidden_cursor_flag() {
   run_script "$ROOT/scripts/paginate.sh" -- xr search "rust" --cursor TOKEN
 
   assert_exit 2 || return 1
-  assert_stderr_contains "do not pass --cursor" || return 1
+  assert_stderr_contains "do not pass --cursor in the verb args" || return 1
+  assert_stderr_contains 'pass --cursor TOKEN before "--"' || return 1
 }
 
 test_paginate__reject_forbidden_output_flag() {
@@ -611,6 +624,7 @@ run_test test_gate__reject_read_op_api_document
 run_test test_gate__reject_read_op_local_verb
 run_test test_gate__reject_error_envelope_on_stderr
 run_test test_gate__confirmation_required_names_force
+run_test test_gate__confirmation_required_with_force_goes_live
 run_test test_gate__error_envelope_on_stdout
 run_test test_gate__non_json_stderr_passthrough
 run_test test_gate__live_failure_passes_through

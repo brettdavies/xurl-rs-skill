@@ -101,9 +101,12 @@ check "whoami: 77 on stderr; register-app template; nothing on stdout" 77 \
   err.json .next_step.template '<secret-command> | xr auth apps add <name> --client-id <client-id> --client-secret-file -' \
   out.shape empty \
   -- "$X" whoami --output json
-check "post --dry-run: dry_run envelope; would_succeed; no creds needed" 0 \
+check "post --dry-run, no credential: dry_run envelope at exit 0; would_succeed false; auth-required and the real run's 77" 0 \
   out.json .status dry_run \
-  out.json .would_succeed true \
+  out.json .would_succeed false \
+  out.json .reason auth-required \
+  out.json .exit_code 77 \
+  out.json .next_step.action register-app \
   out.json .command post \
   -- "$X" post "hi" --dry-run --output json
 check "post --dry-run: media_ids echoed" 0 out.json .media_ids '["1","2"]' -- "$X" post "hi" --media-id 1 --media-id 2 --dry-run --output json
@@ -113,6 +116,11 @@ check "block --dry-run; block --dry-run echoes the handle" 0 \
   out.json .command block \
   out.json .target_username @spammer \
   -- "$X" block @spammer --dry-run --output json
+check "block --dry-run: a malformed handle is rule invalid-username" 0 \
+  out.json .reason validation \
+  out.json .rule invalid-username \
+  -- "$X" block "bad name!" --dry-run --output json
+check "follow --dry-run: an empty handle is rule empty-username" 0 out.json .rule empty-username -- "$X" follow "" --dry-run --output json
 check "block --force: invalid-args" 2 err.json .reason invalid-args -- "$X" block @spammer --force --dry-run --output json
 check "unblock --dry-run" 0 out.json .command unblock -- "$X" unblock @spammer --dry-run --output json
 check "mute --dry-run" 0 out.json .command mute -- "$X" mute @noisy --dry-run --output json
@@ -120,14 +128,26 @@ check "unmute --dry-run" 0 out.json .command unmute -- "$X" unmute @noisy --dry-
 check "follow --dry-run" 0 out.json .command follow -- "$X" follow @someone --dry-run --output json
 check "dm --dry-run" 0 out.json .command dm -- "$X" dm @bob "hi" --dry-run --output json
 check "like --dry-run" 0 out.json .status dry_run -- "$X" like 1585341984679469056 --dry-run --output json
-check "delete --dry-run without --force: refused" 1 err.json .reason confirmation-required -- "$X" delete 123 --dry-run --output json
+check "delete --dry-run without --force: answers, exit 0; confirmation_required" 0 \
+  out.json .status dry_run \
+  out.json .confirmation_required true \
+  -- "$X" delete 123 --dry-run --output json
 check "delete --force --dry-run: dry_run" 0 out.json .post_id 123 -- "$X" delete 123 --force --dry-run --output json
-check "media upload --dry-run: no stat; defaults" 0 \
-  out.json .would_succeed true \
-  out.json .category amplify_video \
+check "media upload --dry-run: a missing file is io, the real run's exit 5" 0 \
+  out.json .would_succeed false \
+  out.json .reason io \
+  out.json .exit_code 5 \
   -- "$X" media upload ./nope.png --dry-run --output json
+check "media upload --dry-run: defaults; a readable file passes the file check" 0 \
+  out.json .category amplify_video \
+  out.json .reason auth-required \
+  -- "$X" media upload "$WORK/tiny.png" --dry-run --output json
 check "media upload missing file: io exit 5" 5 err.json .reason io -- "$X" media upload ./nope.png --output json
-check "blocked ignores --dry-run" 77 err.json .reason auth-required -- "$X" blocked --dry-run --output json
+check "blocked --dry-run: a read answers the dry_run envelope and sends nothing" 0 \
+  out.json .status dry_run \
+  out.json .command blocked \
+  out.json .reason auth-required \
+  -- "$X" blocked --dry-run --output json
 check "search --page: unsupported-pagination" 1 err.json .reason unsupported-pagination -- "$X" search x --page 2 --output json
 check "--output yml: an alias of yaml" 0 out "name: xr" -- "$X" version --output yml
 check "XURL_OUTPUT=yml: the alias from the environment" 0 out "name: xr" -- env XURL_OUTPUT=yml "$X" version
@@ -151,9 +171,9 @@ check "unknown flag: invalid-args envelope; invalid-args message: no error: pref
   -- "$X" post hi --bogus --output json
 check "missing positional: invalid-args envelope" 2 err.json .reason invalid-args -- "$X" post --output json
 check "media upload --wait false: invalid-args" 2 err.json .reason invalid-args -- "$X" media upload ./x.png --wait false --output json
-check "media upload --wait=false: accepted" 0 out.json .would_succeed true -- "$X" media upload ./nope.png --wait=false --dry-run --output json
-check "media upload --wait=0: accepted" 0 out.json .would_succeed true -- "$X" media upload ./nope.png --wait=0 --dry-run --output json
-check "media upload --wait=120: accepted" 0 out.json .would_succeed true -- "$X" media upload ./nope.png --wait=120 --dry-run --output json
+check "media upload --wait=false: accepted" 0 out.json .status dry_run -- "$X" media upload "$WORK/tiny.png" --wait=false --dry-run --output json
+check "media upload --wait=0: accepted" 0 out.json .status dry_run -- "$X" media upload "$WORK/tiny.png" --wait=0 --dry-run --output json
+check "media upload --wait=120: accepted" 0 out.json .status dry_run -- "$X" media upload "$WORK/tiny.png" --wait=120 --dry-run --output json
 check "media status --wait false: invalid-args" 2 err.json .reason invalid-args -- "$X" media status 1 --wait false --output json
 check "media upload bearer-only: auth-method-mismatch" 2 err.json .available_in_app '["app"]' -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" media upload "$WORK/tiny.png" --output json
 check "unknown command: suggestion; show-help next_step; help of the nearest command" 2 \
@@ -167,9 +187,10 @@ check "unknown top-level word, nothing close: root help" 2 err.json .next_step.c
 check "<typo> --help: unknown-command, exit 2" 2 err.json .reason unknown-command -- "$X" whoam --help --output json
 check "<typo> -V: unknown-command, exit 2" 2 err.json .reason unknown-command -- "$X" whoam -V --output json
 check "help --help: the help page, exit 0" 0 out 'Print this message or the help' -- "$X" help --help
-check "schema --envelope: the eight actions; next_step and the retry keys declared" 0 \
+check "schema --envelope: the thirteen actions; next_step and the retry keys declared" 0 \
   out.json '[.. | objects | .const? // empty] | index("show-help") != null' true \
-  out.json '[.. | objects | .const? // empty] - ["ok", "dry_run", "error"] | unique | length' 8 \
+  out.json '[.. | objects | .const? // empty] - ["ok", "dry_run", "error"] | unique | length' 13 \
+  out.json '[.. | objects | .const? // empty] | ["retry", "fix-input", "confirm", "run-command", "report-issue"] - . | length' 0 \
   out.json '[.. | objects | .const? // empty] | (index("resume-wait") != null) and (index("wait-and-retry") != null)' true \
   out.json '[.. | objects | .properties? // empty | has("retry_after_secs") and has("retry_at") and has("media_id")] | any' true \
   out.json '[.oneOf[].properties | has("next_step")] | any' true \
@@ -196,7 +217,7 @@ check "oauth2 step 1 --scopes: the subset plus offline.access" 0 \
   -- env XURL_TOKEN_STORE="$WORK/creds.yaml" "$X" auth oauth2 --no-browser --step 1 --scopes tweet.read,users.read --output json
 check "oauth2 step 1 --scopes: unknown scope is validation" 1 \
   err.json .reason validation \
-  err.json '.message | contains("Valid scopes:")' true \
+  err.json '.message | contains("The scopes are:")' true \
   -- env XURL_TOKEN_STORE="$WORK/creds.yaml" "$X" auth oauth2 --no-browser --step 1 --scopes nope.read --output json
 check "apps add --client-secret-file -: stdin; sign-in next" 0 \
   out.json .next_step.action sign-in \
@@ -224,21 +245,40 @@ check "skill install no host: error on STDOUT; known_hosts" 2 \
   out.json .reason missing-host \
   out.json '.known_hosts | index("opencode") != null' true \
   -- "$X" skill install --output json
+check "skill install over a non-empty install dir: destination-not-empty; run-command names skill update" 1 \
+  out.json .reason destination-not-empty \
+  out.json .next_step.action run-command \
+  out.json .next_step.command 'xr skill update claude_code' \
+  -- bash -c "mkdir -p '$WORK/occupied/.claude/skills/xurl-rs' && printf 'mine\n' >'$WORK/occupied/.claude/skills/xurl-rs/notes.txt' && XURL_SKILL_HOME='$WORK/occupied' '$X' skill install claude_code --output json"
 check "skill install --dry-run: command_preview" 0 out.json '.command_preview | startswith("git clone --depth 1 ")' true -- "$X" skill install claude_code --dry-run --output json
 check "skill update --all --dry-run: installations; not-installed" 0 \
   out.json '.installations | length > 0' true \
   out.json '[.installations[].reason] | index("not-installed") != null' true \
   -- "$X" skill update --all --dry-run --output json
-check "schema --list: message rows" 0 out.json 'select(.message | startswith("whoami ")) | has("message")' true -- "$X" schema --list --output json
+check "schema --list: one record per command; command words; no envelope row" 0 \
+  out.json '[.[] | select(.command == "broadcasts moderators add")] | length' 1 \
+  out.json '[.[] | select(.command == "envelope")] | length' 0 \
+  -- "$X" schema --list --output json
 check "schema validate: schema not available; reason validation" 1 \
   err.json '.message | startswith("schema not available")' true \
   err.json .reason validation \
   -- "$X" schema validate --output json
-check "schema bogus: reason validation, not unknown-command; lists valid names" 1 \
-  err.json .reason validation \
-  err.json '.message | contains("broadcasts-moderators-list")' true \
+check "schema bogus: unknown-command, exit 2; show-help" 2 \
+  err.json .reason unknown-command \
+  err.json .next_step.action show-help \
   -- "$X" schema bogus --output json
-check "schema broadcasts-moderators-add: moderator_user_ids" 0 out.json '[.. | objects | .properties? // empty | has("moderator_user_ids")] | any' true -- "$X" schema broadcasts-moderators-add --output json
+check "schema broadcasts-moderators-add: a hyphen-joined name is refused; fix-input carries the words" 2 \
+  err.json .reason invalid-args \
+  err.json .next_step.action fix-input \
+  err.json .next_step.command 'xr schema broadcasts moderators add' \
+  -- "$X" schema broadcasts-moderators-add --output json
+check "schema broadcasts moderators add: the data view; moderator_user_ids" 0 \
+  out.json .command 'broadcasts moderators add' \
+  out.json '.properties | has("moderator_user_ids")' true \
+  -- "$X" schema broadcasts moderators add --output json
+check "schema post --full: the complete schema with its \$defs" 0 out.json "has(\"\$defs\")" true -- "$X" schema post --full --output json
+check "schema post --path: one node into the data" 0 out.json '.properties | has("retweet_count") or has("repost_count") or has("like_count")' true -- "$X" schema post --path public_metrics --output json
+check "schema --common: the wrapper's data, meta, includes, errors" 0 out.json '.properties | keys' '["data","errors","includes","meta"]' -- "$X" schema --common --output json
 check "schema dm: dm_event_id" 0 out.json '[.. | objects | .properties? // empty | has("dm_event_id")] | any' true -- "$X" schema dm --output json
 check "schema block: positional" 0 out.json '[.. | objects | .properties? // empty | has("blocking")] | any' true -- "$X" schema block --output json
 check "validate --schema block" 0 out.json .valid true -- bash -c "printf '%s' '{\"data\":{\"blocking\":true}}' | '$X' validate --schema block --output json"
@@ -268,9 +308,12 @@ check "broadcasts moderators add --dry-run; broadcasts moderators add --dry-run 
   -- "$X" broadcasts moderators add @helper --dry-run --output json
 check "broadcasts moderators add --force: invalid-args" 2 err.json .reason invalid-args -- "$X" broadcasts moderators add @helper --force --dry-run --output json
 check "broadcasts moderators remove --dry-run" 0 out.json .command broadcasts-moderators-remove -- "$X" broadcasts moderators remove @helper --dry-run --output json
-check "broadcasts moderators list ignores --dry-run" 77 err.json .reason auth-required -- "$X" broadcasts moderators list --dry-run --output json
-check "raw mode: a target that is neither http(s) nor /-prefixed is validation" 1 \
-  err.json .reason validation \
+check "broadcasts moderators list --dry-run: answers the dry_run envelope" 0 \
+  out.json .status dry_run \
+  out.json .command broadcasts-moderators-list \
+  -- "$X" broadcasts moderators list --dry-run --output json
+check "raw mode: a target that is neither http(s) nor /-prefixed is invalid-url" 1 \
+  err.json .reason invalid-url \
   err.json '.message | contains("example.com/x")' true \
   -- env XURL_TOKEN_STORE="$WORK/bearer.yaml" "$X" example.com/x --auth app --output json
 check "raw mode: an http URL that does not parse is invalid-url" 1 \
@@ -290,9 +333,13 @@ check "unloadable store, whoami: auth-required; inspect-store keeps xr auth stat
   err.json .next_step.command 'xr auth status' \
   err.json '.next_step | has("docs")' true \
   -- env XURL_TOKEN_STORE="$WORK/broken.yaml" "$X" whoami --output json
-check "unloadable store: auth clear --all --force reports ok and leaves the file as it was" 0 \
+check "unloadable store: auth clear --all --force is token-store, exit 77; inspect-store" 77 \
+  err.json .reason token-store \
+  err.json .next_step.action inspect-store \
+  -- env XURL_TOKEN_STORE="$WORK/broken.yaml" "$X" auth clear --all --force --output json
+check "unloadable store: auth clear --all --force leaves the file as it was" 0 \
   out '":::: not yaml ["' \
-  -- bash -c "XURL_TOKEN_STORE='$WORK/broken.yaml' '$X' auth clear --all --force --output json >/dev/null && '$CONTRACT_JQ' -Rs 'split(\"\n\")[0]' '$WORK/broken.yaml'"
+  -- bash -c "XURL_TOKEN_STORE='$WORK/broken.yaml' '$X' auth clear --all --force --output json >/dev/null 2>&1; '$CONTRACT_JQ' -Rs 'split(\"\n\")[0]' '$WORK/broken.yaml'"
 check "a name the store does not hold: token-store, no next_step" 77 \
   err.json .reason token-store \
   err.json 'has("next_step")' false \
@@ -302,37 +349,57 @@ check "closed port: URL containing 429 is still network-error" 5 err.json .reaso
 check "--auth oauth2 with creds, no token: 77; sign-in" 77 \
   err.json .reason auth-required \
   err.json .next_step.action sign-in \
+  -- env XURL_TOKEN_STORE="$WORK/creds.yaml" "$X" whoami --auth oauth2 --output json
+check "--auth before the command word: invalid-args, exit 2; fix-input moves it after" 2 \
+  err.json .reason invalid-args \
+  err.json .next_step.action fix-input \
+  err.json .next_step.command 'xr whoami --auth oauth2 --output json' \
   -- env XURL_TOKEN_STORE="$WORK/creds.yaml" "$X" --auth oauth2 whoami --output json
-check "post --dry-run empty body: reason, exit 0" 0 out.json .reason empty-body -- "$X" post "" --dry-run --output json
-check "post empty body live: validation exit 1" 1 err.json .message empty-body -- "$X" post "" --output json
+check "post --dry-run empty body: reason validation, rule empty-body, exit 0" 0 \
+  out.json .reason validation \
+  out.json .rule empty-body \
+  out.json .exit_code 1 \
+  -- "$X" post "" --dry-run --output json
+check "post empty body live: validation exit 1; rule empty-body; message is the rule's sentence" 1 \
+  err.json .reason validation \
+  err.json .rule empty-body \
+  err.json .message 'The text is empty; give at least one character.' \
+  -- "$X" post "" --output json
 
 LONG_ALT=$(printf 'a%.0s' $(seq 1001))
 check "media alt-text --dry-run; media alt-text --dry-run: echoes text" 0 \
   out.json .command media-alt-text \
   out.json .text 'A dog' \
   -- "$X" media alt-text 1585341984679469056 "A dog" --dry-run --output json
-check "media alt-text --dry-run: 1000 chars pass" 0 out.json .would_succeed true -- "$X" media alt-text 1 "${LONG_ALT:1}" --dry-run --output json
+check "media alt-text --dry-run: 1000 chars pass the length check" 0 out.json .reason auth-required -- "$X" media alt-text 1 "${LONG_ALT:1}" --dry-run --output json
 check "media alt-text --dry-run: 1001 chars refused, exit 0; refusal is would_succeed false" 0 \
-  out.json .reason alt-text-too-long \
+  out.json .reason validation \
+  out.json .rule alt-text-too-long \
   out.json .would_succeed false \
   -- "$X" media alt-text 1 "$LONG_ALT" --dry-run --output json
-check "media alt-text --dry-run: invalid-media-id" 0 out.json .reason invalid-media-id -- "$X" media alt-text abc "A dog" --dry-run --output json
-check "media alt-text --dry-run: empty-alt-text" 0 out.json .reason empty-alt-text -- "$X" media alt-text 1 "  " --dry-run --output json
-check "media alt-text live bad id: validation before auth" 1 err.json .message invalid-media-id -- "$X" media alt-text abc "A dog" --output json
+check "media alt-text --dry-run: invalid-media-id" 0 out.json .rule invalid-media-id -- "$X" media alt-text abc "A dog" --dry-run --output json
+check "media alt-text --dry-run: empty-alt-text" 0 out.json .rule empty-alt-text -- "$X" media alt-text 1 "  " --dry-run --output json
+check "media alt-text live bad id: validation before auth" 1 \
+  err.json .reason validation \
+  err.json .rule invalid-media-id \
+  -- "$X" media alt-text abc "A dog" --output json
 check "media alt-text --force: invalid-args" 2 err.json .reason invalid-args -- "$X" media alt-text 1 "A dog" --force --dry-run --output json
 check "media alt-text --auth app: auth-method-mismatch" 2 err.json .reason auth-method-mismatch -- "$X" media alt-text 1 "A dog" --auth app --output json
 check "media alt-text no creds: 77" 77 err.json .reason auth-required -- "$X" media alt-text 1 "A dog" --output json
 check "media subtitles add --dry-run" 0 out.json .command media-subtitles-add -- "$X" media subtitles add 1 2 --language en --name English --dry-run --output json
 check "media subtitles add --dry-run: default category" 0 out.json .category amplify_video -- "$X" media subtitles add 1 2 --language en --dry-run --output json
-check "media subtitles add --dry-run: invalid-language-code" 0 out.json .reason invalid-language-code -- "$X" media subtitles add 1 2 --language eng --dry-run --output json
-check "media subtitles add --dry-run: subtitles id checked" 0 out.json .reason invalid-media-id -- "$X" media subtitles add 1 subs --language en --dry-run --output json
+check "media subtitles add --dry-run: invalid-language-code" 0 out.json .rule invalid-language-code -- "$X" media subtitles add 1 2 --language eng --dry-run --output json
+check "media subtitles add --dry-run: subtitles id checked" 0 out.json .rule invalid-media-id -- "$X" media subtitles add 1 subs --language en --dry-run --output json
 check "media subtitles add without --language: invalid-args" 2 err.json .reason invalid-args -- "$X" media subtitles add 1 2 --dry-run --output json
 check "media subtitles add --category tweet_image: invalid-args" 2 err.json .reason invalid-args -- "$X" media subtitles add 1 2 --language en --category tweet_image --dry-run --output json
 check "media subtitles remove --dry-run" 0 out.json .command media-subtitles-remove -- "$X" media subtitles remove 1 --language en --dry-run --output json
 check "media subtitles remove --force: invalid-args" 2 err.json .reason invalid-args -- "$X" media subtitles remove 1 --language en --force --dry-run --output json
 check "media upload --category subtitles --dry-run" 0 out.json .category subtitles -- "$X" media upload ./captions.srt --media-type text/srt --category subtitles --dry-run --output json
-check "schema media-upload: schema not available" 1 err.json '.message | startswith("schema not available")' true -- "$X" schema media-upload --output json
-check "schema skill-install: legacy_install_dir declared" 0 out.json '.properties | has("legacy_install_dir")' true -- "$X" schema skill-install --output json
+check "schema media upload: schema not available; rule no-typed-response" 1 \
+  err.json '.message | startswith("schema not available")' true \
+  err.json .rule no-typed-response \
+  -- "$X" schema media upload --output json
+check "schema skill install: no typed response" 1 err.json .rule no-typed-response -- "$X" schema skill install --output json
 check "validate --help: lists the schema names" 0 out 'alt-text' -- "$X" validate --help
 check "validate auto-detects alt-text" 0 out.json .schema alt-text -- bash -c "printf '%s' '{\"data\":{\"id\":\"1\",\"associated_metadata\":{}}}' | '$X' validate --output json"
 check "validate auto-detects subtitles" 0 out.json .schema subtitles -- bash -c "printf '%s' '{\"data\":{\"id\":\"1\",\"associated_subtitles\":{}}}' | '$X' validate --output json"
@@ -385,6 +452,9 @@ apps:
 default_app: demo
 EOF
 export XURL_TOKEN_STORE="$WORK/user.yaml"
+# The staged login before any command stores its account id; the warm-up
+# whoami below writes the id into user.yaml.
+cp "$WORK/user.yaml" "$WORK/user-noid.yaml"
 export API_BASE_URL="http://127.0.0.1:$STUB_PORT"
 
 PYTHONDONTWRITEBYTECODE=1 python3 -B "$ROOT/tests/stub-api.py" "$STUB_PORT" "$REQUEST_LOG" &
@@ -401,8 +471,23 @@ check "auth status: per-app fields; oauth2_users; bearer_source; no token values
   out.json '.apps[0].client_id_hint' abcdefgh \
   out.json '.apps[0].oauth2_users' '["alice"]' \
   out.json '.apps[0].bearer_source' store \
+  out.json '.apps[0].oauth2_accounts[0].user_id' 42 \
+  out.json '.apps[0].oauth2_accounts[0].username' alice \
   out.json '[.. | strings | select(contains("fakeaccess"))] | length' 0 \
   -- "$X" auth status --output json
+check "post --dry-run with a token: would_succeed; auth names the app, scheme, and login; nothing sent" 0 \
+  out.json .would_succeed true \
+  out.json .auth.app demo \
+  out.json .auth.scheme oauth2 \
+  out.json .auth.username alice \
+  log '!/2/tweets' \
+  -- "$X" post "hi" --dry-run --output json
+check "delete without --force, no terminal: confirmation-required; confirm carries the --force rerun" 1 \
+  err.json .reason confirmation-required \
+  err.json .next_step.action confirm \
+  err.json .next_step.template 'xr delete 123 --output json --force' \
+  log '!"path": "/2/tweets/123"' \
+  -- bash -c "'$X' delete 123 --output json </dev/null"
 check "whoami: the X API document; NO status key on success" 0 \
   out.json .data.username alice \
   out.json 'has("status")' false \
@@ -457,8 +542,8 @@ check "stream --output jsonl: one chunk per line" 0 \
 check "stream --output json: no banners" 0 out.shape lines -- "$X" /2/tweets/search/stream --auth app --output json --timeout 5
 check "search -n 3 floors at 10" 0 log 'max_results=10' -- "$X" search x -n 3 --output json
 check "search -n 500 clamps to 100" 0 log 'max_results=100' -- "$X" search x -n 500 --output json
-check "mentions -n 3: sent as given, below X's floor of 5" 0 log 'max_results=3' -- "$X" mentions -n 3 --output json
-check "likes -n 3: sent as given, below X's floor of 5" 0 log 'max_results=3' -- "$X" likes -n 3 --output json
+check "mentions -n 3: raised to X's floor of 5" 0 log 'max_results=5' -- "$X" mentions -n 3 --output json
+check "likes -n 3: raised to X's floor of 5" 0 log 'max_results=5' -- "$X" likes -n 3 --output json
 check "timeline -n 3 honored" 0 log 'max_results=3' -- "$X" timeline -n 3 --output json
 check "timeline --limit 3" 0 log 'max_results=3' -- "$X" timeline --limit 3 --output json
 check "-n wins over --limit" 0 log 'max_results=7' -- "$X" timeline --limit 3 -n 7 --output json
@@ -473,7 +558,33 @@ check "followers --cursor" 0 log '/followers?' -- "$X" followers --cursor abc --
 check "dms --cursor" 0 log '/2/dm_events?' -- "$X" dms --cursor abc --output json
 check "blocked --cursor: /blocking + token" 0 log 'blocking?max_results=5&user.fields=created_at%2Cdescription%2Cpublic_metrics%2Cverified&pagination_token=abc' -- "$X" blocked --cursor abc -n 5 --output json
 check "muted --after: /muting + token" 0 log 'pagination_token=abc' -- "$X" muted --after abc --output json
-check "muted resolves /2/users/me first" 0 log '/2/users/me' -- "$X" muted --output json
+check "muted reads the stored account id: one request, no /2/users/me" 0 \
+  log '"path": "/2/users/42/muting?' \
+  log '!/2/users/me' \
+  -- "$X" muted --output json
+for pair in timeline:/2/users/42/timelines/reverse_chronological? mentions:/2/users/42/mentions? \
+  bookmarks:/2/users/42/bookmarks? likes:/2/users/42/liked_tweets? blocked:/2/users/42/blocking?; do
+  check "${pair%%:*} reads the stored account id: one request, no /2/users/me" 0 \
+    log "\"path\": \"${pair#*:}" \
+    log '!"path": "/2/users/me?' \
+    -- "$X" "${pair%%:*}" --output json
+done
+check "following reads /2/users/me/following directly: one request" 0 \
+  log '"path": "/2/users/me/following?' \
+  log '!"path": "/2/users/me?' \
+  -- "$X" following --output json
+check "followers reads /2/users/me/followers directly: one request" 0 \
+  log '"path": "/2/users/me/followers?' \
+  log '!"path": "/2/users/me?' \
+  -- "$X" followers --output json
+check "first use, no stored account id: muted asks /2/users/me once, then reads its id" 0 \
+  log '"path": "/2/users/me?' \
+  log '"path": "/2/users/42/muting?' \
+  -- bash -c "cp '$WORK/user-noid.yaml' '$WORK/firstuse.yaml' && XURL_TOKEN_STORE='$WORK/firstuse.yaml' '$X' muted --output json"
+check "after first use: the stored id; no /2/users/me" 0 \
+  log '!"path": "/2/users/me?' \
+  log '"path": "/2/users/42/muting?' \
+  -- env XURL_TOKEN_STORE="$WORK/firstuse.yaml" "$X" muted --output json
 check "user @handle: @ stripped in lookup" 0 log '/2/users/by/username/streamsoup_promo?' -- "$X" user @streamsoup_promo --output json
 check "reply <url>: id extracted" 0 log '"in_reply_to_tweet_id":"1585341984679469056"' -- "$X" reply "https://x.com/u/status/1585341984679469056" "hi" --output json
 check "quote <url>: id extracted" 0 log '"quote_tweet_id":"1585341984679469056"' -- "$X" quote "https://x.com/u/status/1585341984679469056" "hi" --output json
@@ -483,7 +594,19 @@ check "post: 201 body; typed post: edit_history_post_ids; typed post: no legacy 
   out.json '.data.edit_history_post_ids' '["777"]' \
   out.json '.data | has("edit_history_tweet_ids")' false \
   -- "$X" post "hello" --output json
-check "block: lookup then POST /blocking" 0 log '"path": "/2/users/42/blocking"' -- "$X" block @spammer --output json
+check "block: one batch lookup, then POST /blocking" 0 \
+  log '/2/users/by?usernames=spammer&' \
+  log '"path": "/2/users/42/blocking"' \
+  -- "$X" block @spammer --output json
+check "block <all-digit id>: a user id, sent with no lookup" 0 \
+  log '{"target_user_id":"7"}' \
+  log '!/2/users/by' \
+  -- "$X" block 7 --output json
+check "block @handle X knows no account for: not-found exit 4; account; fix-input" 4 \
+  err.json .reason not-found \
+  err.json .account nosuchuser \
+  err.json .next_step.action fix-input \
+  -- "$X" block @nosuchuser --output json
 check "unblock: DELETE /blocking/<target>" 0 log '/2/users/42/blocking/7' -- "$X" unblock spammer --output json
 check "delete --force: DELETE /2/tweets/<id>" 0 log '"path": "/2/tweets/123"' -- "$X" delete 123 --force --output json
 check "HTTP 429, no reset named: rate-limited exit 3; no next_step, no retry keys" 3 \
@@ -556,6 +679,12 @@ check "media upload GIF X reports as still processing: waited for; no state left
   out.json '.data | has("processing_info")' false \
   log 'command=STATUS&media_id=9002' \
   -- "$X" media upload "$WORK/tiny.gif" --media-type image/gif --category dm_gif --output json
+check "media upload X fails after processing: invalid-request exit 1, media_id; stdout keeps FINALIZE's document" 1 \
+  err.json .reason invalid-request \
+  err.json .media_id 9003 \
+  err.json '.message | contains("Unsupported media encoding")' true \
+  out.json .data.processing_info.state pending \
+  -- "$X" media upload "$WORK/tiny.png" --media-type image/png --category dm_image --output json
 check "media upload --wait=false on media still processing: FINALIZE's pending state, unread" 0 \
   out.json .data.processing_info.state pending \
   -- "$X" media upload "$WORK/tiny.gif" --media-type image/gif --category dm_gif --wait=false --output json
@@ -650,9 +779,9 @@ check "media alt-text: POST /2/media/metadata; body nests metadata.alt_text.text
   out.json .data.associated_metadata.alt_text.text 'A dog' \
   out.json 'has("status")' false \
   -- "$X" media alt-text 1585341984679469056 "A dog" --output json
-check "media alt-text live bad input: no request sent; message names the check" 1 \
+check "media alt-text live bad input: no request sent; rule names the check" 1 \
   log '!/2/media/metadata' \
-  err.json .message alt-text-too-long \
+  err.json .rule alt-text-too-long \
   -- "$X" media alt-text 1 "$LONG_ALT" --output json
 check "validate alt-text: alt-text response" 0 out.json .valid true -- bash -c "'$X' media alt-text 1 'A dog' --output json | '$X' validate --schema alt-text --output json"
 check "media subtitles add: POST /2/media/subtitles; language upper-cased, category wire name" 0 \
@@ -685,8 +814,24 @@ check "dry-run-gate.sh: post goes live; dry_run envelope on stderr" 0 \
   out.json .data.id 777 \
   err '"status": "dry_run"' \
   -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" post "hello"
-check "dry-run-gate.sh: read op refused" 2 err 'READ op' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" whoami
-check "dry-run-gate.sh: delete without --force" 1 err 'pass --force' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" delete 123
+check "dry-run-gate.sh: a verb with no dry run is refused" 2 err 'has no dry run' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" auth status
+check "dry-run-gate.sh: a read dry-runs, then goes live" 0 out.json .data.username alice -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" whoami
+check "dry-run-gate.sh: delete without --force: refused before the live call" 1 \
+  err 'pass --force' \
+  log '!"path": "/2/tweets/123"' \
+  -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" delete 123
+check "dry-run-gate.sh: auth clear --all without --force: refused before the live call" 1 \
+  err 'pass --force' \
+  -- bash -c "cp '$WORK/user.yaml' '$WORK/gate-clear.yaml' && XURL_TOKEN_STORE='$WORK/gate-clear.yaml' '$ROOT/scripts/dry-run-gate.sh' --yes -- '$X' auth clear --all"
+check "dry-run-gate.sh: auth clear refused: the store still holds the login" 0 \
+  out.json '.apps[0].oauth2_users' '["alice"]' \
+  -- env XURL_TOKEN_STORE="$WORK/gate-clear.yaml" "$X" auth status --output json
+check "dry-run-gate.sh: auth apps remove without --force: refused before the live call" 1 \
+  err 'pass --force' \
+  -- bash -c "cp '$WORK/user.yaml' '$WORK/gate-remove.yaml' && XURL_TOKEN_STORE='$WORK/gate-remove.yaml' '$ROOT/scripts/dry-run-gate.sh' --yes -- '$X' auth apps remove demo"
+check "dry-run-gate.sh: auth apps remove refused: the app is still registered" 0 \
+  out.json '[.apps[].name]' '["demo"]' \
+  -- env XURL_TOKEN_STORE="$WORK/gate-remove.yaml" "$X" auth status --output json
 check "dry-run-gate.sh: delete --force goes live" 0 log '"path": "/2/tweets/123"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" delete 123 --force
 check "dry-run-gate.sh: block goes live" 0 log '"path": "/2/users/42/blocking"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" block @spammer
 check "dry-run-gate.sh: moderators add goes live" 0 log '"path": "/2/broadcasts/chat/moderators"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" broadcasts moderators add @helper
@@ -699,12 +844,27 @@ check "dry-run-gate.sh: XURL_JSON set: still goes live" 0 log '"path": "/2/tweet
 check "paginate.sh: XURL_JSONL set: still streams" 0 out.json .id 1 -- env XURL_JSONL=true "$ROOT/scripts/paginate.sh" --max-pages 1 -- "$X" search x
 check "XURL_JSON beside --output: invalid-args" 2 err.json '.message | contains("cannot be used with")' true -- env XURL_JSON=true "$X" whoami --output json
 check "XURL_DRY_RUN: the live form answers a dry_run envelope" 0 out.json .status dry_run -- env XURL_DRY_RUN=true "$X" post "hello" --output json
-check "dry-run-gate.sh: refused preflight names its reason" 1 err 'reason=alt-text-too-long' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" media alt-text 1 "$LONG_ALT"
+check "dry-run-gate.sh: refused preflight names its reason and rule" 1 err 'reason=validation, rule=alt-text-too-long' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" media alt-text 1 "$LONG_ALT"
 check "paginate.sh: moderators list stops on a repeated cursor; moderators list streams the page once before stopping" 1 \
   err 'answered the cursor it was fetched with' \
   out.shape lines \
   out.json .username $'u\nu' \
   -- "$ROOT/scripts/paginate.sh" --max-pages 5 -- "$X" broadcasts moderators list
+
+# The pattern-match sample in references/output-envelope.md, run as written
+# with its `xr post "hi"` swapped for the row's command.
+{
+  printf 'xr() { "%s" "$@"; }\njaq() { "%s" "$@"; }\n' "$X" "$CONTRACT_JQ"
+  awk '/^## Pattern-match in scripts/ { f = 1 } f && /^```bash/ { s = 1; next } s && /^```/ { exit } s { print }' \
+    "$ROOT/references/output-envelope.md" | sed 's|xr post "hi" --dry-run|xr "$@" --dry-run|'
+  cat <<'EOF'
+printf 'force=[%s]\n' "${FORCE:-}"
+EOF
+} >"$WORK/pattern-match.sh"
+check "pattern-match sample: extracted with the row's command" 0 out 'xr "$@" --dry-run' out 'jaq -r' -- cat "$WORK/pattern-match.sh"
+check "pattern-match sample: a refused preflight names its reason and rule" 1 err 'Refused (validation, empty-body)' -- bash "$WORK/pattern-match.sh" post ""
+check "pattern-match sample: a passing preflight needs no --force" 0 out 'force=[]' -- bash "$WORK/pattern-match.sh" post "hello"
+check "pattern-match sample: confirmation_required asks for --force" 0 out 'force=[--force]' -- bash "$WORK/pattern-match.sh" delete 123
 
 printf '\n'
 if [ "$FAILED" -gt 0 ]; then

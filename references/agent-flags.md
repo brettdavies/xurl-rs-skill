@@ -103,11 +103,12 @@ xr <cmd> --no-pager                     # documented no-op; safe to pass uncondi
 ```
 
 `xr` never invokes `$PAGER`; `--no-pager` is advertised so agents can always pass it without the binary rejecting it.
-The `--no-interactive` flag matters when running unattended; without it, `xr` may prompt for missing input on a TTY.
-Three verbs gate themselves (`delete`, `auth clear`, `auth apps remove`): they answer `reason: "confirmation-required"`,
-exit `1`, when they cannot prompt (no TTY, or `--no-interactive`) and `--force` is absent; pass `--force` after the user
-has confirmed. The gate runs before `--dry-run` is considered, so a headless preflight of `delete` needs `--force` too.
-Every other write verb, `block`, `mute`, `unfollow`, `dm`, and the media verbs included, takes no `--force`; passing it
+The `--no-interactive` flag matters when running unattended; without it, `xr` may prompt for missing input on a TTY. A
+command that asks for confirmation (`delete`, `auth clear`, `auth apps remove`, and the others whose `--help` lists
+`--force`) answers `reason: "confirmation-required"`, exit `1`, when it cannot prompt (no TTY, or `--no-interactive`)
+and `--force` is absent, with a `confirm` step whose `template` is the same invocation plus `--force`; pass `--force`
+after the user has confirmed. Its `--dry-run` answers without `--force` and reports `confirmation_required: true`. Every
+other write verb, `block`, `mute`, `unfollow`, `dm`, and the media verbs included, takes no `--force`; passing it
 answers `invalid-args`, exit `2`. Whether to confirm those with the user is a judgment call the skill's guardrail makes,
 not a flag the binary requires.
 
@@ -144,19 +145,25 @@ XURL_DRY_RUN=1 xr <write-verb> --output json
 
 **Honored by every write op**: `post`, `reply`, `quote`, `delete`, `like`, `unlike`, `repost`, `unrepost`, `bookmark`,
 `unbookmark`, `follow`, `unfollow`, `block`, `unblock`, `mute`, `unmute`, `dm`, `broadcasts moderators add`, `broadcasts
-moderators remove`, `media upload`, `media alt-text`, `media subtitles add`, `media subtitles remove`. Read ops ignore
-`--dry-run`.
+moderators remove`, `media upload`, `media alt-text`, `media subtitles add`, `media subtitles remove`. A read of the API
+and a raw request answer the same envelope and send nothing; a local command (`auth status`, `version`) ignores the
+flag and runs.
 
 Output shape:
 
-- `--output text` → `Would <action> …` line on a TTY; the validated inputs as JSON when stdout is a pipe.
+- `--output text` → a summary, on a terminal or a pipe: that nothing was sent, whether the real run would succeed
+  (and when not, its exit code and why, with the step), then the inputs and whether the run would stop for
+  confirmation.
 - `--output json` / `--output jsonl` → canonical `status: "dry_run"` envelope with `would_succeed`, `exit_code`, and a
   verb-specific payload (command name, body preview, target IDs). When an input fails a check (`post ""`, alt text over
   1000 characters, a media id that is not digits, a language code that is not two letters), the preflight still exits
-  `0` and answers `would_succeed: false` with a `reason` naming the check.
+  `0` and answers `would_succeed: false` with `reason: "validation"` and a `rule` naming the check.
 
-Dry-run validates inputs only: no credential check, no filesystem check (`media upload` of a missing file still answers
-`would_succeed: true`), and no bypass of a verb's own confirmation gate (`delete` needs `--force` even here). See
+The dry run checks what the real run checks before it sends: the inputs; the credential, named in `auth` (the `app`,
+the `scheme`, and for an OAuth2 login the `username` and `token_expired`), with `would_succeed: false` and `reason:
+"auth-required"` or `"auth-method-mismatch"` at the real run's exit code when none fits; and the file `media upload`
+would read (`reason: "io"`, exit code `5`, for a missing one). A command that asks for confirmation reports
+`confirmation_required: true` in place of refusing. See
 [output-envelope.md § Write-op preflight](output-envelope.md#write-op-preflight-status-dry_run).
 
 ## Pagination
@@ -173,9 +180,11 @@ xr <list-cmd> --page <n>                # NOT supported by X; returns reason: "u
 Commands that thread `--cursor` through as `pagination_token`: `search`, `timeline`, `mentions`, `bookmarks`, `likes`,
 `following`, `followers`, `muted`, `blocked`, `dms`. Every other command ignores `--cursor` and `--limit`.
 
-Every user-scoped list verb (`timeline`, `mentions`, `bookmarks`, `likes`, `following`, `followers`, `muted`, `blocked`)
-resolves `/2/users/me` before each page to learn the caller's id, so one page costs **two** requests; `search` and `dms`
-cost one. Budget `--max-pages` against a rate-limit window accordingly.
+Every user-scoped list verb costs one request a page, as `search` and `dms` do: `timeline`, `mentions`, `bookmarks`,
+`likes`, `muted`, and `blocked` read the caller's account id from the token store, and `following` and `followers` read
+`/2/users/me/following` and `/2/users/me/followers` directly. `xr` stores the id at sign-in, on `xr whoami`, and on the
+first command that needs it, which is the one run that also asks `/2/users/me`. Budget `--max-pages` against a
+rate-limit window accordingly.
 
 `broadcasts moderators list` is not a paged verb: it sends one `GET /2/broadcasts/chat/moderators` with no `max_results`
 and no `pagination_token`, whatever `--limit` or `--cursor` say (its `--help` lists the global flags, whose text names
@@ -193,8 +202,7 @@ xr <list-cmd> -n 50                     # per-command, takes precedence when bot
 Use `--limit` as a default cap across a script; override per call with `-n`. The default page size is 10. Every list
 verb clamps the value to `1..=100`, except `search`, which the X API floors at 10: `xr search … -n 3` sends
 `max_results=10`. Ask for fewer than 10 search results by filtering the page, not by lowering `-n`. X's spec also sets a
-minimum of 5 for `mentions` and `likes`, and there `xr` sends a lower value as given, so keep `-n` at 5 or more for
-those two.
+minimum of 5 for `mentions` and `likes`, and `xr` raises a lower value to 5 for those two.
 
 `--limit`, `-n`, and `--cursor` / `--after` apply to the typed list verbs only. Raw mode (`xr /2/...`) sends the URL as
 written and ignores all three, without an error; put `max_results` and `pagination_token` in the URL instead (`xr
