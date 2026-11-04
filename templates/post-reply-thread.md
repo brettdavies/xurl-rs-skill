@@ -45,9 +45,11 @@ xr post "<TEXT>" --dry-run --output json
 ```
 
 Expect a `status: "dry_run"`, `would_succeed: true`, `exit_code: 0` envelope on stdout, with the inputs it validated
-beside them (`command`, `body`, `media_ids`; `post_id` for `reply` / `quote`). If `would_succeed` is `false`, the
-payload names the failing input check (text too long, malformed ID). Dry-run validates inputs only; it does not check
-credentials, which is why the pre-flight `whoami` above matters. Fix and re-run the dry-run before going live.
+beside them (`command`, `body`, `media_ids`; `post_id` for `reply` / `quote`). If `would_succeed` is `false`,
+`reason` says why: `validation` with `rule: "empty-body"` for empty text, or `auth-required` /
+`auth-method-mismatch` with the `next_step` the live call would name when no stored credential fits. The dry run checks
+the stored credential (named in `auth`) but not whether X still accepts it, so the pre-flight `whoami` above still
+matters. Fix and re-run the dry-run before going live.
 
 ### 2. Live
 
