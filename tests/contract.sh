@@ -116,6 +116,11 @@ check "block --dry-run; block --dry-run echoes the handle" 0 \
   out.json .command block \
   out.json .target_username @spammer \
   -- "$X" block @spammer --dry-run --output json
+check "block --dry-run: a malformed handle is rule invalid-username" 0 \
+  out.json .reason validation \
+  out.json .rule invalid-username \
+  -- "$X" block "bad name!" --dry-run --output json
+check "follow --dry-run: an empty handle is rule empty-username" 0 out.json .rule empty-username -- "$X" follow "" --dry-run --output json
 check "block --force: invalid-args" 2 err.json .reason invalid-args -- "$X" block @spammer --force --dry-run --output json
 check "unblock --dry-run" 0 out.json .command unblock -- "$X" unblock @spammer --dry-run --output json
 check "mute --dry-run" 0 out.json .command mute -- "$X" mute @noisy --dry-run --output json

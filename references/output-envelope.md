@@ -148,15 +148,18 @@ The inputs the verb validated sit beside them: `command` (the verb name; `media-
 
 A preflight whose inputs fail a check is still a `dry_run` envelope on stdout at **exit `0`**: `would_succeed: false`,
 the `exit_code` the live call would return (`1`), `reason: "validation"`, a `rule` naming the check, the rule's sentence
-in `message`, and the `next_step` the live call's error names:
+in `message`, and the `next_step` the live call's error names. The rules below are the ones this bundle's verbs hit
+most; the set is open, so give a branch on `rule` a default that reads `message` and the `next_step`:
 
-| `rule`                  | Verbs                                 | Check                                                          |
-| ----------------------- | ------------------------------------- | -------------------------------------------------------------- |
-| `empty-body`            | `post`, `reply`, `quote`, `dm`        | The text is empty (whitespace alone passes)                    |
-| `alt-text-too-long`     | `media alt-text`                      | More than 1000 characters (characters, not bytes)              |
-| `empty-alt-text`        | `media alt-text`                      | The text is empty or only whitespace                           |
-| `invalid-media-id`      | `media alt-text`, `media subtitles …` | A media, video, or subtitles id that is not 1 to 19 digits     |
-| `invalid-language-code` | `media subtitles add` / `remove`      | `--language` is not two letters, either case (`en`, not `eng`) |
+| `rule`                  | Verbs                                                                     | Check                                                                                |
+| ----------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `empty-body`            | `post`, `reply`, `quote`, `dm`                                            | The text is empty (whitespace alone passes)                                          |
+| `alt-text-too-long`     | `media alt-text`                                                          | More than 1000 characters (characters, not bytes)                                    |
+| `empty-alt-text`        | `media alt-text`                                                          | The text is empty or only whitespace                                                 |
+| `invalid-media-id`      | `media alt-text`, `media subtitles …`                                     | A media, video, or subtitles id that is not 1 to 19 digits                           |
+| `invalid-language-code` | `media subtitles add` / `remove`                                          | `--language` is not two letters, either case (`en`, not `eng`)                       |
+| `invalid-username`      | `block`, `follow`, `mute`, `dm`, and the other verbs that take an account | A handle that is not 1 to 15 letters, digits, or underscores (a leading `@` is fine) |
+| `empty-username`        | the same verbs                                                            | The handle is empty                                                                  |
 
 The live call refuses the same input before any request as an error envelope: `reason: "validation"`, exit `1`, `rule`
 naming the check, and its sentence as the `message` (`"rule": "alt-text-too-long"`,
