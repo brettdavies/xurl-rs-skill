@@ -789,6 +789,18 @@ check "dry-run-gate.sh: delete without --force: refused before the live call" 1 
   err 'pass --force' \
   log '!"path": "/2/tweets/123"' \
   -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" delete 123
+check "dry-run-gate.sh: auth clear --all without --force: refused before the live call" 1 \
+  err 'pass --force' \
+  -- bash -c "cp '$WORK/user.yaml' '$WORK/gate-clear.yaml' && XURL_TOKEN_STORE='$WORK/gate-clear.yaml' '$ROOT/scripts/dry-run-gate.sh' --yes -- '$X' auth clear --all"
+check "dry-run-gate.sh: auth clear refused: the store still holds the login" 0 \
+  out.json '.apps[0].oauth2_users' '["alice"]' \
+  -- env XURL_TOKEN_STORE="$WORK/gate-clear.yaml" "$X" auth status --output json
+check "dry-run-gate.sh: auth apps remove without --force: refused before the live call" 1 \
+  err 'pass --force' \
+  -- bash -c "cp '$WORK/user.yaml' '$WORK/gate-remove.yaml' && XURL_TOKEN_STORE='$WORK/gate-remove.yaml' '$ROOT/scripts/dry-run-gate.sh' --yes -- '$X' auth apps remove demo"
+check "dry-run-gate.sh: auth apps remove refused: the app is still registered" 0 \
+  out.json '[.apps[].name]' '["demo"]' \
+  -- env XURL_TOKEN_STORE="$WORK/gate-remove.yaml" "$X" auth status --output json
 check "dry-run-gate.sh: delete --force goes live" 0 log '"path": "/2/tweets/123"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" delete 123 --force
 check "dry-run-gate.sh: block goes live" 0 log '"path": "/2/users/42/blocking"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" block @spammer
 check "dry-run-gate.sh: moderators add goes live" 0 log '"path": "/2/broadcasts/chat/moderators"' -- "$ROOT/scripts/dry-run-gate.sh" --yes -- "$X" broadcasts moderators add @helper
