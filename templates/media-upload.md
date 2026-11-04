@@ -17,9 +17,8 @@ for upload, alt text, and subtitles). Bearer (app-only) cannot upload or describ
 a bearer answers `reason: "auth-method-mismatch"`, exit `2`, with `available_in_app: ["app"]` and `supported:
 ["oauth2","oauth1"]`.
 
-`xr media upload <FILE> --dry-run --output json` validates the flags only: it does not read the file, so a missing path
-still answers `would_succeed: true`, and the live call answers `reason: "io"`, exit `5`, instead. Check the path
-yourself (`[ -r "$FILE" ]`) before relying on the preflight.
+`xr media upload <FILE> --dry-run --output json` checks the file as well as the flags: a path that is not a readable
+file answers `would_succeed: false`, `reason: "io"`, `exit_code` `5`, the live call's exit.
 
 ## Picking `--media-type` and `--category`
 
@@ -232,7 +231,7 @@ X enforces per-post attachment limits (typically up to 4 images, or 1 video, or 
 | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `reason: "auth-method-mismatch"`                          | Bearer-only is staged; need OAuth1 / OAuth2                                                                           | Re-auth with [oauth2-setup.md](oauth2-setup.md)                                                                                 |
 | `reason: "auth-required"`, exit `77`                      | No credential staged at all                                                                                           | Follow the envelope's `next_step`                                                                                               |
-| `reason: "io"`, exit `5`                                  | The file path does not exist or is unreadable                                                                         | Fix the path; `--dry-run` does not catch this                                                                                   |
+| `reason: "io"`, exit `5`                                  | The file path does not exist or is unreadable                                                                         | Fix the path; the dry run reports it too, as `would_succeed: false` with `reason: "io"`                                         |
 | `reason: "network-error"`, exit `5`                       | No answer from X (DNS, TCP, TLS, timeout); same exit as `io`                                                          | Branch on `reason`, not the exit code; retry once, bump `--timeout`                                                             |
 | `reason: "invalid-request"`, exit `1`                     | X rejected the INIT or FINALIZE body (400 / 422)                                                                      | Read `message`; fix `--media-type` / `--category` for the file                                                                  |
 | `reason: "invalid-args"`, exit `2`                        | A flag was mistyped (`--wait false`, an unknown option)                                                               | `xr media upload --help`; a `--wait` value follows `=`                                                                          |
