@@ -324,11 +324,12 @@ if [ "$(printf '%s' "$RESPONSE" | jaq -r '.status // ""')" = "error" ] &&
 fi
 ```
 
-`xr auth status` on a store that could not be loaded answers `reason: "token-store"`, exit 77, with `next_step.action:
-"inspect-store"` carrying `docs` and no `command`. The `message` names the file. `xr` writes nothing to a store it could
-not load: `xr auth clear --all --force` answers `reason: "token-store"`, exit 77, with the same `inspect-store` step,
-and leaves the file as it was. Repair the file or move it aside, then re-run the auth flow. `token-store` is also the
-reason for a name the store does not hold (`xr auth default <app>`); the file loaded, so that envelope carries no step.
+`xr auth status` on a store that could not be loaded answers `reason: "token-store"`, exit 77, with
+`next_step.action: "inspect-store"` carrying `docs` and no `command`. The `message` names the file. `xr` writes nothing
+to a store it could not load: `xr auth clear --all --force` answers `reason: "token-store"`, exit 77, with the same
+`inspect-store` step, and leaves the file as it was. Repair the file or move it aside, then re-run the auth flow.
+`token-store` is also the reason for a name the store does not hold (`xr auth default <app>`); the file loaded, so that
+envelope carries no step.
 
 ## Reason catalog
 
@@ -375,7 +376,9 @@ Those are not errors: `update` refreshes what exists and passes over the rest.
 
 ## Pattern-match in scripts
 
-Branch on the exit code, then on `status`. A statusless document at exit 0 is the API's answer:
+Branch on the exit code, then on `status`. A statusless document at exit 0 is the API's answer. A refused preflight
+exits 0 too, so a dry run's verdict is `would_succeed`; the nonzero branch catches a usage error here and the error
+envelope of a live call:
 
 ```bash
 EC=0
@@ -397,8 +400,13 @@ case "$(printf '%s' "$RESPONSE" | jaq -r '.status // "api"')" in
   dry_run)
     WOULD=$(printf '%s' "$RESPONSE" | jaq -r '.would_succeed')
     EXIT=$(printf '%s' "$RESPONSE" | jaq -r '.exit_code')
-    [ "$WOULD" = "true" ] && [ "$EXIT" = "0" ] || exit 1
-    # confirmed safe; re-run without --dry-run
+    if [ "$WOULD" != "true" ] || [ "$EXIT" != "0" ]; then
+      printf '%s' "$RESPONSE" | jaq -r '"Refused (\(.reason)\(if .rule then ", " + .rule else "" end)): \(.message // "")"' >&2
+      exit 1
+    fi
+    # The preflight passed. The live call is the same command without --dry-run, once the user confirms it;
+    # a command that reports confirmation_required also needs --force when it cannot prompt.
+    FORCE=$(printf '%s' "$RESPONSE" | jaq -r 'if .confirmation_required then "--force" else "" end')
     ;;
   ok)   ;;   # a local verb; read its keys
   api)  ;;   # an API document; read .data (should not happen for a --dry-run preflight)
@@ -406,7 +414,9 @@ case "$(printf '%s' "$RESPONSE" | jaq -r '.status // "api"')" in
 esac
 ```
 
-`scripts/dry-run-gate.sh` and `scripts/paginate.sh` implement exactly this branching; prefer them over re-deriving it.
+`scripts/dry-run-gate.sh` runs this preflight for a write and refuses `confirmation_required` unless `--force` is among
+the verb's args; `scripts/paginate.sh` applies the exit-code-then-`status` branching to each page. Prefer them over
+re-deriving it.
 
 ## Exit-code → envelope mapping
 

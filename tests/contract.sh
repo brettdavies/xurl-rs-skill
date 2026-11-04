@@ -851,6 +851,21 @@ check "paginate.sh: moderators list stops on a repeated cursor; moderators list 
   out.json .username $'u\nu' \
   -- "$ROOT/scripts/paginate.sh" --max-pages 5 -- "$X" broadcasts moderators list
 
+# The pattern-match sample in references/output-envelope.md, run as written
+# with its `xr post "hi"` swapped for the row's command.
+{
+  printf 'xr() { "%s" "$@"; }\njaq() { "%s" "$@"; }\n' "$X" "$CONTRACT_JQ"
+  awk '/^## Pattern-match in scripts/ { f = 1 } f && /^```bash/ { s = 1; next } s && /^```/ { exit } s { print }' \
+    "$ROOT/references/output-envelope.md" | sed 's|xr post "hi" --dry-run|xr "$@" --dry-run|'
+  cat <<'EOF'
+printf 'force=[%s]\n' "${FORCE:-}"
+EOF
+} >"$WORK/pattern-match.sh"
+check "pattern-match sample: extracted with the row's command" 0 out 'xr "$@" --dry-run' out 'jaq -r' -- cat "$WORK/pattern-match.sh"
+check "pattern-match sample: a refused preflight names its reason and rule" 1 err 'Refused (validation, empty-body)' -- bash "$WORK/pattern-match.sh" post ""
+check "pattern-match sample: a passing preflight needs no --force" 0 out 'force=[]' -- bash "$WORK/pattern-match.sh" post "hello"
+check "pattern-match sample: confirmation_required asks for --force" 0 out 'force=[--force]' -- bash "$WORK/pattern-match.sh" delete 123
+
 printf '\n'
 if [ "$FAILED" -gt 0 ]; then
   printf '%d checks passed, %d failed (%d assertions)\n' "$PASSED" "$FAILED" "$ASSERTIONS" >&2
