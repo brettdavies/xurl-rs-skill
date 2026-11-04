@@ -162,7 +162,7 @@ refuses after the preflight, before any live call.
 Manual path:
 
 ```bash
-xr delete <POST_ID> --force --dry-run --output json     # --force is needed for the preflight off a TTY, too
+xr delete <POST_ID> --dry-run --output json             # confirmation_required: true; no --force needed here
 # User confirms.
 xr delete <POST_ID> --force --output json
 ```
