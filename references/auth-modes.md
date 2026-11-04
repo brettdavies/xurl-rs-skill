@@ -222,16 +222,16 @@ Use this before re-running a flow when `xr auth status` shows an entry you no lo
 
 ## Token store
 
-YAML at `~/.xurl/auth.yml`, the file Go `xurl` 1.3.0 and later use, so the two tools share one store (override the
-path with `XURL_TOKEN_STORE`). A single-file store at `~/.xurl`, where `xr` 4.3.0 and earlier kept it, is moved into the
-directory by the first command that opens it; the move is one-way, and those releases cannot read the directory, so
-upgrade every copy of `xr` that shares the store. Multi-app, with transparent format migration on every load. Beside
-each login the store keeps the X account id it belongs to, which the commands that act as you read in place of asking
-`/2/users/me`. Every write is atomic, created `0600`, and serialized across concurrent `xr` processes by an OS file lock
-at `<store>.lock` (`~/.xurl/auth.yml.lock`), so two agents refreshing a token at once cannot truncate the store or drop
-a rotated refresh token.
-Don't hand-edit it; use `xr auth ...` commands. If the file is corrupt, `xr auth status` answers `reason: "token-store"`
-(exit `77`) naming the path; back it up, move it aside, and run a fresh `xr auth apps add` + `xr auth oauth2`.
+YAML at `~/.xurl/auth.yml`, the file Go `xurl` 1.3.0 and later use, so the two tools share one store (override the path
+with `XURL_TOKEN_STORE`). A single-file store at `~/.xurl`, where an older `xr` kept it, is moved into the directory by
+the first command that opens it; the move is one-way, and the older releases cannot read the directory (`SKILL.md` names
+them), so upgrade every copy of `xr` that shares the store. Multi-app, with transparent format migration on every load.
+Beside each login the store keeps the X account id it belongs to, which the commands that act as you read in place of
+asking `/2/users/me`. Every write is atomic, created `0600`, and serialized across concurrent `xr` processes by an OS
+file lock at `<store>.lock` (`~/.xurl/auth.yml.lock`), so two agents refreshing a token at once cannot truncate the
+store or drop a rotated refresh token. Don't hand-edit it; use `xr auth ...` commands. If the file is corrupt, `xr auth
+status` answers `reason: "token-store"` (exit `77`) naming the path; back it up, move it aside, and run a fresh `xr auth
+apps add` + `xr auth oauth2`.
 
 ## Where to find scope and grant details
 
