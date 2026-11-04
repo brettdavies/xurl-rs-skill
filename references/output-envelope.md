@@ -321,11 +321,11 @@ if [ "$(printf '%s' "$RESPONSE" | jaq -r '.status // ""')" = "error" ] &&
 fi
 ```
 
-`xr auth status` on a store that could not be loaded answers `reason: "token-store"`, exit 77, with
-`next_step.action: "inspect-store"` carrying `docs` and no `command`. The `message` names the file. `xr` writes nothing
-to a store it could not load, and `xr auth clear --all --force` reports `ok` there while leaving the file as it was, so
-repair the file or move it aside, then re-run the auth flow. `token-store` is also the reason for a name the store does
-not hold (`xr auth default <app>`); the file loaded, so that envelope carries no step.
+`xr auth status` on a store that could not be loaded answers `reason: "token-store"`, exit 77, with `next_step.action:
+"inspect-store"` carrying `docs` and no `command`. The `message` names the file. `xr` writes nothing to a store it could
+not load: `xr auth clear --all --force` answers `reason: "token-store"`, exit 77, with the same `inspect-store` step,
+and leaves the file as it was. Repair the file or move it aside, then re-run the auth flow. `token-store` is also the
+reason for a name the store does not hold (`xr auth default <app>`); the file loaded, so that envelope carries no step.
 
 ## Reason catalog
 
