@@ -127,8 +127,9 @@ what's already on the system. They sit in `scripts/` beside this `SKILL.md`: `~/
 
 1. **Never invent X API endpoints, scopes, billing tiers, or rate-limit numbers.** They change. See
    [references/escalation.md](references/escalation.md) for the lookup order.
-2. **Never run a live write op without confirming scope with the user first**, OR without a successful `--dry-run` pass
-   against the exact same flags first.
+2. **Never run a live write op until both of these hold**: the user has confirmed its scope, and a `--dry-run` pass with
+   the exact same flags has succeeded. Either one alone is not enough. `dry-run-gate.sh --yes` and `--force` stand in
+   for a prompt, not for the user's confirmation.
 3. **Never paste credentials into chat, commits, PR bodies, or shell history.** Pipe a secret into the `-file -` flag
    that takes it (`op read 'op://<vault>/<item>/client_secret' | xr auth apps add … --client-secret-file -`) or pass it
    in an env var `xr` reads (`XURL_BEARER_TOKEN`). Never put one in the argument list: `--client-secret "$(op read …)"`
